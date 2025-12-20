@@ -1,0 +1,54 @@
+# Environment variables
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.virtualenv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

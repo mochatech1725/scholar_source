@@ -1,0 +1,282 @@
+course_analysis_task:
+  description: >
+    Analyze the provided course information to extract key learning objectives, 
+    topics, and educational context. The input may vary in format and completeness:
+    
+    - For university students: university name, subject, course number, course webpage URL
+    - For general students: course name, textbook title/author, syllabus (text or URL), 
+      topic list, or general description
+    
+    Your job is to work with whatever information is provided and extract:
+    1. Course title or subject area
+    2. Comprehensive list of topics/units/concepts covered
+    3. Official or recommended textbook(s) if mentioned
+    4. Course level (introductory/intermediate/advanced/professional)
+    5. Key learning objectives or skills to be developed
+    6. Discipline area (e.g., "Physics", "Calculus", "Organic Chemistry", "Python Programming")
+    
+    Be flexible - if a formal syllabus isn't provided, infer the structure from 
+    the textbook table of contents, course description, or topic list. If the 
+    student provides minimal information, make reasonable assumptions about scope 
+    and depth based on the subject matter.
+    
+    Input variables: {university_name}, {subject}, {course_number}, {course_url}, 
+    {course_name}, {textbook}, {syllabus}, {topics_list}, {additional_info}
+    
+    Note: Not all input variables will be populated. Use whatever is available.
+  expected_output: >
+    A structured analysis containing:
+    
+    - course_title: The formal or informal course name
+    - topics: A comprehensive list of topics/units/concepts (minimum 3-5, maximum 15)
+    - official_textbooks: List of textbooks mentioned (title and author)
+    - course_level: "introductory" | "intermediate" | "advanced" | "professional"
+    - key_concepts: List of the most important concepts students should master
+    - discipline_area: The academic field (e.g., "Physics", "Computer Science")
+    - estimated_duration: Rough estimate like "semester-long" or "self-paced"
+    - learning_context: Brief note about the educational setting if known
+    
+    Format as a clean JSON object or structured text that subsequent agents can easily parse.
+  agent: course_intelligence_agent
+
+resource_search_task:
+  description: >
+    Based on the course analysis, search for 2-3 high-quality complementary resources 
+    for each major topic area. Focus your search on legally accessible, free resources:
+    
+    **Priority Resource Types:**
+    1. Open textbooks (OpenStax, MIT OpenCourseWare PDFs, LibreTexts, etc.)
+    2. University lecture videos on YouTube (MIT OCW, Stanford, Yale Open Courses, etc.)
+    3. Educational platform content (Khan Academy, Coursera free lectures, edX)
+    4. Interactive learning sites (Paul's Online Math Notes, Physics Classroom, etc.)
+    5. Peer-reviewed open access papers for advanced topics
+    6. High-quality educational YouTube channels relevant to the subject
+    
+    **Search Strategy:**
+    - For each major topic, find at least 1-2 resources
+    - Aim for 6-9 total resources across the entire course
+    - Prioritize comprehensive resources over fragmented ones
+    - Ensure variety in resource types (mix of videos, textbooks, interactive content)
+    - Match the course level (don't suggest PhD-level papers for intro courses)
+    
+    **Quality Criteria:**
+    - Must be legally free and publicly accessible (no pirated content)
+    - Must be from reputable sources (universities, established ed platforms)
+    - Should provide substantial coverage (not just brief summaries)
+    - Must be compatible with NotebookLM (PDF, YouTube URL, or web page)
+    
+    Use web search capabilities to find these resources. Search terms should include:
+    - "[topic] open textbook pdf"
+    - "[topic] MIT OpenCourseWare"
+    - "[topic] lecture video university"
+    - "[topic] Khan Academy"
+    
+    Input: {course_analysis}
+  expected_output: >
+    A comprehensive list of 6-9 recommended resources (2-3 per major topic), each containing:
+    
+    - resource_title: Full title of the resource
+    - resource_type: "open_textbook" | "video_lecture" | "lecture_series" | 
+      "interactive_tutorial" | "course_notes" | "educational_video"
+    - url: Direct link to the resource (must be accessible without login)
+    - coverage_topics: List of course topics this resource addresses
+    - source_credibility: Origin (e.g., "MIT OpenCourseWare", "OpenStax", "Khan Academy")
+    - content_scope: "comprehensive" | "supplementary" | "topic-specific"
+    - access_notes: Confirmation that it's free, legal, and openly accessible
+    - estimated_depth: "introductory" | "intermediate" | "advanced"
+    
+    Organize resources by topic area for clarity. Include brief reasoning for why 
+    each resource was selected.
+  agent: resource_discovery_agent
+
+resource_validation_task:
+  description: >
+    Validate each discovered resource to ensure it meets quality, legal, and 
+    technical requirements. For each resource:
+    
+    **Accessibility Checks:**
+    1. Verify the URL is functional and publicly accessible (no 404s, no paywalls)
+    2. Confirm no login or payment is required
+    3. Check that the content actually loads (use web_fetch if needed for URLs)
+    
+    **NotebookLM Compatibility Checks:**
+    1. Verify format compatibility:
+       - PDFs: Must be direct PDF links (not HTML pages about PDFs)
+       - YouTube: Must be standard youtube.com or youtu.be URLs
+       - Web pages: Must be publicly accessible HTML pages
+    2. Check file size if PDF (NotebookLM has limits, typically under 500MB)
+    
+    **Legal and Copyright Checks:**
+    1. Look for clear licensing information (Creative Commons, Open Access, etc.)
+    2. Verify the source is reputable and authorized to distribute
+    3. Flag any resources that appear to be pirated or unauthorized copies
+    4. Ensure it's not behind academic journal paywalls
+    
+    **Quality Checks:**
+    1. Assess content relevance to the course topics
+    2. Evaluate source credibility and academic rigor
+    3. Check for comprehensiveness (not just snippets or summaries)
+    4. Verify alignment with stated course level
+    
+    **Filtering Criteria - REMOVE resources that:**
+    - Require login, subscription, or payment
+    - Are pirated or copyright-infringing materials
+    - Have broken or inaccessible links
+    - Are low quality, incomplete, or off-topic
+    - Are not NotebookLM compatible
+    - Lack clear legal authorization for public access
+    
+    Score each approved resource on usefulness (1-10) based on:
+    - Relevance to course topics (40%)
+    - Comprehensiveness of coverage (30%)
+    - Source credibility (20%)
+    - User-friendliness (10%)
+    
+    Input: {discovered_resources}
+  expected_output: >
+    A filtered and validated list of resources, each containing:
+    
+    - All original resource fields from the search task
+    - validation_status: "approved" | "rejected"
+    - rejection_reason: Detailed explanation if rejected
+    - notebooklm_compatible: true | false
+    - notebooklm_format: "pdf" | "youtube" | "webpage" | "not_compatible"
+    - license_info: Copyright/license information found
+    - accessibility_verified: true | false
+    - usefulness_score: 1-10 (integer)
+    - validation_notes: Any important notes about the resource
+    
+    **Summary Statistics:**
+    - Total resources validated: X
+    - Approved: X
+    - Rejected: X
+    - Average usefulness score: X.X
+    
+    Only include APPROVED resources in the final list. Aim for 4-6 high-quality 
+    approved resources. If fewer than 4 pass validation, note this in the output.
+  agent: resource_validator_agent
+
+final_output_task:
+  description: >
+    Create a student-friendly, actionable resource guide that students can 
+    immediately use to enhance their learning with Google NotebookLM.
+    
+    **Guide Structure:**
+    
+    1. **Course Overview Section:**
+       - Brief description of the course/subject
+       - Key topics that will be covered
+       - Learning objectives or skills to develop
+    
+    2. **Recommended Resources Section:**
+       - Organize resources by topic area or resource type (choose most logical)
+       - For each resource include:
+         * Clear title and resource type
+         * Direct clickable URL
+         * Brief description (2-3 sentences) of what it covers and why it's useful
+         * Which specific topics it addresses
+         * Estimated time/scope (e.g., "Full textbook", "5-part video series", "Single lecture")
+    
+    3. **How to Add to NotebookLM Section:**
+       - Step-by-step instructions for adding each type of resource
+       - Tips for organizing sources within NotebookLM
+       - Suggestions for how to use multiple sources effectively
+    
+    4. **Study Tips Section:**
+       - How to leverage NotebookLM's features with these sources
+       - Suggested study workflow (e.g., create flashcards, generate practice questions)
+       - Tips for getting the most value from multiple perspectives
+    
+    **Formatting Guidelines:**
+    - Use clear headers and subheaders
+    - Keep descriptions concise but informative
+    - Make URLs easily clickable
+    - Use bullet points and numbered lists for readability
+    - Add emoji or visual markers sparingly for key sections
+    - Keep total guide length to 2-4 pages when printed
+    
+    **Tone:**
+    - Encouraging and supportive
+    - Clear and jargon-free
+    - Action-oriented (tell students exactly what to do)
+    - Assume student may not be tech-savvy
+    
+    Input: {validated_resources}, {course_analysis}
+  expected_output: >
+    A formatted markdown document ready to present to the student:
+    
+    # Study Resources for [Course Name]
+    
+    ## 📚 Course Overview
+    [2-3 sentence description of what this course covers and what students will learn]
+    
+    **Key Topics:**
+    - Topic 1
+    - Topic 2
+    - Topic 3
+    [etc.]
+    
+    ---
+    
+    ## 🎯 Recommended Resources
+    
+    I've found [X] high-quality, free resources to supplement your learning:
+    
+    ### [Topic Area 1] or [Resource Type 1]
+    
+    **1. [Resource Title]** (Type: Textbook/Video/etc.)
+    - **Link:** [Direct URL]
+    - **What it covers:** [Brief description highlighting value]
+    - **Best for:** [When/how to use this resource]
+    - **Usefulness Score:** ⭐️ [X/10]
+    
+    **2. [Next resource]**
+    [Same format]
+    
+    ### [Topic Area 2] or [Resource Type 2]
+    [Continue...]
+    
+    ---
+    
+    ## 📥 How to Add These to NotebookLM
+    
+    **For PDFs:**
+    1. Click the link to open the PDF
+    2. In NotebookLM, click "+ New Source"
+    3. Select "Upload" and choose the PDF file
+    
+    **For YouTube Videos:**
+    1. Copy the YouTube URL
+    2. In NotebookLM, click "+ New Source"
+    3. Select "YouTube URL" and paste the link
+    
+    **For Web Pages:**
+    1. Copy the webpage URL
+    2. In NotebookLM, click "+ New Source"
+    3. Select "Website URL" and paste the link
+    
+    ---
+    
+    ## 💡 Study Tips
+    
+    **Using Multiple Sources:**
+    - [Tip 1]
+    - [Tip 2]
+    - [Tip 3]
+    
+    **Maximizing NotebookLM:**
+    - Use the chat feature to ask questions across all sources
+    - Generate study guides from multiple perspectives
+    - Create flashcards from the combined knowledge base
+    - Use the audio overview feature to hear key concepts explained
+    
+    ---
+    
+    **Total Resources:** [X] carefully vetted, free, and legal educational materials
+    
+    **Need More Help?** [Optional: suggestions for finding additional resources]
+    
+    ---
+    
+    *All resources are freely and legally accessible. No pirated content included.*
+  agent: output_formatter_agent
