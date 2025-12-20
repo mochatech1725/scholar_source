@@ -20,9 +20,20 @@ course_analysis_task:
     student provides minimal information, make reasonable assumptions about scope 
     and depth based on the subject matter.
     
-    Input variables: {university_name}, {subject}, {course_number}, {course_url}, 
-    {course_name}, {textbook}, {syllabus}, {topics_list}, {additional_info}
-    
+    Available input variables (all optional): university_name, subject, course_number,
+    course_url, course_name, textbook, syllabus, topics_list, additional_info
+
+    The following inputs were provided:
+    {university_name}
+    {subject}
+    {course_number}
+    {course_url}
+    {course_name}
+    {textbook}
+    {syllabus}
+    {topics_list}
+    {additional_info}
+
     Note: Not all input variables will be populated. Use whatever is available.
   expected_output: >
     A structured analysis containing:
@@ -70,8 +81,8 @@ resource_search_task:
     - "[topic] MIT OpenCourseWare"
     - "[topic] lecture video university"
     - "[topic] Khan Academy"
-    
-    Input: {course_analysis}
+
+    Use the output from the course_analysis_task to guide your search.
   expected_output: >
     A comprehensive list of 6-9 recommended resources (2-3 per major topic), each containing:
     
@@ -84,15 +95,15 @@ resource_search_task:
     - content_scope: "comprehensive" | "supplementary" | "topic-specific"
     - access_notes: Confirmation that it's free, legal, and openly accessible
     - estimated_depth: "introductory" | "intermediate" | "advanced"
-    
-    Organize resources by topic area for clarity. Include brief reasoning for why 
+
+    Organize resources by topic area for clarity. Include brief reasoning for why
     each resource was selected.
   agent: resource_discovery_agent
 
 resource_validation_task:
   description: >
-    Validate each discovered resource to ensure it meets quality, legal, and 
-    technical requirements. For each resource:
+    Validate each resource discovered by the resource_discovery_agent to ensure it
+    meets quality, legal, and technical requirements. For each resource:
     
     **Accessibility Checks:**
     1. Verify the URL is functional and publicly accessible (no 404s, no paywalls)
@@ -131,8 +142,8 @@ resource_validation_task:
     - Comprehensiveness of coverage (30%)
     - Source credibility (20%)
     - User-friendliness (10%)
-    
-    Input: {discovered_resources}
+
+    Use the resources discovered by the previous task as your input.
   expected_output: >
     A filtered and validated list of resources, each containing:
     
@@ -200,8 +211,9 @@ final_output_task:
     - Clear and jargon-free
     - Action-oriented (tell students exactly what to do)
     - Assume student may not be tech-savvy
-    
-    Input: {validated_resources}, {course_analysis}
+
+    Use the validated resources and course analysis from previous tasks to create
+    a comprehensive student-friendly guide.
   expected_output: >
     A formatted markdown document ready to present to the student:
     

@@ -117,16 +117,15 @@ Use --help for more information.
 
 def build_inputs_from_args(args):
     """
-    Build inputs dictionary from parsed arguments, excluding None values.
+    Build inputs dictionary from parsed arguments.
+    All keys are included with empty strings as defaults for unprovided values.
 
     Args:
         args: Parsed command-line arguments
 
     Returns:
-        Dictionary of inputs with None values filtered out
+        Dictionary of inputs with all keys present (empty string if not provided)
     """
-    inputs = {}
-
     # Map CLI arguments to input dictionary keys
     arg_mapping = {
         'university_name': args.university_name,
@@ -140,10 +139,9 @@ def build_inputs_from_args(args):
         'additional_info': args.additional_info,
     }
 
-    # Only include non-None values
-    for key, value in arg_mapping.items():
-        if value is not None:
-            inputs[key] = value
+    # Include all keys, using empty string for None values
+    # This is required because CrewAI task descriptions reference all variables
+    inputs = {key: (value if value is not None else '') for key, value in arg_mapping.items()}
 
     return inputs
 
