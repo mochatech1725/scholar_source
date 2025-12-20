@@ -22,46 +22,47 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  %(prog)s -u "MIT" -s "Computer Science"
   %(prog)s --university-name "MIT" --subject "Computer Science"
-  %(prog)s --course-url "https://ocw.mit.edu/courses/6-034-artificial-intelligence-fall-2010/"
-  %(prog)s --topics-list "Search algorithms, Machine learning, Neural networks"
+  %(prog)s -url "https://ocw.mit.edu/courses/6-034-artificial-intelligence-fall-2010/"
+  %(prog)s -t "Search algorithms, Machine learning, Neural networks"
         """
     )
 
     parser.add_argument(
-        '--university-name',
+        '-u', '--university-name',
         help='University name for formal courses (e.g., "MIT", "Stanford")'
     )
     parser.add_argument(
-        '--subject',
+        '-s', '--subject',
         help='Subject area (e.g., "Computer Science", "Mathematics")'
     )
     parser.add_argument(
-        '--course-number',
+        '-n', '--course-number',
         help='Course identifier (e.g., "6.034", "CS229")'
     )
     parser.add_argument(
-        '--course-url',
+        '-url', '--course-url',
         help='Course webpage URL'
     )
     parser.add_argument(
-        '--course-name',
+        '-c', '--course-name',
         help='Informal course name (e.g., "Introduction to AI")'
     )
     parser.add_argument(
-        '--textbook',
+        '-b', '--textbook',
         help='Textbook information or title'
     )
     parser.add_argument(
-        '--syllabus',
+        '-syl', '--syllabus',
         help='Syllabus text or URL'
     )
     parser.add_argument(
-        '--topics-list',
+        '-t', '--topics-list',
         help='Comma-separated list of topics to cover'
     )
     parser.add_argument(
-        '--additional-info',
+        '-i', '--additional-info',
         help='Any additional information or context'
     )
 
@@ -94,17 +95,18 @@ def validate_inputs(inputs):
 Error: At least one course-related input must be provided.
 
 Available options:
-  --university-name    University name for formal courses
-  --subject            Subject area
-  --course-number      Course identifier
-  --course-url         Course webpage URL
-  --course-name        Informal course name
-  --textbook           Textbook information
-  --syllabus           Syllabus text or URL
-  --topics-list        List of topics to cover
-  --additional-info    Any additional context
+  -u, --university-name    University name for formal courses
+  -s, --subject            Subject area
+  -n, --course-number      Course identifier
+  -url, --course-url       Course webpage URL
+  -c, --course-name        Informal course name
+  -b, --textbook           Textbook information
+  -syl, --syllabus         Syllabus text or URL
+  -t, --topics-list        List of topics to cover
+  -i, --additional-info    Any additional context
 
 Example usage:
+  scholar_source -u "MIT" -s "Computer Science"
   scholar_source --university-name "MIT" --subject "Computer Science"
 
 Use --help for more information.
