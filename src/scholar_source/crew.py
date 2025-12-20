@@ -36,16 +36,16 @@ class ScholarSource():
         )
 
     @agent
-    def output_formatter_agent(self) -> Agent:
+    def resource_validator_agent(self) -> Agent:
         return Agent(
-            config=self.agents_config['output_formatter_agent'], # type: ignore[index]
+            config=self.agents_config['resource_validator_agent'], # type: ignore[index]
             verbose=True
         )
 
     @agent
-    def reporting_analyst(self) -> Agent:
+    def output_formatter_agent(self) -> Agent:
         return Agent(
-            config=self.agents_config['reporting_analyst'], # type: ignore[index]
+            config=self.agents_config['output_formatter_agent'], # type: ignore[index]
             verbose=True
         )
 
