@@ -135,12 +135,6 @@ Full-stack web application with React/Vite frontend and FastAPI backend that int
 
 Post-MVP features to enhance functionality, scalability, and user experience.
 
-### Authentication & User Management
-- [ ] User authentication (login/signup)
-- [ ] User-specific job history
-- [ ] Personal dashboard with past searches
-- [ ] User profile management
-- [ ] OAuth integration (Google, GitHub)
 
 ### Real-time Features
 - [ ] WebSocket support for real-time progress updates
@@ -148,94 +142,34 @@ Post-MVP features to enhance functionality, scalability, and user experience.
 - [ ] Real-time notifications when job completes
 
 ### Advanced Features
-- [ ] Job history page (view all past jobs)
-- [ ] Advanced filtering and sorting of results
-- [ ] Search within results
-- [ ] Favorite/bookmark resources
-- [ ] Custom tags for organizing searches
-- [ ] Export results to multiple formats (CSV, JSON, PDF)
+
 - [ ] Direct NotebookLM API integration (auto-import resources)
 
 ### Sharing & Collaboration
-- [ ] Custom shareable URLs (e.g., `/results/mit-cs-algorithms` instead of UUID)
-- [ ] Public vs private results (visibility control)
 - [ ] Share results via email
-- [ ] Embed results in other websites
-- [ ] Social media sharing (Twitter, LinkedIn)
-
-### Analytics & Monitoring
-- [ ] Analytics dashboard (popular courses, completion rates)
-- [ ] Job success/failure metrics
-- [ ] Resource quality tracking
-- [ ] User engagement metrics
-- [ ] Error tracking and monitoring (Sentry, LogRocket)
-- [ ] Performance monitoring (response times, uptime)
 
 ### Resource Management
 - [ ] Job deletion/cleanup (automatic or manual)
-- [ ] Archive old jobs (move to cold storage)
-- [ ] Batch job operations (delete multiple, export multiple)
 - [ ] Job expiration policies (auto-delete after 30/60/90 days)
-- [ ] Resource deduplication
-- [ ] Resource quality voting/feedback
 
-### Performance & Scalability
-- [ ] Caching of results (Redis)
-- [ ] CDN for static assets
-- [ ] Database query optimization
-- [ ] Database backups and replication
-- [ ] Load balancing for backend
-- [ ] Horizontal scaling support
-- [ ] Rate limiting and API quotas
-- [ ] Request throttling for heavy users
 
 ### AI & Intelligence
 - [ ] Model fine-tuning for better resource discovery
 - [ ] A/B testing for agent prompts
-- [ ] Personalized resource recommendations
-- [ ] Smart suggestions based on user history
-- [ ] Automatic quality scoring improvements
-- [ ] Multi-language support for international textbooks
-
-### Integration & Extensibility
-- [ ] Export to other platforms (Anki, Quizlet, Notion)
-- [ ] Browser extension for one-click search
-- [ ] Mobile app (React Native)
-- [ ] API for third-party integrations
-- [ ] Webhook support for external notifications
-- [ ] Zapier/Make integration
 
 ### Communication
 - [ ] Email notifications when job completes
-- [ ] SMS notifications (Twilio)
-- [ ] Push notifications
-- [ ] Weekly digest emails (popular searches, new features)
+
 
 ### Content & Resources
-- [ ] Support for more book formats (EPUB, MOBI)
 - [ ] OCR for scanned PDFs
 - [ ] Support for non-English textbooks
-- [ ] Course syllabus parsing
 - [ ] Automatic textbook ISBN detection from images
-
-### DevOps & Infrastructure
-- [ ] Docker containerization
-- [ ] CI/CD pipeline (GitHub Actions)
-- [ ] Automated testing (unit, integration, e2e)
-- [ ] Staging environment
-- [ ] Blue-green deployment
-- [ ] Database migration tooling
-- [ ] Infrastructure as code (Terraform)
-- [ ] Monitoring dashboards (Grafana)
 
 ### Security & Compliance
 - [ ] Enhanced Row Level Security (RLS) policies
-- [ ] GDPR compliance tools (data export, deletion)
 - [ ] Content Security Policy (CSP)
-- [ ] API key rotation
-- [ ] Audit logging
 - [ ] Penetration testing
-- [ ] Security headers implementation
 
 ---
 
