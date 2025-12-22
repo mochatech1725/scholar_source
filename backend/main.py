@@ -2,7 +2,7 @@
 FastAPI Backend
 
 Main FastAPI application for ScholarSource web interface.
-Handles job submission, status polling, and shareable results.
+Handles job submission and status polling.
 """
 
 from fastapi import FastAPI, HTTPException
@@ -157,58 +157,6 @@ async def get_job_status(job_id: str):
             detail={
                 "error": "Job not found",
                 "message": f"No job found with ID: {job_id}"
-            }
-        )
-
-    return {
-        "job_id": job["id"],
-        "status": job["status"],
-        "status_message": job.get("status_message"),
-        "search_title": job.get("search_title"),
-        "results": job.get("results"),
-        "raw_output": job.get("raw_output"),
-        "error": job.get("error"),
-        "metadata": job.get("metadata"),
-        "created_at": job["created_at"],
-        "completed_at": job.get("completed_at")
-    }
-
-
-@app.get("/api/results/{job_id}", response_model=JobStatusResponse, tags=["Jobs"])
-async def get_shareable_results(job_id: str):
-    """
-    Get results for a completed job (shareable link endpoint).
-
-    This endpoint is designed for shareable links. It only returns
-    results if the job is completed. Returns 404 if job doesn't exist
-    or isn't completed yet.
-
-    Args:
-        job_id: UUID of the job
-
-    Returns:
-        JobStatusResponse: Job results and metadata
-
-    Raises:
-        HTTPException: If job not found or not completed
-    """
-    job = get_job(job_id)
-
-    if not job:
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "error": "Results not found",
-                "message": f"No job found with ID: {job_id}"
-            }
-        )
-
-    if job["status"] != "completed":
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "error": "Results not available",
-                "message": f"Job is {job['status']}. Results are only available for completed jobs."
             }
         )
 

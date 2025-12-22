@@ -1,5 +1,8 @@
-# Environment variables
+# Environment variables (secrets - never commit)
 .env
+.env.local
+*.env.local
+web/.env.local
 
 # Python cache
 __pycache__/
@@ -55,3 +58,4 @@ Thumbs.db
 
 # Reports
 report.md
+.env.local
