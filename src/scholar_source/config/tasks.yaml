@@ -61,24 +61,28 @@ course_analysis_task:
 
 resource_search_task:
   description: >
-    Based on the book analysis, search for 5-7 high-quality resources that follow a similar 
-    structure to the student's book. These resources should complement the book's table of 
+    Based on the book analysis, search for 7-10 high-quality resources that follow a similar
+    structure to the student's book. These resources should complement the book's table of
     contents and be suitable for adding to NotebookLM.
-    
+
     **Priority Resource Types (in order):**
-    1. Open textbooks (OpenStax, MIT OpenCourseWare PDFs, LibreTexts, etc.) with similar table of contents
-    2. University course materials (MIT OCW, Stanford, Yale Open Courses) - PDFs and web pages with text content
-    3. Educational platform content (Khan Academy, Coursera free lectures, edX) - text-based materials
-    4. Interactive learning sites (Paul's Online Math Notes, Physics Classroom, etc.) with text content
-    5. Peer-reviewed open access papers for advanced topics
-    6. University lecture videos on YouTube (MIT OCW, Stanford, Yale Open Courses, etc.) - as supplementary resources
+    1. Practice problems with answer keys (problem sets, practice exams, solved exercises from reputable universities)
+    2. Open textbooks (OpenStax, MIT OpenCourseWare PDFs, LibreTexts, etc.) with similar table of contents
+    3. University course materials (MIT OCW, Stanford, Yale Open Courses) - PDFs and web pages with text content
+    4. Educational platform content (Khan Academy, Coursera free lectures, edX) - text-based materials
+    5. Interactive learning sites (Paul's Online Math Notes, Physics Classroom, etc.) with text content
+    6. Peer-reviewed open access papers for advanced topics
+    7. University lecture videos on YouTube (MIT OCW, Stanford, Yale Open Courses, etc.) - as supplementary resources
     
     **Search Strategy:**
     - Focus on finding resources that cover similar topics to the book's chapters
-    - Aim for 5-7 total resources - quality over quantity
+    - Aim for 7-10 total resources - quality over quantity
     - Prioritize text-based resources (PDFs, web pages) that NotebookLM can easily process
     - Include YouTube videos only as supplementary resources when high-quality text alternatives aren't available
     - Match the course level (don't suggest PhD-level for intro books)
+    - **For college-level courses:** Prioritize practice problems from reputable universities (MIT, Stanford, Berkeley, Yale, etc.)
+    - **For high school courses:** Look for practice problems from other high schools, AP exam practice tests, or established high school resources
+    - **Critical:** Only include practice problems that come with answer keys or solutions
     
     **Quality Criteria:**
     - Must be legally free and publicly accessible (no pirated content)
@@ -90,6 +94,12 @@ resource_search_task:
     
     **Search Approach:**
     Use web search to find resources. Search terms should prioritize text-based content:
+    - "[book topic] practice problems with solutions pdf"
+    - "[book topic] problem set with answer key"
+    - "[book topic] practice exam with solutions"
+    - "[book topic] MIT OpenCourseWare problem set solutions"
+    - "[book topic] university homework solutions pdf"
+    - "[book topic] AP practice test with answers" (for high school courses)
     - "[book title] open textbook pdf"
     - "[book topic] open textbook pdf"
     - "[book topic] MIT OpenCourseWare PDF"
