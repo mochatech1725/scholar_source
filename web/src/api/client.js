@@ -13,12 +13,20 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
  * @returns {Promise<Object>} Job submission response with job_id
  */
 export async function submitJob(inputs) {
+  // Filter out empty strings and convert them to null/undefined
+  const cleanedInputs = Object.fromEntries(
+    Object.entries(inputs).map(([key, value]) => [
+      key,
+      typeof value === 'string' && value.trim() === '' ? null : value
+    ]).filter(([, value]) => value !== null && value !== undefined)
+  );
+
   const response = await fetch(`${API_BASE_URL}/api/submit`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(inputs),
+    body: JSON.stringify(cleanedInputs),
   });
 
   if (!response.ok) {

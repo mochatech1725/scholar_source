@@ -5,8 +5,9 @@ Main FastAPI application for ScholarSource web interface.
 Handles job submission and status polling.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from backend.models import (
     CourseInputRequest,
     JobSubmitResponse,
@@ -28,17 +29,18 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:3000",  # Alternative React dev port
-        "http://127.0.0.1:5173",
+        "http://localhost:3000",  # Vite dev server (primary port)
         "http://127.0.0.1:3000",
+        "http://localhost:5173",  # Alternative Vite port (for reference)
+        "http://127.0.0.1:5173",
         # Add production origins when deploying
         # "https://your-app.pages.dev",
         # "https://yourdomain.com",
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
@@ -74,6 +76,12 @@ async def health_check():
         "version": "0.1.0",
         "database": db_status
     }
+
+
+@app.options("/api/submit", tags=["Jobs"])
+async def submit_job_options():
+    """Handle CORS preflight for submit endpoint"""
+    return Response(status_code=200)
 
 
 @app.post("/api/submit", response_model=JobSubmitResponse, tags=["Jobs"])

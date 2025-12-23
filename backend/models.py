@@ -4,9 +4,10 @@ Pydantic Models
 Request and response models for the FastAPI backend.
 """
 
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List
 from datetime import datetime
+import re
 
 
 class CourseInputRequest(BaseModel):
@@ -22,7 +23,33 @@ class CourseInputRequest(BaseModel):
     isbn: Optional[str] = Field(None, description="Book ISBN")
     book_pdf_path: Optional[str] = Field(None, description="Local PDF path")
     book_url: Optional[str] = Field(None, description="Book URL")
-    email: Optional[EmailStr] = Field(None, description="Email address to receive results (optional)")
+    email: Optional[str] = Field(None, description="Email address to receive results (optional)")
+
+    @model_validator(mode='before')
+    @classmethod
+    def convert_empty_strings_to_none(cls, data):
+        """Convert empty strings to None for all optional fields"""
+        if isinstance(data, dict):
+            return {
+                k: None if (isinstance(v, str) and v.strip() == '') else v
+                for k, v in data.items()
+            }
+        return data
+
+    @field_validator('email', mode='after')
+    @classmethod
+    def validate_email(cls, v):
+        """Validate email format if provided"""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            # Basic email validation regex
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if re.match(email_pattern, v.strip()):
+                return v.strip()
+            # If invalid format, return None (don't raise error for optional field)
+            return None
+        return v
 
     class Config:
         json_schema_extra = {
