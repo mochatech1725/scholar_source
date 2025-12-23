@@ -64,6 +64,13 @@
   min-height: 60px;
 }
 
+.form-group .field-hint {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
 .validation-error {
   padding: 12px;
   background-color: #fef2f2;

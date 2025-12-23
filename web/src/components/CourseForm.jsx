@@ -18,7 +18,8 @@ export default function CourseForm({ onJobSubmitted, isLoading }) {
     book_author: '',
     isbn: '',
     book_pdf_path: '',
-    book_url: ''
+    book_url: '',
+    email: ''
   });
 
   const [validationError, setValidationError] = useState('');
@@ -173,6 +174,25 @@ export default function CourseForm({ onJobSubmitted, isLoading }) {
             rows="3"
             disabled={isLoading}
           />
+        </div>
+
+        {/* Email Address */}
+        <div className="form-group">
+          <label htmlFor="email">
+            📧 Email Address <span className="optional">(optional - receive results when complete)</span>
+          </label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            placeholder="your.email@example.com"
+            disabled={isLoading}
+          />
+          <p className="field-hint">
+            We'll email you the results when your search completes (usually 1-5 minutes)
+          </p>
         </div>
 
         {/* Validation Error */}

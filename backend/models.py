@@ -4,7 +4,7 @@ Pydantic Models
 Request and response models for the FastAPI backend.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 from datetime import datetime
 
@@ -22,6 +22,7 @@ class CourseInputRequest(BaseModel):
     isbn: Optional[str] = Field(None, description="Book ISBN")
     book_pdf_path: Optional[str] = Field(None, description="Local PDF path")
     book_url: Optional[str] = Field(None, description="Book URL")
+    email: Optional[EmailStr] = Field(None, description="Email address to receive results (optional)")
 
     class Config:
         json_schema_extra = {
