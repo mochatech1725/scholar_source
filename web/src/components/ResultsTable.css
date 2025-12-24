@@ -1,15 +1,35 @@
 /* Results Table Styles with Modern Design */
 
 .results-card {
-  background: var(--color-bg-primary);
+  background: linear-gradient(135deg, #f0fdf4 0%, #d1fae5 100%);
   border-radius: var(--radius-lg);
   padding: var(--spacing-xl);
-  box-shadow: var(--shadow-xl);
-  border: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-lg);
+  border: 2px solid #bbf7d0;
   transition: all var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.results-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.05) 0%, transparent 70%);
+  animation: pulseGreen 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pulseGreen {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.1); opacity: 0.5; }
 }
 
 .results-card:hover {
+  border-color: #86efac;
   box-shadow: var(--shadow-xl);
 }
 

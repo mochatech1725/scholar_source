@@ -9,7 +9,6 @@ import { submitJob } from '../api/client';
 import CourseForm from '../components/CourseForm';
 import LoadingStatus from '../components/LoadingStatus';
 import ResultsTable from '../components/ResultsTable';
-import SkeletonResourceList from '../components/SkeletonResourceList';
 import './HomePage.css';
 
 export default function HomePage() {
@@ -101,15 +100,12 @@ export default function HomePage() {
           )}
 
           {isLoading && jobId && (
-            <div>
+            <div className="results-placeholder-card">
               <LoadingStatus
                 jobId={jobId}
                 onComplete={handleComplete}
                 onError={handleError}
               />
-              <div style={{ marginTop: '24px' }}>
-                <SkeletonResourceList />
-              </div>
             </div>
           )}
 

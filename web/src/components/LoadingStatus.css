@@ -1,11 +1,11 @@
 /* Loading Status Styles with Modern Design */
 
 .loading-status-card {
-  background: var(--color-bg-primary);
+  background: transparent;
   border-radius: var(--radius-lg);
-  padding: var(--spacing-xl);
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--color-border-light);
+  padding: 0;
+  box-shadow: none;
+  border: none;
   text-align: center;
 }
 
@@ -41,9 +41,9 @@
 
 .loading-content h3 {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: #166534;
   flex: 1;
   text-align: center;
   letter-spacing: -0.01em;
@@ -51,8 +51,8 @@
 
 .status-message {
   margin: 0 0 var(--spacing-xl) 0;
-  font-size: 15px;
-  color: var(--color-text-secondary);
+  font-size: 16px;
+  color: #15803d;
   font-weight: 500;
 }
 
@@ -102,7 +102,7 @@
 
 .step-label {
   font-size: 12px;
-  color: var(--color-text-secondary);
+  color: #15803d;
   font-weight: 600;
   text-align: center;
 }
@@ -110,7 +110,7 @@
 .loading-hint {
   margin: 0;
   font-size: 14px;
-  color: var(--color-text-muted);
+  color: #15803d;
   font-style: italic;
 }
 
