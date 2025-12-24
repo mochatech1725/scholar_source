@@ -32,7 +32,7 @@
 
 .loading-header {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: var(--spacing-lg);
   gap: var(--spacing-md);
@@ -47,6 +47,7 @@
   color: #166534;
   text-align: center;
   letter-spacing: -0.01em;
+  flex: 1;
 }
 
 .status-message {
@@ -126,12 +127,8 @@
   transition: all var(--transition-base);
   white-space: nowrap;
   box-shadow: var(--shadow-md);
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  flex-shrink: 0;
   min-width: 100px;
-  z-index: 10;
 }
 
 .cancel-button:hover:not(:disabled) {
