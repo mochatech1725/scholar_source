@@ -77,7 +77,7 @@ export default function HomePage() {
           </p>
           <div className="welcome-features">
             <div className="feature-tag feature-tag-math">
-              <span className="feature-icon">🧮</span>
+              <span className="feature-icon">📐</span>
               <span>Practice problems</span>
             </div>
             <div className="feature-tag feature-tag-test">
