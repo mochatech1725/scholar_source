@@ -119,12 +119,30 @@ export default function CourseForm({ onJobSubmitted, isLoading }) {
 
   return (
     <div className="course-form-card">
-      <h2>Find Study Resources</h2>
+      <h2>🔍 Find Study Resources</h2>
 
       <form onSubmit={handleSubmit} className="course-form">
+        {/* Submit and Reset Buttons - Moved to top */}
+        <div className="button-group button-group-top">
+          <button
+            type="submit"
+            className="submit-button"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Finding Resources...' : 'Find Resources'}
+          </button>
+          <button
+            type="button"
+            className="reset-button"
+            onClick={handleReset}
+            disabled={isLoading}
+          >
+            Reset
+          </button>
+        </div>
         {/* Search Parameters Section */}
         <div className="form-section">
-          <h3>Search Params</h3>
+          <h3>📚 Course Details</h3>
           
           <div className="form-group">
             <label htmlFor="search_param_type">Search Parameters <span className="required">*</span></label>
@@ -231,7 +249,7 @@ export default function CourseForm({ onJobSubmitted, isLoading }) {
 
         {/* Optional Fields Section */}
         <div className="form-section">
-          <h3>Additional Information <span className="optional-label">(Optional)</span></h3>
+          <h3>🎯 Focus Topics <span className="optional-label">(Optional)</span></h3>
 
           {/* Topics List */}
           <div className="form-group">
@@ -241,17 +259,25 @@ export default function CourseForm({ onJobSubmitted, isLoading }) {
               name="topics_list"
               value={formData.topics_list}
               onChange={handleChange}
-              placeholder="e.g., Sorting, Graph Algorithms, Dynamic Programming"
+              placeholder="e.g., Midterm review, Chapter 4, Dynamic programming, Sorting algorithms"
               rows="3"
               disabled={isLoading}
             />
+            <div className="tip-callout">
+              <p>
+                <strong>💡 Tip:</strong> Add 3–6 topics like 'Midterm review', 'Chapter 4', or 'Dynamic programming' for better matches.
+              </p>
+            </div>
           </div>
+        </div>
+
+        {/* Email Section */}
+        <div className="form-section">
+          <h3>📧 Get Results by Email <span className="optional-label">(Optional)</span></h3>
 
           {/* Email Address */}
           <div className="form-group">
-            <label htmlFor="email">
-              📧 Email Address
-            </label>
+            <label htmlFor="email">Email Address</label>
             <input
               type="email"
               id="email"
@@ -273,25 +299,6 @@ export default function CourseForm({ onJobSubmitted, isLoading }) {
             {validationError}
           </div>
         )}
-
-        {/* Submit and Reset Buttons */}
-        <div className="button-group">
-          <button
-            type="submit"
-            className="submit-button"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Finding Resources...' : 'Find Resources'}
-          </button>
-          <button
-            type="button"
-            className="reset-button"
-            onClick={handleReset}
-            disabled={isLoading}
-          >
-            Reset
-          </button>
-        </div>
       </form>
     </div>
   );

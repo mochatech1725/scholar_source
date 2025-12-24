@@ -1,0 +1,106 @@
+/* Skeleton Loading Styles */
+
+.skeleton-results-card {
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border-light);
+}
+
+.skeleton-header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.skeleton-title {
+  height: 28px;
+  width: 60%;
+  background: linear-gradient(90deg, var(--color-bg-tertiary) 25%, var(--color-bg-secondary) 50%, var(--color-bg-tertiary) 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-sm);
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+.skeleton-subtitle {
+  height: 16px;
+  width: 40%;
+  background: linear-gradient(90deg, var(--color-bg-tertiary) 25%, var(--color-bg-secondary) 50%, var(--color-bg-tertiary) 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+.skeleton-resources-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.skeleton-resource-item {
+  padding: var(--spacing-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+.skeleton-badge {
+  height: 24px;
+  width: 80px;
+  background: linear-gradient(90deg, var(--color-bg-tertiary) 25%, var(--color-bg-secondary) 50%, var(--color-bg-tertiary) 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-full);
+  margin-bottom: var(--spacing-md);
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+.skeleton-resource-title {
+  height: 20px;
+  width: 70%;
+  background: linear-gradient(90deg, var(--color-bg-tertiary) 25%, var(--color-bg-secondary) 50%, var(--color-bg-tertiary) 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-md);
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+.skeleton-resource-url {
+  height: 16px;
+  width: 90%;
+  background: linear-gradient(90deg, var(--color-bg-tertiary) 25%, var(--color-bg-secondary) 50%, var(--color-bg-tertiary) 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-sm);
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+.skeleton-resource-meta {
+  height: 14px;
+  width: 50%;
+  background: linear-gradient(90deg, var(--color-bg-tertiary) 25%, var(--color-bg-secondary) 50%, var(--color-bg-tertiary) 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-title,
+  .skeleton-subtitle,
+  .skeleton-badge,
+  .skeleton-resource-title,
+  .skeleton-resource-url,
+  .skeleton-resource-meta {
+    animation: none;
+    background: var(--color-bg-tertiary);
+  }
+}
+

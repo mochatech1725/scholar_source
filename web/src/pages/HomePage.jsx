@@ -9,6 +9,7 @@ import { submitJob } from '../api/client';
 import CourseForm from '../components/CourseForm';
 import LoadingStatus from '../components/LoadingStatus';
 import ResultsTable from '../components/ResultsTable';
+import SkeletonResourceList from '../components/SkeletonResourceList';
 import './HomePage.css';
 
 export default function HomePage() {
@@ -61,8 +62,11 @@ export default function HomePage() {
     <div className="home-page">
       {/* Header */}
       <header className="page-header">
-        <h1>📚 ScholarSource</h1>
-        <p>Discover educational resources aligned with your course textbook</p>
+        <h1>
+          <span className="header-emoji">📚</span>
+          <span className="header-text">Scholar Source</span>
+        </h1>
+        <p>Find study resources matched to your class.</p>
       </header>
 
       {/* Main Content - Two Column Layout */}
@@ -80,18 +84,24 @@ export default function HomePage() {
           {!isLoading && !results && !error && (
             <div className="placeholder-card">
               <div className="placeholder-content">
-                <h3>Your resources will appear here</h3>
-                <p>Fill in the form and click "Find Resources" to discover study materials aligned with your course.</p>
+                <div className="placeholder-icon">📦</div>
+                <h3>Your study kit will show up here</h3>
+                <p>Enter your course info and click 'Find Resources' to generate videos, notes, practice problems, and more.</p>
               </div>
             </div>
           )}
 
           {isLoading && jobId && (
-            <LoadingStatus
-              jobId={jobId}
-              onComplete={handleComplete}
-              onError={handleError}
-            />
+            <div>
+              <LoadingStatus
+                jobId={jobId}
+                onComplete={handleComplete}
+                onError={handleError}
+              />
+              <div style={{ marginTop: '24px' }}>
+                <SkeletonResourceList />
+              </div>
+            </div>
           )}
 
           {error && (
@@ -110,7 +120,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {results && (
+          {results && !isLoading && (
             <ResultsTable
               resources={results}
               searchTitle={searchTitle}

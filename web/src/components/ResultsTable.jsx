@@ -51,7 +51,9 @@ export default function ResultsTable({ resources, searchTitle, textbookInfo, onC
     return (
       <div className="results-card">
         <div className="empty-state">
-          <p>No resources found. Try adjusting your search criteria.</p>
+          <div className="empty-state-icon">📭</div>
+          <h3>No resources found</h3>
+          <p>Try adjusting your search criteria or selecting a different search type.</p>
         </div>
       </div>
     );
