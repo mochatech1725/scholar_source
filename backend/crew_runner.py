@@ -1,13 +1,13 @@
 """
 CrewAI Runner
 
-Runs the ScholarSource crew in a background thread and manages job status updates.
+Runs the ScholarSource crew asynchronously and manages job status updates with cancellation support.
 """
 
 import sys
 import os
 import re
-import threading
+import asyncio
 import traceback
 from io import StringIO
 from pathlib import Path
@@ -21,30 +21,60 @@ from backend.jobs import update_job_status, get_job
 from backend.markdown_parser import parse_markdown_to_resources
 from backend.email_service import send_results_email
 
+# Store active crew tasks so we can cancel them
+_active_tasks = {}
+
 
 def run_crew_async(job_id: str, inputs: Dict[str, str]) -> None:
     """
-    Run the ScholarSource crew in a background thread.
+    Run the ScholarSource crew asynchronously with cancellation support.
 
     This function:
     1. Updates job status to 'running'
-    2. Executes the crew with provided inputs
+    2. Executes the crew with provided inputs using kickoff_async()
     3. Parses the markdown output into structured resources
     4. Updates job with results or error
+    5. Supports cancellation via cancel_crew_job()
 
     Args:
         job_id: UUID of the job to run
         inputs: Dictionary of course input parameters
     """
-    thread = threading.Thread(
-        target=_run_crew_worker,
-        args=(job_id, inputs),
-        daemon=True
-    )
+    import threading
+
+    def run_in_thread():
+        # Create new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            loop.run_until_complete(_run_crew_worker(job_id, inputs))
+        finally:
+            loop.close()
+
+    thread = threading.Thread(target=run_in_thread, daemon=True)
     thread.start()
 
 
-def _run_crew_worker(job_id: str, inputs: Dict[str, str]) -> None:
+def cancel_crew_job(job_id: str) -> bool:
+    """
+    Cancel an active crew job by cancelling its async task.
+
+    Args:
+        job_id: UUID of the job to cancel
+
+    Returns:
+        bool: True if task was found and cancelled, False otherwise
+    """
+    task = _active_tasks.get(job_id)
+    if task and not task.done():
+        task.cancel()
+        print(f"[INFO] Cancelled crew task for job {job_id}")
+        return True
+    return False
+
+
+async def _run_crew_worker(job_id: str, inputs: Dict[str, str]) -> None:
     """
     Worker function that runs in background thread.
 
@@ -90,12 +120,31 @@ def _run_crew_worker(job_id: str, inputs: Dict[str, str]) -> None:
             status_message="Analyzing course and book structure..."
         )
 
-        # Initialize and run crew
+        # Initialize and run crew asynchronously
         crew_instance = ScholarSource()
+        crew = crew_instance.crew()
 
-        # Capture stdout/stderr for progress monitoring (optional)
-        # For now, we'll just run the crew normally
-        result = crew_instance.crew().kickoff(inputs=normalized_inputs)
+        # Create async task for crew execution
+        crew_task = asyncio.create_task(crew.kickoff_async(inputs=normalized_inputs))
+
+        # Store task so it can be cancelled
+        _active_tasks[job_id] = crew_task
+
+        try:
+            # Wait for crew to complete or be cancelled
+            result = await crew_task
+        except asyncio.CancelledError:
+            print(f"[INFO] Job {job_id} was cancelled during execution")
+            update_job_status(
+                job_id,
+                status="cancelled",
+                status_message="Job cancelled by user",
+                error="Job was cancelled before completion"
+            )
+            return
+        finally:
+            # Remove from active tasks
+            _active_tasks.pop(job_id, None)
 
         # Update status
         update_job_status(

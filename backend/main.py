@@ -229,19 +229,31 @@ async def cancel_job(job_id: str):
             }
         )
 
-    # Mark as cancelled
+    # Attempt to cancel the running crew task
     try:
+        from backend.crew_runner import cancel_crew_job
         from backend.jobs import update_job_status
+
+        # Try to cancel the async task
+        task_cancelled = cancel_crew_job(job_id)
+
+        # Mark job as cancelled in database
         update_job_status(
             job_id,
             status="cancelled",
             status_message="Job cancelled by user",
             error="Job was cancelled before completion"
         )
+
+        if task_cancelled:
+            message = "Job cancelled successfully. The crew execution has been stopped."
+        else:
+            message = "Job marked as cancelled. The crew task was not actively running."
+
         return {
             "job_id": job_id,
             "status": "cancelled",
-            "message": "Job marked as cancelled. Note: If the job is currently running, it will finish execution but results will be discarded."
+            "message": message
         }
     except Exception as e:
         raise HTTPException(
