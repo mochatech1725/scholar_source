@@ -8,6 +8,7 @@ import { useState } from 'react';
 import './CourseForm.css';
 
 export default function CourseForm({ onJobSubmitted, isLoading }) {
+  const [searchParamType, setSearchParamType] = useState('');
   const [formData, setFormData] = useState({
     course_url: '',
     book_url: '',
@@ -32,22 +33,67 @@ export default function CourseForm({ onJobSubmitted, isLoading }) {
     }
   };
 
-  const validateForm = () => {
-    // Must provide either Course URL, Book URL, or (Book Title + Author), or Book ISBN
-    const hasCourseUrl = formData.course_url.trim() !== '';
-    const hasBookUrl = formData.book_url.trim() !== '';
-    const hasBookTitleAndAuthor = formData.book_title.trim() !== '' && formData.book_author.trim() !== '';
-    const hasIsbn = formData.isbn.trim() !== '';
+  const handleSearchParamChange = (e) => {
+    const value = e.target.value;
+    setSearchParamType(value);
+    // Clear validation error when selection changes
+    if (validationError) {
+      setValidationError('');
+    }
+    // Clear form data when switching search types
+    setFormData({
+      course_url: '',
+      book_url: '',
+      book_title: '',
+      book_author: '',
+      isbn: '',
+      topics_list: formData.topics_list, // Keep topics_list
+      email: formData.email // Keep email
+    });
+  };
 
-    if (!hasCourseUrl && !hasBookUrl && !hasBookTitleAndAuthor && !hasIsbn) {
-      setValidationError('Please provide one of the following: Course URL, Book URL, Book Title + Author, or Book ISBN');
+  const validateForm = () => {
+    if (!searchParamType) {
+      setValidationError('Please select a search parameter type');
       return false;
+    }
+
+    // Validate based on selected search parameter type
+    switch (searchParamType) {
+      case 'course_url':
+        if (formData.course_url.trim() === '') {
+          setValidationError('Please provide a Course URL');
+          return false;
+        }
+        break;
+      case 'book_url':
+        if (formData.book_url.trim() === '') {
+          setValidationError('Please provide a Book URL');
+          return false;
+        }
+        break;
+      case 'book_title_author':
+        if (formData.book_title.trim() === '' || formData.book_author.trim() === '') {
+          setValidationError('Please provide both Book Title and Author');
+          return false;
+        }
+        break;
+      case 'isbn':
+        if (formData.isbn.trim() === '') {
+          setValidationError('Please provide a Book ISBN');
+          return false;
+        }
+        break;
+      default:
+        setValidationError('Please select a valid search parameter type');
+        return false;
     }
 
     return true;
   };
 
   const handleReset = () => {
+    setSearchParamType('');
     setFormData({
       course_url: '',
       book_url: '',
@@ -75,121 +121,150 @@ export default function CourseForm({ onJobSubmitted, isLoading }) {
     <div className="course-form-card">
       <h2>Find Study Resources</h2>
 
-      <div className="requirements-info">
-        <strong>Required:</strong> Provide at least one of the following:
-        <ul>
-          <li>Course URL</li>
-          <li>Book URL</li>
-          <li>Book Title + Author</li>
-          <li>Book ISBN</li>
-        </ul>
-        <p className="usa-notice">
-          📍 <strong>Note:</strong> This app only searches for resources from USA-based institutions and educational platforms.
-        </p>
-      </div>
-
       <form onSubmit={handleSubmit} className="course-form">
-        {/* Course URL */}
-        <div className="form-group">
-          <label htmlFor="course_url">Course URL <span className="optional">(optional)</span></label>
-          <input
-            type="url"
-            id="course_url"
-            name="course_url"
-            value={formData.course_url}
-            onChange={handleChange}
-            placeholder="https://..."
-            disabled={isLoading}
-          />
+        {/* Search Parameters Section */}
+        <div className="form-section">
+          <h3>Search Params</h3>
+          
+          <div className="form-group">
+            <label htmlFor="search_param_type">Search Parameters <span className="required">*</span></label>
+            <select
+              id="search_param_type"
+              name="search_param_type"
+              value={searchParamType}
+              onChange={handleSearchParamChange}
+              disabled={isLoading}
+              className="search-param-select"
+            >
+              <option value="">-- Select a search type --</option>
+              <option value="course_url">Course URL</option>
+              <option value="book_url">Book URL</option>
+              <option value="book_title_author">Book Title and Author</option>
+              <option value="isbn">Book ISBN</option>
+            </select>
+          </div>
+
+          {/* Course URL - shown when "Course URL" is selected */}
+          {searchParamType === 'course_url' && (
+            <div className="form-group">
+              <label htmlFor="course_url">Course URL <span className="required">*</span></label>
+              <input
+                type="url"
+                id="course_url"
+                name="course_url"
+                value={formData.course_url}
+                onChange={handleChange}
+                placeholder="https://ocw.mit.edu/courses/..."
+                disabled={isLoading}
+                required
+              />
+            </div>
+          )}
+
+          {/* Book URL - shown when "Book URL" is selected */}
+          {searchParamType === 'book_url' && (
+            <div className="form-group">
+              <label htmlFor="book_url">Book URL <span className="required">*</span></label>
+              <input
+                type="url"
+                id="book_url"
+                name="book_url"
+                value={formData.book_url}
+                onChange={handleChange}
+                placeholder="https://..."
+                disabled={isLoading}
+                required
+              />
+            </div>
+          )}
+
+          {/* Book Title and Author - shown when "Book Title and Author" is selected */}
+          {searchParamType === 'book_title_author' && (
+            <>
+              <div className="form-group">
+                <label htmlFor="book_title">Book Title <span className="required">*</span></label>
+                <input
+                  type="text"
+                  id="book_title"
+                  name="book_title"
+                  value={formData.book_title}
+                  onChange={handleChange}
+                  placeholder="e.g., Introduction to Algorithms"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="book_author">Book Author(s) <span className="required">*</span></label>
+                <input
+                  type="text"
+                  id="book_author"
+                  name="book_author"
+                  value={formData.book_author}
+                  onChange={handleChange}
+                  placeholder="e.g., Cormen, Leiserson, Rivest, Stein"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+            </>
+          )}
+
+          {/* ISBN - shown when "Book ISBN" is selected */}
+          {searchParamType === 'isbn' && (
+            <div className="form-group">
+              <label htmlFor="isbn">Book ISBN <span className="required">*</span></label>
+              <input
+                type="text"
+                id="isbn"
+                name="isbn"
+                value={formData.isbn}
+                onChange={handleChange}
+                placeholder="e.g., 978-0262046305"
+                disabled={isLoading}
+                required
+              />
+            </div>
+          )}
         </div>
 
-        {/* Book URL */}
-        <div className="form-group">
-          <label htmlFor="book_url">Book URL <span className="optional">(optional)</span></label>
-          <input
-            type="url"
-            id="book_url"
-            name="book_url"
-            value={formData.book_url}
-            onChange={handleChange}
-            placeholder="https://..."
-            disabled={isLoading}
-          />
-        </div>
+        {/* Optional Fields Section */}
+        <div className="form-section">
+          <h3>Additional Information <span className="optional-label">(Optional)</span></h3>
 
-        {/* Book Title */}
-        <div className="form-group">
-          <label htmlFor="book_title">Book Title</label>
-          <input
-            type="text"
-            id="book_title"
-            name="book_title"
-            value={formData.book_title}
-            onChange={handleChange}
-            placeholder="e.g., Introduction to Algorithms"
-            disabled={isLoading}
-          />
-        </div>
+          {/* Topics List */}
+          <div className="form-group">
+            <label htmlFor="topics_list">Topics List</label>
+            <textarea
+              id="topics_list"
+              name="topics_list"
+              value={formData.topics_list}
+              onChange={handleChange}
+              placeholder="e.g., Sorting, Graph Algorithms, Dynamic Programming"
+              rows="3"
+              disabled={isLoading}
+            />
+          </div>
 
-        {/* Book Author */}
-        <div className="form-group">
-          <label htmlFor="book_author">Book Author(s)</label>
-          <input
-            type="text"
-            id="book_author"
-            name="book_author"
-            value={formData.book_author}
-            onChange={handleChange}
-            placeholder="e.g., Cormen, Leiserson, Rivest, Stein"
-            disabled={isLoading}
-          />
-        </div>
-
-        {/* ISBN */}
-        <div className="form-group">
-          <label htmlFor="isbn">Book ISBN <span className="optional">(optional)</span></label>
-          <input
-            type="text"
-            id="isbn"
-            name="isbn"
-            value={formData.isbn}
-            onChange={handleChange}
-            placeholder="e.g., 978-0262046305"
-            disabled={isLoading}
-          />
-        </div>
-
-        {/* Topics List */}
-        <div className="form-group">
-          <label htmlFor="topics_list">Topics List <span className="optional">(optional)</span></label>
-          <textarea
-            id="topics_list"
-            name="topics_list"
-            value={formData.topics_list}
-            onChange={handleChange}
-            placeholder="e.g., Sorting, Graph Algorithms, Dynamic Programming"
-            rows="3"
-            disabled={isLoading}
-          />
-        </div>
-
-        {/* Email Address */}
-        <div className="form-group">
-          <label htmlFor="email">
-            📧 Email Address <span className="optional">(optional - receive results when complete)</span>
-          </label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="your.email@example.com"
-            disabled={isLoading}
-          />
-          <p className="field-hint">
-            We'll email you the results when your search completes (usually 1-5 minutes)
-          </p>
+          {/* Email Address */}
+          <div className="form-group">
+            <label htmlFor="email">
+              📧 Email Address
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="your.email@example.com"
+              disabled={isLoading}
+            />
+            <p className="field-hint">
+              We'll email you the results when your search completes (usually 1-5 minutes)
+            </p>
+          </div>
         </div>
 
         {/* Validation Error */}
