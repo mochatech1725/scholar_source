@@ -20,6 +20,10 @@ from scholar_source.crew import ScholarSource
 from backend.jobs import update_job_status, get_job
 from backend.markdown_parser import parse_markdown_to_resources
 from backend.email_service import send_results_email
+from backend.cache import (
+    get_cached_analysis,
+    set_cached_analysis
+)
 
 # Store active crew tasks so we can cancel them
 _active_tasks = {}
@@ -121,12 +125,27 @@ async def _run_crew_worker(job_id: str, inputs: Dict[str, str], force_refresh: b
                 else:
                     normalized_inputs[key] = ""
 
-        # Update status
-        update_job_status(
-            job_id,
-            status="running",
-            status_message="Analyzing course and book structure..."
+        # Check cache for course analysis
+        cached_analysis = get_cached_analysis(
+            normalized_inputs,
+            cache_type="analysis",
+            force_refresh=force_refresh
         )
+
+        if cached_analysis:
+            print(f"[INFO] Cache hit for job {job_id}. Using cached course analysis.")
+            update_job_status(
+                job_id,
+                status="running",
+                status_message="Using cached course analysis, discovering resources..."
+            )
+        else:
+            print(f"[INFO] Cache miss for job {job_id}. Running fresh course analysis.")
+            update_job_status(
+                job_id,
+                status="running",
+                status_message="Analyzing course and book structure..."
+            )
 
         # Initialize and run crew asynchronously
         crew_instance = ScholarSource()
@@ -193,10 +212,26 @@ async def _run_crew_worker(job_id: str, inputs: Dict[str, str], force_refresh: b
         resources = parsed_data.get("resources", [])
         textbook_info = parsed_data.get("textbook_info")
 
+        # Cache course analysis results if this was a fresh analysis (cache miss)
+        if not cached_analysis and textbook_info:
+            # Extract course analysis data for caching
+            analysis_results = {
+                "textbook_title": textbook_info.get("title", ""),
+                "textbook_author": textbook_info.get("author", ""),
+                "textbook_source": textbook_info.get("source", ""),
+                # Store raw markdown section for potential future use
+                "raw_analysis": markdown_content[:2000]  # First 2000 chars includes course analysis
+            }
+
+            # Cache the results for future requests
+            set_cached_analysis(normalized_inputs, analysis_results, cache_type="analysis")
+            print(f"[INFO] Cached course analysis for job {job_id}")
+
         # Prepare metadata
         metadata = {
             "resource_count": len(resources),
-            "crew_output_length": len(raw_output)
+            "crew_output_length": len(raw_output),
+            "cache_used": bool(cached_analysis)  # Track if cache was used
         }
         if textbook_info:
             metadata["textbook_info"] = textbook_info
