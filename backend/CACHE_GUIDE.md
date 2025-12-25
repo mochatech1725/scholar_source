@@ -194,9 +194,6 @@ COURSE_ANALYSIS_TTL_DAYS=30
 
 # Full resource results cache - default: 7 days  
 RESOURCE_RESULTS_TTL_DAYS=7
-
-# Global cache TTL (fallback) - default: 7 days
-CACHE_TTL_DAYS=7
 ```
 
 ### Code Configuration
