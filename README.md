@@ -613,15 +613,6 @@ npm run dev
 
 ---
 
-## 🎓 Future Enhancements
-
-See [Future_plans.md](Future_plans.md) for the complete roadmap including:
-- **Phase 1**: Current MVP implementation plan
-- **Phase 2**: Post-MVP features (authentication, real-time updates, analytics, etc.)
-- **Technical Debt**: Ongoing improvements and refactoring
-
----
-
 ## 📚 Resources
 
 - [CrewAI Documentation](https://docs.crewai.com)

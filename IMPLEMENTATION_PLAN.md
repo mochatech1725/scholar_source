@@ -345,43 +345,22 @@ Statuses: `pending` → `running` → `completed` or `failed`
 
 ### Phase 2: Post-MVP Features
 
-#### Real-time Features
-- [ ] WebSocket support for real-time progress updates
-- [ ] Live progress streaming instead of polling
-- [ ] Real-time notifications when job completes
-
 #### Advanced Features
 - [ ] Direct NotebookLM API integration (auto-import resources)
-- [ ] User authentication (login/signup)
 - [ ] User-specific job history
 - [ ] Personal dashboard with past searches
 
 #### Sharing & Collaboration
 - [ ] Share results via email
-- [ ] Shareable result links with custom URLs
 
 #### Resource Management
 - [ ] Job deletion/cleanup (automatic or manual)
 - [ ] Job expiration policies (auto-delete after 30/60/90 days)
 
-#### AI & Intelligence
-- [ ] Model fine-tuning for better resource discovery
-- [ ] A/B testing for agent prompts
-- [ ] Analytics on resource quality
-
 #### Communication
 - [x] **Email notifications when job completes** (✅ Implemented - see Email Notifications section)
 - [ ] SMS notifications
 
-#### Content & Resources
-- [ ] OCR for scanned PDFs
-- [ ] Support for non-English textbooks
-- [ ] Automatic textbook ISBN detection from images
-
-#### Security & Compliance
-- [ ] Enhanced Row Level Security (RLS) policies
-- [ ] Content Security Policy (CSP)
-- [ ] Penetration testing
 
 ### Technical Debt & Improvements
 - [ ] Refactor markdown parser for better accuracy
