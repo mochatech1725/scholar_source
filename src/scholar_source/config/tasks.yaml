@@ -14,12 +14,10 @@ course_analysis_task:
 
     **EXTRACTION:**
     1. Course page textbook extraction - CRITICAL: 
-       - Use WebsiteSearchTool MULTIPLE times with different search queries to ensure you capture all content:
-         * First: website={course_url}, search_query="Textbook"
-         * Second: website={course_url}, search_query="Text:"  
-         * Third: website={course_url}, search_query="Required Text"
-         * Fourth: website={course_url}, search_query="Course Materials"
-         * Fifth: website={course_url}, search_query="" (empty string to get full page content)
+       - Use WebsiteSearchTool with website={course_url} and search_query="" (empty string) to get FULL page content in ONE call
+       - This single call should return all page content including textbook information
+       - If empty string doesn't work, try search_query="textbook" as a fallback
+       - DO NOT make multiple calls - use the single full page content result
        - The textbook info appears as: "Textbook:" (label) followed by the book info on same or next line
        - EXACT format example: "Textbook:\nEngineering Mechanics: Statics, Bedford, Fowler"
        - Look for ANY text that contains book titles and author names together
@@ -134,16 +132,19 @@ resource_validation_task:
   description: >
     Validate resources from resource_discovery_agent for quality, legal, and technical requirements.
 
-    **CHECKS:**
-    1. URL accessible, no paywalls/login
-    2. NotebookLM compatible (PDF/web/YouTube)
-    3. Legal/licensed (no pirated content)
-    4. **TOPIC RELEVANCE (CRITICAL):** Resource MUST match the course subject area. Use WebsiteSearchTool to check the actual content.
-       - ONLY use WebsiteSearchTool on HTML web pages (not PDFs, images, or binary files)
-       - For PDF resources, verify relevance from the URL, title, and source instead of trying to read content
+    **CHECKS (EFFICIENT - MINIMIZE API CALLS):**
+    1. URL format check: Verify URL structure (PDFs end in .pdf, YouTube URLs contain youtube.com, etc.)
+    2. NotebookLM compatibility: Check format from URL extension and resource_type (PDF/web/YouTube)
+    3. Source credibility: Verify from URL domain and source_credibility field (MIT OCW, OpenStax, etc.)
+    4. **TOPIC RELEVANCE (CRITICAL):** Resource MUST match the course subject area
+       - PRIMARY: Use resource_title, coverage_topics, and source_credibility from previous task to verify relevance
+       - ONLY use WebsiteSearchTool if absolutely necessary (e.g., title is ambiguous) - LIMIT to 1-2 calls maximum
+       - For PDFs: Verify from URL, title, and source - DO NOT use WebsiteSearchTool on PDFs
+       - For YouTube: Verify from video title and channel - DO NOT use WebsiteSearchTool unless title is unclear
+       - For web pages: Only use WebsiteSearchTool if title/topics don't clearly indicate relevance
        - For Vector Calculus course → REJECT probability, statistics, or unrelated math resources
        - For Renaissance History course → REJECT modern history, art history, or unrelated humanities resources
-       - Verify course titles, topics, and descriptions match before approving
+       - Most validation should be done from metadata already provided, not by making additional API calls
 
     **REMOVE:** Requires payment/login, pirated, broken links, low quality, incompatible, OR WRONG SUBJECT AREA.
 
