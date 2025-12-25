@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 from backend.database import get_supabase_client
+from backend.logging_config import get_logger
+
+# Configure logger
+logger = get_logger(__name__)
 
 # Path to config files (relative to project root)
 CONFIG_DIR = Path(__file__).parent.parent / "src" / "scholar_source" / "config"
@@ -156,37 +160,42 @@ def get_cached_analysis(
         
         # Query cache table
         response = supabase.table("course_cache").select("*").eq("cache_key", cache_key).execute()
-        
+
         if not response.data:
+            logger.debug(f"Cache lookup: No entry found for key {cache_key[:16]}...")
             return None
-        
+
         cache_entry = response.data[0]
-        
+
         # Check expiration based on cache type
         ttl_days = COURSE_ANALYSIS_TTL_DAYS if cache_type == "analysis" else RESOURCE_RESULTS_TTL_DAYS
         if ttl_days:
             cached_at = datetime.fromisoformat(cache_entry["cached_at"].replace('Z', '+00:00'))
             if cached_at.tzinfo is None:
                 cached_at = cached_at.replace(tzinfo=datetime.utcnow().tzinfo)
-            
+
             age = datetime.utcnow() - cached_at.replace(tzinfo=None)
             if age > timedelta(days=ttl_days):
                 # Cache expired, delete entry
+                logger.info(f"Cache expired: Entry aged {age.days} days > TTL {ttl_days} days")
                 supabase.table("course_cache").delete().eq("cache_key", cache_key).execute()
                 return None
-        
+
         # Verify config hash matches (double-check)
         if cache_entry.get("config_hash") != current_config_hash:
             # Config changed, invalidate this cache entry
+            logger.info(f"Cache invalidated: Config hash mismatch (cached: {cache_entry.get('config_hash')[:8]}... vs current: {current_config_hash[:8]}...)")
             supabase.table("course_cache").delete().eq("cache_key", cache_key).execute()
             return None
-        
+
         # Return cached results
+        age_days = age.days if ttl_days else 0
+        logger.debug(f"Cache hit: Entry age {age_days} days, TTL {ttl_days} days")
         return cache_entry.get("results")
         
     except Exception as e:
         # If cache lookup fails, log and continue (don't break the app)
-        print(f"[WARNING] Cache lookup failed: {str(e)}")
+        logger.warning(f"Cache lookup failed: {str(e)}")
         return None
 
 
@@ -229,10 +238,12 @@ def set_cached_analysis(
             cache_data,
             on_conflict="cache_key"
         ).execute()
-        
+
+        logger.debug(f"Cache stored: type={cache_type}, key={cache_key[:16]}..., config_hash={current_config_hash[:8]}...")
+
     except Exception as e:
         # If cache storage fails, log and continue (don't break the app)
-        print(f"[WARNING] Cache storage failed: {str(e)}")
+        logger.error(f"Cache storage failed: {str(e)}")
 
 
 def clear_cache_for_config_change() -> int:

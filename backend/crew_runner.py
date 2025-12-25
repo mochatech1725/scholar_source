@@ -12,6 +12,10 @@ import traceback
 from io import StringIO
 from pathlib import Path
 from typing import Dict
+from backend.logging_config import get_logger
+
+# Configure logger
+logger = get_logger(__name__)
 
 # Add src to path to import ScholarSource
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -133,14 +137,16 @@ async def _run_crew_worker(job_id: str, inputs: Dict[str, str], force_refresh: b
         )
 
         if cached_analysis:
-            print(f"[INFO] Cache hit for job {job_id}. Using cached course analysis.")
+            logger.info(f"✅ CACHE HIT - Job {job_id}: Using cached course analysis")
+            logger.debug(f"Cache data: textbook_title={cached_analysis.get('textbook_title', 'N/A')}")
             update_job_status(
                 job_id,
                 status="running",
                 status_message="Using cached course analysis, discovering resources..."
             )
         else:
-            print(f"[INFO] Cache miss for job {job_id}. Running fresh course analysis.")
+            cache_reason = "force_refresh=True" if force_refresh else "no cached data found"
+            logger.info(f"❌ CACHE MISS - Job {job_id}: Running fresh analysis ({cache_reason})")
             update_job_status(
                 job_id,
                 status="running",
@@ -225,7 +231,8 @@ async def _run_crew_worker(job_id: str, inputs: Dict[str, str], force_refresh: b
 
             # Cache the results for future requests
             set_cached_analysis(normalized_inputs, analysis_results, cache_type="analysis")
-            print(f"[INFO] Cached course analysis for job {job_id}")
+            logger.info(f"💾 CACHE STORED - Job {job_id}: Cached analysis for future use")
+            logger.debug(f"Cached: title='{textbook_info.get('title', 'N/A')}', author='{textbook_info.get('author', 'N/A')}'")
 
         # Prepare metadata
         metadata = {

@@ -59,3 +59,4 @@ Thumbs.db
 # Reports
 report.md
 .env.local
+logs/
