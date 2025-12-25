@@ -8,6 +8,7 @@ from crewai_tools import (
 )
 from typing import List
 import os
+from scholar_source.tools import WebPageFetcherTool
 
 # If you want to run a snippet of code before or after the crew starts,
 # you can use the @before_kickoff and @after_kickoff decorators
@@ -29,7 +30,10 @@ class ScholarSource():
             config=agent_config,
             llm=model,
             verbose=True,
-            tools=[WebsiteSearchTool()]  # For searching course pages
+            tools=[
+                WebPageFetcherTool(),  # For fetching full page content
+                WebsiteSearchTool()     # For searching within pages if needed
+            ]
         )
 
     @agent

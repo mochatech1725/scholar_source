@@ -10,39 +10,41 @@ course_analysis_task:
     - These extracted URLs will be used by other agents to find relevant study materials
     - This prevents infinite redirect loops while still capturing all course resources
 
-    **VALIDATION:** If course_url provided, use WebsiteSearchTool with website={course_url} and search_query="textbook" to access content. If book_url provided, use WebsiteSearchTool similarly. If neither accessible, return "ERROR: Cannot access provided resources."
+    **TOOL USAGE:**
+    1. Use "Webpage Content Fetcher" tool to fetch the full text content of the course URL
+    2. Search the fetched content for textbook information
+    3. Only use WebsiteSearchTool if you need to search within the page after fetching
 
-    **EXTRACTION:**
-    1. Course page textbook extraction - CRITICAL: 
-       - Use WebsiteSearchTool with website={course_url} and search_query="" (empty string) to get FULL page content in ONE call
-       - This single call should return all page content including textbook information
-       - If empty string doesn't work, try search_query="textbook" as a fallback
-       - DO NOT make multiple calls - use the single full page content result
-       - The textbook info appears as: "Textbook:" (label) followed by the book info on same or next line
-       - EXACT format example: "Textbook:\nEngineering Mechanics: Statics, Bedford, Fowler"
-       - Look for ANY text that contains book titles and author names together
-       - Common patterns: "Textbook: [Title], [Author1], [Author2]" or "Text: [Title] by [Author]"
-       - Extract the COMPLETE text that follows "Textbook:" or "Text:" labels
-       - Parse: Everything before the first comma is usually the title, everything after is author(s)
-       - Example: "Engineering Mechanics: Statics, Bedford, Fowler" → title="Engineering Mechanics: Statics", authors="Bedford, Fowler"
-       - If you see author names like "Bedford" or "Fowler" anywhere in the results, look for nearby book titles
-       - CRITICAL: If ANY WebsiteSearchTool call returns content containing both a book title and author names, you MUST extract them
-       - Don't give up if first query doesn't work - the empty string query ("") will return full page content
-       - Also look for syllabus links (may be relative URLs like "../documents/syllabus.pdf")
-    2. Syllabus: If you find a syllabus link, convert relative URLs to absolute URLs using the course page domain. You may visit the syllabus ONCE if it's an HTML page (skip PDFs). Extract textbook info and topics from syllabus.
-    3. Textbook ToC: If you found a textbook title and author, search web for "[title] [author] table of contents" to get chapter topics.
-    4. Topics:
-       - **IF user provided topics_list:** Use those topics as PRIMARY focus. Still identify general course subject, but mark user topics as the priority search targets.
-       - **IF NO topics_list:** Combine topics from course description, syllabus, textbook ToC to get comprehensive list. Even if limited info, extract what's available (e.g., "Statics", "Linear Algebra", "Vector Methods").
-       - Always include both user_specified_topics (if any) and general_course_topics in output so downstream agents know what to prioritize.
+    **TEXTBOOK EXTRACTION - CRITICAL:**
+    1. Fetch course page using "Webpage Content Fetcher" tool with the course_url
+    2. In the fetched content, look for the word "Textbook:" or "Text:"
+    3. The textbook info appears on the same line or the next line after the label
+    4. Format is typically: "Title, Author1, Author2" or "Title by Author"
+    5. Examples:
+       - "Textbook:\nEngineering Mechanics: Statics, Bedford, Fowler" → title="Engineering Mechanics: Statics", author="Bedford, Fowler"
+       - "Text: Calculus, 8th Edition by Stewart" → title="Calculus", author="Stewart"
+    6. Parsing rules:
+       - If the line contains a colon followed by a comma (e.g., "Engineering Mechanics: Statics, Bedford"),
+         split at the FIRST comma: everything before = title, everything after = author(s)
+       - If the line contains "by", split at "by": everything before = title, everything after = author
+    7. Return separate textbook_title and textbook_author fields
+    8. Also look for syllabus links (may be relative URLs like "../documents/syllabus.pdf")
+
+    **SYLLABUS:** If you find a syllabus link, convert relative URLs to absolute URLs using the course page domain.
+    You may fetch the syllabus ONCE using "Webpage Content Fetcher" if it's an HTML page (skip PDFs).
+    Extract textbook info and topics from syllabus.
+
+    **TEXTBOOK TABLE OF CONTENTS:** If you found a textbook title and author, you may search the web
+    for "[title] [author] table of contents" to get chapter topics (optional, only if needed for topics).
+
+    **TOPICS:**
+    - **IF user provided topics_list:** Use those topics as PRIMARY focus. Still identify general course subject, but mark user topics as the priority search targets.
+    - **IF NO topics_list:** Combine topics from course description, syllabus, textbook ToC to get comprehensive list. Even if limited info, extract what's available (e.g., "Statics", "Linear Algebra", "Vector Methods").
+    - Always include both user_specified_topics (if any) and general_course_topics in output so downstream agents know what to prioritize.
 
     **ERROR IF:** Zero topics AND no textbook found AND no course description → "ERROR: Cannot determine course topics. Provide textbook PDF or topics list."
 
-    **IMPORTANT:** If you find the textbook but limited topic information, that's OK. Extract what's available from the course description (e.g., "Statics", "Linear Algebra") and proceed. The resource discovery agent will use the textbook ToC to find more detailed topics.
-
-    **WEBSITESEARCHTOOL USAGE:** Call with website parameter set to the full URL (e.g., website="https://www.mccormick.northwestern.edu/civil-environmental/academics/courses/descriptions/GEN_ENG%20205-2.html") and search_query parameter set to what you're looking for (e.g., search_query="textbook").
-
-    **IMPORTANT:** Only use WebsiteSearchTool on HTML pages (URLs ending in .html, .htm, .php, or no file extension). DO NOT use it on PDF files (.pdf), images (.jpg, .png), or other binary files. If you encounter binary data or an error, skip that URL and continue.
+    **IMPORTANT:** If you find the textbook but limited topic information, that's OK. Extract what's available from the course description and proceed.
 
     Inputs: {university_name}, {course_name}, {course_url}, {textbook}, {topics_list}, {book_title}, {book_author}, {isbn}, {book_pdf_path}, {book_url}, {desired_resource_types}
   expected_output: >
