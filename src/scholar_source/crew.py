@@ -22,24 +22,36 @@ class ScholarSource():
 
     @agent
     def course_intelligence_agent(self) -> Agent:
+        agent_config = self.agents_config['course_intelligence_agent']  # type: ignore[index]
+        # Override LLM from environment variable if set
+        model = os.getenv('COURSE_INTELLIGENCE_AGENT_MODEL', agent_config.get('llm', 'openai/gpt-4o'))
         return Agent(
-            config=self.agents_config['course_intelligence_agent'], # type: ignore[index]
+            config=agent_config,
+            llm=model,
             verbose=True,
             tools=[WebsiteSearchTool()]  # For searching course pages
         )
 
     @agent
     def resource_discovery_agent(self) -> Agent:
+        agent_config = self.agents_config['resource_discovery_agent']  # type: ignore[index]
+        # Override LLM from environment variable if set
+        model = os.getenv('RESOURCE_DISCOVERY_AGENT_MODEL', agent_config.get('llm', 'openai/gpt-4o-mini'))
         return Agent(
-            config=self.agents_config['resource_discovery_agent'], # type: ignore[index]
+            config=agent_config,
+            llm=model,
             verbose=True,
             tools=[SerperDevTool()]
         )
 
     @agent
     def resource_validator_agent(self) -> Agent:
+        agent_config = self.agents_config['resource_validator_agent']  # type: ignore[index]
+        # Override LLM from environment variable if set
+        model = os.getenv('RESOURCE_VALIDATOR_AGENT_MODEL', agent_config.get('llm', 'openai/gpt-4o-mini'))
         return Agent(
-            config=self.agents_config['resource_validator_agent'], # type: ignore[index]
+            config=agent_config,
+            llm=model,
             verbose=True,
             tools=[
                 WebsiteSearchTool(),  # For validating web pages
@@ -49,8 +61,12 @@ class ScholarSource():
 
     @agent
     def output_formatter_agent(self) -> Agent:
+        agent_config = self.agents_config['output_formatter_agent']  # type: ignore[index]
+        # Override LLM from environment variable if set
+        model = os.getenv('OUTPUT_FORMATTER_AGENT_MODEL', agent_config.get('llm', 'openai/gpt-4o-mini'))
         return Agent(
-            config=self.agents_config['output_formatter_agent'],
+            config=agent_config,
+            llm=model,
             verbose=True
         )
 
