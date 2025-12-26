@@ -232,7 +232,7 @@ curl https://scholarsource-dev.up.railway.app/api/health
 3. Test job submission (optional):
 
 ```bash
-curl -X POST https://your-app.up.railway.app/api/submit \
+curl -X POST https://scholarsource-dev.up.railway.app/api/submit \
   -H "Content-Type: application/json" \
   -d '{
     "university_name": "MIT",
@@ -253,7 +253,7 @@ curl -X POST https://your-app.up.railway.app/api/submit \
 1. **Update `web/.env.production` (create if doesn't exist):**
 
 ```bash
-VITE_API_URL=https://your-app.up.railway.app
+VITE_API_URL=https://scholarsource-dev.up.railway.app
 ```
 
 2. **Update `web/vite.config.js` for production:**
@@ -290,7 +290,7 @@ git commit -m "Prepare frontend for Cloudflare Pages deployment"
 git push origin main
 ```
 
-### 3.2 Deploy to Cloudflare Pages
+### [✅] 3.2 Deploy to Cloudflare Pages
 
 1. Go to https://dash.cloudflare.com
 2. Navigate to **"Workers & Pages"**
@@ -298,7 +298,7 @@ git push origin main
 4. Authorize Cloudflare to access your GitHub account
 5. Select your `scholar_source` repository
 
-### 3.3 Configure Build Settings
+### 3.3[✅] Configure Build Settings
 
 1. **Framework preset**: Select **"Vite"** (or None)
 2. **Build command**:
@@ -311,23 +311,23 @@ git push origin main
    ```
 4. **Root directory**: Leave empty (or set to `/`)
 
-### 3.4 Add Environment Variables
+### 3.4 [✅] Add Environment Variables
 
 1. Click **"Environment variables"**
 2. Add the following:
 
 ```bash
-VITE_API_URL=https://your-app.up.railway.app
+VITE_API_URL=https://scholarsource-dev-app.up.railway.app
 ```
 
 3. Select **"Production"** environment
 4. Click **"Save"**
 
-### 3.5 Deploy
+### [✅] 3.5 Deploy
 
 1. Click **"Save and Deploy"**
 2. Wait for build to complete (~2-5 minutes)
-3. Cloudflare will provide a temporary URL: `https://your-app.pages.dev`
+3. Cloudflare will provide a temporary URL: `https://scholar_source.pages.dev`
 
 ### 3.6 Configure Custom Domain (Optional)
 
@@ -337,16 +337,15 @@ VITE_API_URL=https://your-app.up.railway.app
 4. Follow DNS configuration instructions
 5. Wait for SSL certificate to provision (~5-10 minutes)
 
-### 3.7 Verify Frontend Deployment
+### [✅]3.7 Verify Frontend Deployment
 
-1. Visit your Cloudflare Pages URL: `https://your-app.pages.dev`
+1. Visit your Cloudflare Pages URL: `https://scholar_source.pages.dev`
 2. Test the form submission workflow:
    - Fill in course information
    - Submit the form
    - Wait for job to complete
    - Verify results display correctly
-3. Test shareable link feature
-4. Test copy and export buttons
+3. Test copy and export buttons
 
 **Status:** ✅ Frontend deployed and accessible via Cloudflare Pages
 
@@ -354,23 +353,23 @@ VITE_API_URL=https://your-app.up.railway.app
 
 ## Part 4: Post-Deployment Configuration
 
-### 4.1 Update Backend CORS
+### [✅] 4.1 Update Backend CORS
 
 Now that you have the production frontend URL, update the backend CORS configuration:
 
-1. Edit `backend/main.py`:
+1. [✅] Edit `backend/main.py`:
 
 ```python
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",  # Development
-        "https://your-app.pages.dev",  # Cloudflare Pages
+        "https://scholar_source.pages.dev",  # Cloudflare Pages
         "https://yourdomain.com",  # Custom domain
     ],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 ```
 
@@ -384,12 +383,12 @@ git push origin main
 
 3. Railway will auto-deploy the update (~1-2 minutes)
 
-### 4.2 Set Up Monitoring
+### [✅]4.2 Set Up Monitoring
 
 #### Railway (Backend Monitoring)
 
 1. Go to Railway dashboard → **"Observability"**
-2. Enable metrics collection
+2. Enable metrics collection (Enabled by default). But you can't see alerts unless you're on the pro plan.
 3. Set up alerts for:
    - High error rates (>5% of requests)
    - High memory usage (>80%)
@@ -410,33 +409,6 @@ git push origin main
    - Page views
    - Bandwidth usage (unlimited on free tier)
    - Error rates
-
-### 4.3 Set Up Error Tracking (Optional)
-
-Consider adding error tracking services:
-
-**Option 1: Sentry (Recommended)**
-
-```bash
-# Backend
-pip install sentry-sdk
-
-# Frontend
-npm install @sentry/react
-```
-
-**Option 2: LogRocket**
-
-```bash
-npm install logrocket
-```
-
-**Option 3: Rollbar**
-
-```bash
-pip install rollbar
-npm install rollbar
-```
 
 ### 4.4 Configure Backups
 
@@ -482,8 +454,6 @@ Test the complete workflow in production:
 3. **Verify results:**
    - Check that results display correctly
    - Test "Copy" buttons
-   - Test "Share Results" button
-   - Test shareable link by opening in incognito window
 
 4. **Test error handling:**
    - Submit form with no inputs → should show validation error
@@ -505,7 +475,6 @@ Test the complete workflow in production:
 3. **Test database persistence:**
    - Submit a job and get results
    - Restart Railway service
-   - Reload shareable link → results should persist
 
 ### 5.3 Security Testing
 
@@ -639,15 +608,6 @@ git push origin main
 # Cloudflare auto-deploys
 ```
 
-### 8.3 Database Rollback
-
-**Restore from backup:**
-1. Go to Supabase dashboard → **"Database"** → **"Backups"**
-2. Select backup to restore
-3. Click **"Restore"**
-4. **Warning:** This will overwrite current database!
-
----
 
 ## Part 9: Cost Optimization
 
@@ -672,75 +632,12 @@ git push origin main
 
 **Reduce database costs:**
 - Implement job cleanup (delete jobs >30 days old)
-- Archive old results to cold storage (S3)
 - Optimize JSONB fields to reduce size
 
 **Monitor and alert:**
 - Set up billing alerts in OpenAI (e.g., alert at $50)
 - Monitor Railway usage (alert if approaching next tier)
 - Track Supabase database size (alert at 450MB)
-
----
-
-## Part 10: Troubleshooting Common Issues
-
-### Issue 1: Backend Won't Start on Railway
-
-**Symptoms:** Deployment fails, service crashes immediately
-
-**Diagnosis:**
-```bash
-# Check Railway logs
-# Go to Railway dashboard → Deployments → View Logs
-```
-
-**Solutions:**
-- Missing environment variables → Add in Railway dashboard
-- Python version mismatch → Update `pyproject.toml`
-- Missing dependencies → Update `pyproject.toml` dependencies
-- Port binding issue → Ensure using `$PORT` environment variable
-
-### Issue 2: Frontend Can't Connect to Backend
-
-**Symptoms:** Form submission fails, CORS errors in browser console
-
-**Diagnosis:**
-```javascript
-// Check browser console for errors
-// Look for CORS error messages
-```
-
-**Solutions:**
-- CORS not configured → Add frontend URL to `allow_origins` in `backend/main.py`
-- Wrong API URL → Check `VITE_API_URL` in Cloudflare Pages environment variables
-- Backend down → Check Railway dashboard for backend status
-
-### Issue 3: Jobs Never Complete
-
-**Symptoms:** Loading status stuck on "running", no results
-
-**Diagnosis:**
-- Check Railway logs for backend errors
-- Check Supabase database for job status
-
-**Solutions:**
-- OpenAI rate limit → Wait for reset or upgrade tier
-- Crew execution error → Check Railway logs for Python traceback
-- Database connection issue → Verify Supabase credentials
-
-### Issue 4: High OpenAI Costs
-
-**Symptoms:** Unexpected high bills from OpenAI
-
-**Diagnosis:**
-- Check OpenAI dashboard → Usage → Token usage
-- Look for spike in GPT-4o usage
-
-**Solutions:**
-- Downgrade more agents to GPT-4o-mini
-- Implement request throttling
-- Add monthly spending cap in OpenAI dashboard
-- Review and optimize agent prompts
 
 ---
 
@@ -762,17 +659,17 @@ git push origin main
 
 ### 11.3 API Security
 
-- [ ] CORS restricted to known origins only
+- [✅] CORS restricted to known origins only
 - [ ] Rate limiting implemented (add in Phase 2)
-- [ ] Input validation on all endpoints
-- [ ] HTTPS enforced (automatic with Railway/Cloudflare)
+- [✅] Input validation on all endpoints
+- [✅] HTTPS enforced (automatic with Railway/Cloudflare)
 
 ### 11.4 Frontend Security
 
 - [ ] Content Security Policy (CSP) headers configured
-- [ ] No sensitive data in localStorage
+- [✅] No sensitive data in localStorage
 - [ ] XSS prevention (React handles this ✅)
-- [ ] No API keys in frontend code
+- [✅] No API keys in frontend code
 
 ---
 
@@ -792,7 +689,6 @@ Track these metrics to measure deployment success:
 
 - **Daily active users**: Track growth over time
 - **Jobs submitted per day**: Measure engagement
-- **Shareable links clicked**: Measure viral growth
 - **User retention**: % of users who return within 7 days
 
 ### Cost Metrics
@@ -808,7 +704,6 @@ Track these metrics to measure deployment success:
 Once deployed and stable:
 
 1. **Gather user feedback** (surveys, analytics, support tickets)
-2. **Plan Phase 2 features** (see [Future_plans.md](Future_plans.md))
 3. **Optimize performance** based on real usage data
 4. **Scale infrastructure** as user base grows
 5. **Consider monetization** if costs increase significantly
@@ -824,8 +719,6 @@ Once deployed and stable:
 - [FastAPI Deployment Docs](https://fastapi.tiangolo.com/deployment/)
 
 **Monitoring Tools:**
-- [UptimeRobot](https://uptimerobot.com) - Free uptime monitoring
-- [Sentry](https://sentry.io) - Error tracking
 - [Railway Dashboard](https://railway.app) - Backend monitoring
 - [Supabase Dashboard](https://supabase.com/dashboard) - Database monitoring
 

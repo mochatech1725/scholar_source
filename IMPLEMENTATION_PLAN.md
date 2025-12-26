@@ -135,14 +135,14 @@ scholar_source/
 - [x] Create all CSS files with clean design
 - [x] Create web/.env.local configuration
 - [x] Create web/vite.config.js
-- [ ] Test frontend locally
+- [✅] Test frontend locally
 
 ### Part 3: Integration & Testing (Next)
-- [ ] Test full workflow (form submission → job polling → results display)
+- [✅] Test full workflow (form submission → job polling → results display)
 - [ ] Test error handling (network errors, invalid inputs, etc.)
 - [ ] Test persistence (jobs survive server restarts)
-- [ ] Validate CORS configuration
-- [ ] Test copy buttons and "Copy All URLs" functionality
+- [✅] Validate CORS configuration
+- [✅] Test copy buttons and "Copy All URLs" functionality
 
 ### Part 4: Documentation
 - [x] Update README.md with web app setup instructions
@@ -150,10 +150,10 @@ scholar_source/
 - [ ] Create web/README.md (frontend documentation)
 
 ### Part 5: Deployment (Future)
-- [ ] Deploy backend to Railway
-- [ ] Deploy frontend to Cloudflare Pages
-- [ ] Configure production environment variables
-- [ ] Test production deployment
+- [✅] Deploy backend to Railway
+- [✅] Deploy frontend to Cloudflare Pages
+- [✅] Configure production environment variables
+- [✅] Test production deployment
 
 ---
 
@@ -351,7 +351,7 @@ Statuses: `pending` → `running` → `completed` or `failed`
 - [ ] Personal dashboard with past searches
 
 #### Sharing & Collaboration
-- [ ] Share results via email
+- [✅] Share results via email
 
 #### Resource Management
 - [ ] Job deletion/cleanup (automatic or manual)
@@ -364,13 +364,10 @@ Statuses: `pending` → `running` → `completed` or `failed`
 
 ### Technical Debt & Improvements
 - [ ] Refactor markdown parser for better accuracy
-- [ ] Add TypeScript to frontend
-- [ ] Add type hints to all Python code
 - [ ] Improve error messages and user feedback
 - [ ] Add logging throughout backend
 - [ ] Create comprehensive test suite
 - [ ] Document API with OpenAPI/Swagger
-- [ ] Add code comments and docstrings
 - [ ] Set up pre-commit hooks (linting, formatting)
 - [ ] Standardize code formatting (Black, Prettier)
 
