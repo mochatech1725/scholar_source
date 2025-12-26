@@ -16,7 +16,6 @@ from backend.models import (
 )
 from backend.jobs import create_job, get_job
 from backend.crew_runner import run_crew_async, validate_crew_inputs
-from backend.database import get_supabase_client
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -34,7 +33,7 @@ app.add_middleware(
         "http://localhost:5173",  # Alternative Vite port (for reference)
         "http://127.0.0.1:5173",
         # Add production origins when deploying
-        # "https://your-app.pages.dev",
+        "https://scholar_source.pages.dev"
         # "https://yourdomain.com",
     ],
     allow_credentials=True,
@@ -62,19 +61,12 @@ async def health_check():
 
     Returns API status and database connectivity.
     """
-    try:
-        # Test database connection
-        supabase = get_supabase_client()
-        # Try a simple query to verify connection
-        supabase.table("jobs").select("id").limit(1).execute()
-        db_status = "connected"
-    except Exception as e:
-        db_status = f"error: {str(e)}"
-
+    # Simplified health check for Railway startup
+    # Database check can cause timeout during container startup
     return {
         "status": "healthy",
         "version": "0.1.0",
-        "database": db_status
+        "database": "skipped"
     }
 
 
