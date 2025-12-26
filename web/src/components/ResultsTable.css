@@ -189,6 +189,57 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: var(--spacing-sm);
+  position: relative;
+}
+
+/* Scrollbar styling */
+.resources-list::-webkit-scrollbar {
+  width: 10px;
+}
+
+.resources-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: var(--radius-full);
+}
+
+.resources-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  border-radius: var(--radius-full);
+  transition: background var(--transition-base);
+}
+
+.resources-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+}
+
+/* Scroll indicator - shows when there's more content below */
+.resources-list::after {
+  content: '↓ Scroll for more';
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.8) 50%, transparent 100%);
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-base);
+  backdrop-filter: blur(4px);
+}
+
+/* Show scroll indicator when list is scrollable and not at bottom */
+.resources-list:not(.scrolled-to-bottom)::after {
+  opacity: 1;
 }
 
 .resource-item {
@@ -202,45 +253,11 @@
   box-shadow: var(--shadow-sm);
 }
 
-.resource-item::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 5px;
-  height: 100%;
-  background: var(--gradient-primary);
-  transform: scaleY(0);
-  transition: transform var(--transition-base);
-  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
-}
-
-.resource-item::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.02) 0%, transparent 100%);
-  opacity: 0;
-  transition: opacity var(--transition-base);
-  pointer-events: none;
-}
-
 .resource-item:hover {
   border-color: var(--color-primary-light);
   box-shadow: var(--shadow-lg);
   transform: translateY(-4px);
   background: linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%);
-}
-
-.resource-item:hover::before {
-  transform: scaleY(1);
-}
-
-.resource-item:hover::after {
-  opacity: 1;
 }
 
 .resource-header {
@@ -358,28 +375,6 @@
   transform: scale(0.95);
 }
 
-.resource-meta {
-  margin-bottom: var(--spacing-sm);
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.resource-source strong {
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.resource-description {
-  margin: var(--spacing-md) 0 0 0;
-  font-size: 15px;
-  color: var(--color-text-secondary);
-  line-height: 1.7;
-  padding: var(--spacing-md);
-  background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
-  border-radius: var(--radius-sm);
-  border-left: 3px solid var(--color-primary-light);
-}
 
 /* Results Footer */
 .results-footer {

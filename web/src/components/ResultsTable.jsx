@@ -4,12 +4,14 @@
  * Displays discovered resources in a clean list format with copy functionality.
  */
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import './ResultsTable.css';
 
 export default function ResultsTable({ resources, searchTitle, textbookInfo, onClear }) {
   const [copiedUrl, setCopiedUrl] = useState(null);
   const [copiedAll, setCopiedAll] = useState(false);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
+  const listRef = useRef(null);
 
   const getTypeBadgeClass = (type) => {
     const typeUpper = type?.toUpperCase() || '';
@@ -46,6 +48,30 @@ export default function ResultsTable({ resources, searchTitle, textbookInfo, onC
     setCopiedAll(true);
     setTimeout(() => setCopiedAll(false), 2000);
   };
+
+  // Handle scroll to hide/show scroll indicator
+  useEffect(() => {
+    const handleScroll = () => {
+      if (listRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = listRef.current;
+        const scrolledToBottom = scrollHeight - scrollTop - clientHeight < 10;
+        setIsScrolledToBottom(scrolledToBottom);
+      }
+    };
+
+    const listElement = listRef.current;
+    if (listElement) {
+      listElement.addEventListener('scroll', handleScroll);
+      // Check initial scroll state
+      handleScroll();
+    }
+
+    return () => {
+      if (listElement) {
+        listElement.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [resources]);
 
   if (!resources || resources.length === 0) {
     return (
@@ -113,7 +139,10 @@ export default function ResultsTable({ resources, searchTitle, textbookInfo, onC
         </div>
       </div>
 
-      <div className="resources-list">
+      <div
+        ref={listRef}
+        className={`resources-list ${isScrolledToBottom ? 'scrolled-to-bottom' : ''}`}
+      >
         {resources.map((resource, index) => (
           <div key={index} className="resource-item">
             <div className="resource-header">
@@ -141,15 +170,6 @@ export default function ResultsTable({ resources, searchTitle, textbookInfo, onC
               </button>
             </div>
 
-            <div className="resource-meta">
-              <span className="resource-source">
-                <strong>Source:</strong> {resource.source}
-              </span>
-            </div>
-
-            {resource.description && (
-              <p className="resource-description">{resource.description}</p>
-            )}
           </div>
         ))}
       </div>

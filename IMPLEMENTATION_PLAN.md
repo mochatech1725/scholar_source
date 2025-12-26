@@ -345,31 +345,314 @@ Statuses: `pending` → `running` → `completed` or `failed`
 
 ### Phase 2: Post-MVP Features
 
-#### Advanced Features
-- [ ] Direct NotebookLM API integration (auto-import resources)
-- [ ] User-specific job history
-- [ ] Personal dashboard with past searches
-
-#### Sharing & Collaboration
-- [✅] Share results via email
-
 #### Resource Management
 - [ ] Job deletion/cleanup (automatic or manual)
 - [ ] Job expiration policies (auto-delete after 30/60/90 days)
 
-#### Communication
-- [x] **Email notifications when job completes** (✅ Implemented - see Email Notifications section)
-- [ ] SMS notifications
 
 
-### Technical Debt & Improvements
-- [ ] Refactor markdown parser for better accuracy
-- [ ] Improve error messages and user feedback
-- [ ] Add logging throughout backend
-- [ ] Create comprehensive test suite
-- [ ] Document API with OpenAPI/Swagger
-- [ ] Set up pre-commit hooks (linting, formatting)
-- [ ] Standardize code formatting (Black, Prettier)
+---
+
+## Improvements & Enhancements
+
+Prioritized list of improvements organized by area and effort level.
+
+### Error Handling & User Feedback (High Priority)
+
+#### Quick Wins (30 minutes - 1 hour each)
+- [ ] Add network error detection and user-friendly messages (30 min)
+  - Distinguish network timeout vs server error
+
+- [ ] Improve backend error messages with specific suggestions (45 min)
+  - Add actionable suggestions to HTTPException details
+  - Include "what went wrong" and "how to fix it"
+  - Better error messages and user feedback throughout application
+
+- [ ] Add empty results handling with helpful suggestions (30 min)
+  - Explain why no resources found
+  - Suggest how to improve search (broaden inputs, try different keywords)
+
+#### Medium Effort (2-3 hours each)
+- [ ] Implement retry logic with exponential backoff (2 hours)
+  - Auto-retry transient network errors (503, 502, timeouts)
+  - Show retry countdown to user
+  - Manual "Try Again" for non-retryable errors
+
+- [ ] Add specific input validation error messages (2 hours)
+  - Field-level validation with specific error messages
+  - Suggestions for invalid formats (ISBN, URL, etc.)
+  - Real-time validation feedback in form
+
+- [ ] Categorize and improve job failure error messages (3 hours)
+  - Detect OpenAI API errors vs network vs validation
+  - Show specific next steps based on error type
+  - Add "Show Details" option for debugging
+
+#### Larger Projects (4+ hours)
+- [ ] Add rate limiting detection and handling (4 hours)
+  - Detect 429 responses from backend/OpenAI
+  - Show wait time and auto-retry after delay
+  - Queue job if rate limited
+
+- [ ] Implement real-time form validation (6 hours)
+  - Validate fields as user types
+  - Show character counts for text fields
+  - Format hints (ISBN: 978-0-xxx-xxxxx-x)
+
+### Code Quality & Testing
+
+#### Quick Wins (1-2 hours each)
+- [ ] Standardize code formatting with Black and Prettier (1 hour)
+  - Configure Black for Python files
+  - Configure Prettier for JavaScript/CSS files
+  - Add .prettierrc and pyproject.toml formatting config
+  - Run formatters on existing code
+
+- [ ] Fix mypy type errors in backend (2 hours)
+  - Add proper type annotations for Supabase responses
+  - Use Optional[str] for nullable fields
+  - Add type stubs for third-party libraries
+
+#### Medium Effort (4-6 hours each)
+- [ ] Set up pre-commit hooks for linting and formatting (3 hours)
+  - Configure Black for Python formatting
+  - Configure Prettier for JS/CSS formatting
+  - Add ESLint for frontend
+  - Add mypy for type checking
+  - Auto-format on commit
+
+- [ ] Set up pytest and write unit tests (6 hours)
+  - Test markdown parser functions
+  - Test job validation logic
+  - Test API client error handling
+  - Create comprehensive test suite
+
+- [ ] Add integration tests for API endpoints (4 hours)
+  - Test /api/submit with various inputs
+  - Test /api/status polling
+  - Test error responses
+
+#### Larger Projects (8+ hours)
+- [ ] Refactor markdown parser for better accuracy (8 hours)
+  - Improve pattern matching algorithms
+  - Add more fallback strategies
+  - Better handling of edge cases
+  - Test against various markdown formats
+
+- [ ] Achieve 80% test coverage (10 hours)
+  - Backend unit tests
+  - Frontend component tests (React Testing Library)
+  - API integration tests
+  - End-to-end tests (Playwright/Cypress)
+
+### Performance & Optimization
+
+#### Quick Wins (1-2 hours each)
+- [ ] Add response caching headers (1 hour)
+  - Cache static resources (CSS, JS)
+  - Set appropriate cache headers for API responses
+
+- [ ] Optimize frontend bundle size (2 hours)
+  - Code splitting for large components
+  - Lazy load ResultsTable component
+  - Remove unused dependencies
+
+#### Medium Effort (3-5 hours each)
+- [ ] Implement database query optimization (3 hours)
+  - Add indexes for frequently queried fields
+  - Optimize job status queries
+  - Cache frequently accessed data
+
+- [ ] Add pagination for large result sets (4 hours)
+  - Paginate resources table for 50+ results
+  - Add "Load More" or page navigation
+  - Improve performance for large datasets
+
+#### Larger Projects (6+ hours)
+- [ ] Implement streaming progress updates (8 hours)
+  - Show which CrewAI agent is currently running
+  - Display partial results as they arrive
+  - Add WebSocket support for real-time updates
+
+- [ ] Add job queue system (12 hours)
+  - Queue jobs when system is busy
+  - Show queue position to users
+  - Implement priority queue for paid users
+
+### User Experience Enhancements
+
+#### Quick Wins (1-2 hours each)
+- [ ] Add "Copy All URLs" button improvements (1 hour)
+  - Add format options (plain text, markdown, JSON)
+  - Copy with titles and descriptions
+
+- [ ] Add keyboard shortcuts (2 hours)
+  - Ctrl+Enter to submit form
+  - Escape to close modals
+  - Tab navigation improvements
+
+- [ ] Improve loading state animations (1 hour)
+  - Smoother transitions
+  - Better visual feedback during long operations
+
+#### Medium Effort (3-5 hours each)
+- [ ] Add search/filter to results table (4 hours)
+  - Filter by resource type
+  - Search by title or description
+  - Sort by relevance, type, or source
+
+- [ ] Add export options for results (3 hours)
+  - Export to CSV
+  - Export to Markdown
+  - Export to JSON
+  - Direct NotebookLM import format
+
+- [ ] Implement "Save Search" feature (5 hours)
+  - Save search parameters for later
+  - Quick re-run of previous searches
+  - Browser localStorage for persistence
+
+#### Larger Projects (6+ hours)
+- [ ] Add user dashboard (10 hours)
+  - View past searches and results
+  - Re-run previous jobs
+  - Delete old jobs
+  - Usage statistics
+
+- [ ] Implement progressive web app (PWA) features (8 hours)
+  - Offline support
+  - Install as app
+  - Push notifications for job completion
+
+### Documentation & Developer Experience
+
+#### Quick Wins (1-2 hours each)
+- [x] Add comprehensive docstrings (✅ Complete)
+
+- [ ] Create backend/README.md with API docs (2 hours)
+  - Document all endpoints
+  - Include request/response examples
+  - Add authentication info when implemented
+
+- [ ] Create web/README.md with frontend docs (1 hour)
+  - Component documentation
+  - State management overview
+  - Build and deployment instructions
+
+#### Medium Effort (3-5 hours each)
+- [ ] Generate OpenAPI/Swagger documentation (4 hours)
+  - Auto-generate from FastAPI annotations
+  - Host interactive API docs
+  - Include examples and authentication
+  - Document API comprehensively
+
+- [ ] Add architecture diagrams (3 hours)
+  - System architecture diagram
+  - Data flow diagram
+  - Component relationship diagram
+
+- [ ] Create contributing guide (2 hours)
+  - Code style guidelines
+  - PR template
+  - Issue templates
+  - Development setup guide
+
+#### Larger Projects (6+ hours)
+- [ ] Record video tutorials (8 hours)
+  - Getting started guide
+  - Deployment walkthrough
+  - Feature demonstrations
+  - Troubleshooting common issues
+
+### Security & Compliance
+
+#### Quick Wins (1-2 hours each)
+- [ ] Add security headers (1 hour)
+  - Content-Security-Policy
+  - X-Frame-Options
+  - X-Content-Type-Options
+
+- [ ] Implement request size limits (1 hour)
+  - Limit payload size to prevent abuse
+  - Add file upload size limits
+
+#### Medium Effort (3-5 hours each)
+- [ ] Add rate limiting middleware (4 hours)
+  - Per-IP rate limits
+  - Per-user rate limits (when auth added)
+  - Configurable limits via environment
+
+- [ ] Implement API key rotation (3 hours)
+  - Support multiple API keys
+  - Graceful key rotation
+  - Key expiration warnings
+
+- [ ] Add request logging and monitoring (5 hours)
+  - Log all API requests
+  - Track error rates
+  - Monitor performance metrics
+
+#### Larger Projects (8+ hours)
+- [ ] Implement user authentication (16 hours)
+  - User registration and login
+  - JWT token management
+  - Password reset flow
+  - OAuth integration (Google, GitHub)
+
+- [ ] Add role-based access control (8 hours)
+  - Admin vs regular user roles
+  - Per-resource permissions
+  - API key scoping
+
+### Monitoring & Observability
+
+#### Quick Wins (1-2 hours each)
+- [x] Add structured logging (✅ Implemented in logging_config.py)
+
+- [ ] Add health check improvements (1 hour)
+  - Check database connectivity
+  - Check external API availability
+  - Return detailed health status
+
+#### Medium Effort (3-5 hours each)
+- [ ] Implement application metrics (5 hours)
+  - Track job completion rates
+  - Monitor API response times
+  - Count errors by type
+  - Export metrics to Prometheus/Grafana
+
+- [ ] Add error tracking (4 hours)
+  - Integrate Sentry or similar
+  - Capture unhandled exceptions
+  - Track error trends
+  - Alert on error rate spikes
+
+#### Larger Projects (6+ hours)
+- [ ] Set up comprehensive monitoring dashboard (8 hours)
+  - System health dashboard
+  - User activity metrics
+  - Cost tracking (OpenAI, infrastructure)
+  - Performance analytics
+
+---
+
+## Summary of Improvement Effort
+
+**Quick Wins (< 2 hours):** 21 items - Start here for immediate impact
+**Medium Effort (2-6 hours):** 24 items - Moderate investment, significant value
+**Larger Projects (6+ hours):** 15 items - Strategic improvements, plan carefully
+
+**Total estimated effort:** ~260-310 hours
+
+**Recommended Priority Order:**
+1. **Error handling & user feedback** - Better UX for failures, clearer messages
+2. **Code formatting & linting** - Standardize style, enforce consistency
+3. **Type checking fixes** - Improve code quality and catch bugs early
+4. **Basic testing** - Prevent regressions, ensure reliability
+5. **API documentation** - Help future developers and API consumers
+6. **Markdown parser improvements** - Better accuracy for resource extraction
+7. **Performance optimizations** - As needed based on usage patterns
+8. **Advanced features** - Based on user feedback and demand
 
 ---
 
