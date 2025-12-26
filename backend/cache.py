@@ -181,7 +181,7 @@ def get_cached_analysis(
         
     except Exception as e:
         # If cache lookup fails, continue (don't break the app)
-        print(f"[WARNING] Cache lookup failed: {str(e)}")
+        logger.warning(f"Cache lookup failed: {str(e)}")
         return None
 
 
@@ -227,7 +227,7 @@ def set_cached_analysis(
 
     except Exception as e:
         # If cache storage fails, continue (don't break the app)
-        print(f"[ERROR] Cache storage failed: {str(e)}")
+        logger.error(f"Cache storage failed: {str(e)}")
 
 
 def clear_cache_for_config_change() -> int:
@@ -258,7 +258,7 @@ def clear_cache_for_config_change() -> int:
         return deleted_count
         
     except Exception as e:
-        print(f"[WARNING] Cache cleanup failed: {str(e)}")
+        logger.warning(f"Cache cleanup failed: {str(e)}")
         return 0
 
 

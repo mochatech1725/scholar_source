@@ -9,8 +9,12 @@ import os
 from typing import List, Dict, Any
 import resend
 from dotenv import load_dotenv
+from backend.logging_config import get_logger
 
 load_dotenv()
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 
 def send_results_email(
@@ -36,7 +40,7 @@ def send_results_email(
 
     # Skip if Resend not configured
     if not resend_api_key:
-        print(f"⚠️  Resend API key not configured, skipping email to {to_email}")
+        logger.warning(f"Resend API key not configured, skipping email to {to_email}")
         return False
 
     # Set API key
@@ -56,11 +60,11 @@ def send_results_email(
 
         response = resend.Emails.send(params)
 
-        print(f"✅ Email sent successfully to {to_email} (ID: {response.get('id', 'unknown')})")
+        logger.info(f"Email sent successfully to {to_email} (ID: {response.get('id', 'unknown')})")
         return True
 
     except Exception as e:
-        print(f"❌ Error sending email to {to_email}: {str(e)}")
+        logger.error(f"Error sending email to {to_email}: {str(e)}")
         return False
 
 

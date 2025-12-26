@@ -8,6 +8,10 @@ Jobs are persisted across server restarts.
 from datetime import datetime
 from typing import Optional, Dict, Any
 from backend.database import get_supabase_client
+from backend.logging_config import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 
 def create_job(inputs: dict) -> str:
@@ -64,7 +68,7 @@ def get_job(job_id: str) -> Optional[Dict[str, Any]]:
 
         return response.data[0]
     except Exception as e:
-        print(f"Error fetching job {job_id}: {str(e)}")
+        logger.error(f"Error fetching job {job_id}: {str(e)}")
         return None
 
 

@@ -24,6 +24,10 @@ from backend.cache import (
     get_cached_analysis,
     set_cached_analysis
 )
+from backend.logging_config import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 # Store active crew tasks so we can cancel them
 _active_tasks = {}
@@ -74,7 +78,7 @@ def cancel_crew_job(job_id: str) -> bool:
     task = _active_tasks.get(job_id)
     if task and not task.done():
         task.cancel()
-        print(f"[INFO] Cancelled crew task for job {job_id}")
+        logger.info(f"Cancelled crew task for job {job_id}")
         return True
     return False
 
@@ -91,7 +95,7 @@ async def _run_crew_worker(job_id: str, inputs: Dict[str, str], force_refresh: b
     # Check if job was cancelled before starting
     job = get_job(job_id)
     if job and job.get("status") == "cancelled":
-        print(f"[INFO] Job {job_id} was cancelled before execution started")
+        logger.info(f"Job {job_id} was cancelled before execution started")
         return
 
     try:
@@ -133,8 +137,8 @@ async def _run_crew_worker(job_id: str, inputs: Dict[str, str], force_refresh: b
         )
 
         if cached_analysis:
-            print(f"✅ CACHE HIT - Job {job_id}: Using cached course analysis")
-            print(f"[DEBUG] Cache data: textbook_title={cached_analysis.get('textbook_title', 'N/A')}")
+            logger.info(f"✅ CACHE HIT - Job {job_id}: Using cached course analysis")
+            logger.debug(f"Cache data: textbook_title={cached_analysis.get('textbook_title', 'N/A')}")
             update_job_status(
                 job_id,
                 status="running",
@@ -142,7 +146,7 @@ async def _run_crew_worker(job_id: str, inputs: Dict[str, str], force_refresh: b
             )
         else:
             cache_reason = "force_refresh=True" if force_refresh else "no cached data found"
-            print(f"❌ CACHE MISS - Job {job_id}: Running fresh analysis ({cache_reason})")
+            logger.info(f"❌ CACHE MISS - Job {job_id}: Running fresh analysis ({cache_reason})")
             update_job_status(
                 job_id,
                 status="running",
@@ -154,7 +158,7 @@ async def _run_crew_worker(job_id: str, inputs: Dict[str, str], force_refresh: b
         crew = crew_instance.crew()
 
         # Log that we're starting the crew
-        print(f"🚀 Starting CrewAI execution for job {job_id}")
+        logger.info(f"🚀 Starting CrewAI execution for job {job_id}")
 
         # Create async task for crew execution
         # Note: CrewAI's verbose=True uses print() statements, not logging
@@ -168,7 +172,7 @@ async def _run_crew_worker(job_id: str, inputs: Dict[str, str], force_refresh: b
             # Wait for crew to complete or be cancelled
             result = await crew_task
         except asyncio.CancelledError:
-            print(f"[INFO] Job {job_id} was cancelled during execution")
+            logger.info(f"Job {job_id} was cancelled during execution")
             update_job_status(
                 job_id,
                 status="cancelled",
@@ -232,9 +236,9 @@ async def _run_crew_worker(job_id: str, inputs: Dict[str, str], force_refresh: b
 
             # Cache the results for future requests
             set_cached_analysis(normalized_inputs, analysis_results, cache_type="analysis")
-            print(f"💾 CACHE STORED - Job {job_id}: Cached analysis for future use")
+            logger.info(f"💾 CACHE STORED - Job {job_id}: Cached analysis for future use")
             if textbook_info:
-                print(f"[DEBUG] Cached: title='{textbook_info.get('title', 'N/A')}', author='{textbook_info.get('author', 'N/A')}'")
+                logger.debug(f" Cached: title='{textbook_info.get('title', 'N/A')}', author='{textbook_info.get('author', 'N/A')}'")
 
         # Prepare metadata
         metadata = {
@@ -248,7 +252,7 @@ async def _run_crew_worker(job_id: str, inputs: Dict[str, str], force_refresh: b
         # Check if job was cancelled during execution
         job = get_job(job_id)
         if job and job.get("status") == "cancelled":
-            print(f"[INFO] Job {job_id} was cancelled during execution, discarding results")
+            logger.info(f"Job {job_id} was cancelled during execution, discarding results")
             return
 
         # Update job with results
@@ -277,15 +281,15 @@ async def _run_crew_worker(job_id: str, inputs: Dict[str, str], force_refresh: b
                     job_id=job_id
                 )
             except Exception as email_error:
-                print(f"[WARNING] Failed to send email to {email}: {str(email_error)}")
+                logger.warning(f"Failed to send email to {email}: {str(email_error)}")
 
     except Exception as e:
         # Log error and update job
         error_message = str(e)
         stack_trace = traceback.format_exc()
 
-        print(f"[ERROR] Job {job_id} failed: {error_message}")
-        print(stack_trace)
+        logger.error(f"Job {job_id} failed: {error_message}")
+        logger.error(stack_trace)
 
         update_job_status(
             job_id,
