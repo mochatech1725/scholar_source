@@ -1,0 +1,9 @@
+crewai[tools]>=0.120.1,<1.0.0
+lancedb<0.26
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+pydantic[email]>=2.0.0
+supabase>=2.0.0
+python-dotenv>=1.0.0
+resend>=0.8.0
