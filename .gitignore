@@ -60,3 +60,4 @@ Thumbs.db
 report.md
 .env.local
 logs/
+web/.env.dev
