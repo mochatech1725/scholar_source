@@ -61,3 +61,5 @@ report.md
 .env.local
 logs/
 web/.env.dev
+web/.env.production
+web/.env.development
