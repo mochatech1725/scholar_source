@@ -49,4 +49,8 @@
   button:focus-visible {
     @apply outline-2 outline-purple-600 outline-offset-2;
   }
+
+  #root {
+    @apply w-full min-h-screen;
+  }
 }
