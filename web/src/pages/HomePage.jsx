@@ -64,7 +64,7 @@ export default function HomePage() {
         <div className="header-logo">
           <span className="logo-icon">📚</span>
           <div className="logo-text-container">
-            <h1 className="logo-title">Scholar Resource Finder</h1>
+            <h1 className="logo-title">Scholar Study Resource Finder</h1>
           </div>
         </div>
 
