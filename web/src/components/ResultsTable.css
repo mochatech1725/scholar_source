@@ -45,12 +45,6 @@
   box-shadow: var(--shadow-sm);
 }
 
-.course-book-info-box-compact {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  border: 2px solid #fcd34d;
-  border-left: 4px solid #f59e0b;
-}
-
 .course-book-info-box-top {
   margin-bottom: var(--spacing-xl);
   border-left-width: 5px;
