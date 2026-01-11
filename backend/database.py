@@ -6,10 +6,10 @@ Initializes and provides access to the Supabase client for database operations.
 
 import os
 from supabase import create_client, Client
-from dotenv import load_dotenv
+from backend.env_loader import load_environment
 
 # Load environment variables
-load_dotenv()
+load_environment()
 
 # Get Supabase credentials from environment
 supabase_url = os.getenv("SUPABASE_URL")

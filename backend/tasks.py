@@ -8,10 +8,10 @@ Tasks are executed by Celery workers in separate processes.
 import sys
 import os
 import time
-from dotenv import load_dotenv
+from backend.env_loader import load_environment
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables
+load_environment()
 
 # Disable CrewAI telemetry prompts in production/worker environment
 os.environ["OTEL_SDK_DISABLED"] = "true"
@@ -371,6 +371,12 @@ def run_crew_task_sync(
     if job and job.get("status") == "cancelled":
         logger.info(f"Job {job_id} was cancelled before execution started")
         return {"status": "cancelled", "message": "Job was cancelled before execution"}
+
+    # Extract user_id from job for user-scoped caching
+    user_id = job.get("user_id") if job else None
+    if not user_id:
+        logger.error(f"Job {job_id} missing user_id, cannot proceed")
+        return {"status": "failed", "message": "Job missing user authentication"}
 
     try:
         # Update status to running

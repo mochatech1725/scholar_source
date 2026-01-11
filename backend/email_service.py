@@ -9,10 +9,11 @@ import html
 import os
 from typing import List, Dict, Any
 import resend
-from dotenv import load_dotenv
+from backend.env_loader import load_environment
 from backend.logging_config import get_logger
 
-load_dotenv()
+# Load environment variables
+load_environment()
 
 # Get logger for this module
 logger = get_logger(__name__)

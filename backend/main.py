@@ -26,7 +26,10 @@ from backend.error_utils import transform_error_for_user
 from backend.auth import get_current_user, AuthenticationError
 import os
 from slowapi.errors import RateLimitExceeded
+from backend.env_loader import load_environment
 
+# Load environment variables
+load_environment()
 # Constants
 QUEUE_ELAPSED_TIME_THRESHOLD_SECONDS = 30  # Time in seconds before checking worker availability for queued jobs
 

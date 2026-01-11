@@ -10,9 +10,10 @@ import jwt
 from typing import Optional, Dict
 from fastapi import Request, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from dotenv import load_dotenv
+from backend.env_loader import load_environment
 
-load_dotenv()
+# Load environment variables
+load_environment()
 
 # Supabase JWT secret from environment
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")

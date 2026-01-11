@@ -10,15 +10,15 @@ Uses Redis for distributed rate limiting across multiple instances.
 """
 
 import os
-from dotenv import load_dotenv
+from backend.env_loader import load_environment
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi import Request
 from starlette.responses import JSONResponse
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables
+load_environment()
 
 # Check for Redis connection string (required for production/scaling)
 REDIS_URL = os.getenv("REDIS_URL")

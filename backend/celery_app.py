@@ -7,14 +7,14 @@ It handles job execution, worker management, and task routing.
 
 import os
 import ssl
-from dotenv import load_dotenv
+from backend.env_loader import load_environment
 from celery import Celery
 from celery.signals import worker_ready
 from kombu import Queue, Exchange
 from backend.logging_config import get_logger, configure_logging
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables
+load_environment()
 
 # Configure logging for Celery worker
 configure_logging(log_level="INFO")
