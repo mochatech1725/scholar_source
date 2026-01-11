@@ -35,6 +35,7 @@ from backend.markdown_parser import parse_markdown_to_resources
 from backend.cache import get_cached_analysis, set_cached_analysis
 from backend.logging_config import get_logger
 from backend.error_utils import transform_error_for_user
+from backend.security_utils import detect_prompt_injection
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -135,6 +136,21 @@ def run_crew_task(
                     normalized_inputs[key] = []
                 else:
                     normalized_inputs[key] = ""
+
+        # Secondary validation - defense-in-depth against prompt injection
+        for key, value in normalized_inputs.items():
+            if isinstance(value, str) and value:
+                is_suspicious, reason = detect_prompt_injection(value)
+                if is_suspicious:
+                    error_msg = f"Input validation failed for '{key}': {reason}"
+                    logger.error(f"🚨 Prompt injection attempt blocked in job {job_id}: {error_msg}")
+                    update_job_status(
+                        job_id=job_id,
+                        status="failed",
+                        error=error_msg,
+                        status_message="Input validation failed"
+                    )
+                    return {"error": error_msg}
 
         # Check cache for course analysis
         cached_analysis = get_cached_analysis(
@@ -387,6 +403,21 @@ def run_crew_task_sync(
                     normalized_inputs[key] = []
                 else:
                     normalized_inputs[key] = ""
+
+        # Secondary validation - defense-in-depth against prompt injection
+        for key, value in normalized_inputs.items():
+            if isinstance(value, str) and value:
+                is_suspicious, reason = detect_prompt_injection(value)
+                if is_suspicious:
+                    error_msg = f"Input validation failed for '{key}': {reason}"
+                    logger.error(f"🚨 Prompt injection attempt blocked in job {job_id}: {error_msg}")
+                    update_job_status(
+                        job_id=job_id,
+                        status="failed",
+                        error=error_msg,
+                        status_message="Input validation failed"
+                    )
+                    return {"error": error_msg}
 
         # Check cache for course analysis
         cached_analysis = get_cached_analysis(

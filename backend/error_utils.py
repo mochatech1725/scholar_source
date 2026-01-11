@@ -22,6 +22,14 @@ def transform_error_for_user(exception: Exception) -> Tuple[str, str]:
     error_type = type(exception).__name__
     error_str = str(exception)
 
+    # Handle validation errors from Pydantic with suspicious patterns
+    if isinstance(exception, ValueError) and "suspicious" in error_str.lower():
+        return (
+            "Your input contains patterns that may interfere with processing. "
+            "Please remove any special formatting, instructions, or unusual characters and try again.",
+            "ValidationError"
+        )
+
     # Handle Pydantic validation errors
     if isinstance(exception, ValidationError):
         return _handle_pydantic_error(exception)
