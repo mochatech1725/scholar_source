@@ -4,6 +4,14 @@
 *.env.local
 web/.env.local
 
+# Additional secrets and sensitive files
+.secrets/
+*.secret
+*.key
+*.pem
+secrets.json
+credentials.json
+
 # Python cache
 __pycache__/
 *.py[cod]
@@ -23,6 +31,11 @@ dist/
 .eggs/
 wheels/
 *.egg
+
+# Dependency lock files (if using alternative package managers)
+Pipfile.lock
+uv.lock
+poetry.lock
 
 # PyInstaller
 *.manifest
@@ -52,6 +65,10 @@ coverage.xml
 *.swo
 *~
 
+# Additional IDE secrets
+.vscode/secrets.json
+.idea/workspace.xml
+
 # OS
 .DS_Store
 Thumbs.db
@@ -63,3 +80,10 @@ logs/
 web/.env.dev
 web/.env.production
 web/.env.development
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.sql.backup

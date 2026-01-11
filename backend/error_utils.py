@@ -155,6 +155,12 @@ def sanitize_error_message(message: str) -> str:
     Returns:
         Sanitized error message
     """
+    # Remove JWT tokens (format: eyJ...eyJ...signature)
+    message = re.sub(r'eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*', '[JWT_TOKEN]', message)
+
+    # Remove Supabase keys (format: sb-...)
+    message = re.sub(r'sb-[a-zA-Z0-9-]+', '[SUPABASE_KEY]', message)
+
     # Remove file paths
     message = re.sub(r'(/[\w/.-]+|[A-Z]:\\[\w\\.-]+)', '[PATH]', message)
 
