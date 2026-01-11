@@ -1,12 +1,17 @@
-crewai[tools]>=0.120.1,<1.0.0
-lancedb<0.26
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.0
-python-multipart>=0.0.9
-pydantic[email]>=2.0.0
-supabase>=2.0.0
-python-dotenv>=1.0.0
-resend>=0.8.0
-slowapi>=0.1.9
-redis>=5.0.0
-celery>=5.3.0
+# Core dependencies (pinned for security)
+crewai[tools]==0.120.1
+lancedb==0.25.0
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+pydantic[email]==2.9.2
+supabase==2.9.1
+python-dotenv==1.0.1
+resend==0.8.0
+slowapi==0.1.9
+redis==5.2.0
+celery==5.4.0
+
+# Authentication dependencies
+PyJWT==2.9.0
+cryptography==42.0.8

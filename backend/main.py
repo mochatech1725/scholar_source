@@ -7,8 +7,9 @@ Handles job submission and status polling.
 
 import os
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from backend.models import (
     CourseInputRequest,
     JobSubmitResponse,
@@ -22,6 +23,7 @@ from backend.rate_limiter import limiter, rate_limit_handler
 from backend.csrf_protection import validate_origin
 from backend.celery_app import app as celery_app
 from backend.error_utils import transform_error_for_user
+from backend.auth import get_current_user, AuthenticationError
 import os
 from slowapi.errors import RateLimitExceeded
 
@@ -49,6 +51,15 @@ app = FastAPI(
 # Register rate limiter with app
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
+# Register authentication exception handler
+@app.exception_handler(AuthenticationError)
+async def auth_exception_handler(request: Request, exc: AuthenticationError):
+    """Handle authentication errors with 401 Unauthorized response."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail}
+    )
 
 # CORS configuration - allow frontend origins
 app.add_middleware(
@@ -181,7 +192,12 @@ async def worker_health_check():
 
 @app.post("/api/submit", response_model=JobSubmitResponse, tags=["Jobs"])
 @limiter.limit("10/hour; 2/minute")
-async def submit_job(request: Request, course_input: CourseInputRequest, background_tasks: BackgroundTasks):
+async def submit_job(
+    request: Request,
+    course_input: CourseInputRequest,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Submit a new job to find educational resources.
 
@@ -191,15 +207,22 @@ async def submit_job(request: Request, course_input: CourseInputRequest, backgro
     Args:
         request: FastAPI request object (for rate limiting)
         course_input: Course input parameters (at least one field required)
+        current_user: Authenticated user (automatically extracted from JWT)
 
     Returns:
         JobSubmitResponse: Job ID and status
 
     Raises:
         HTTPException: If inputs are invalid, origin is invalid, or job creation fails
+        AuthenticationError: If authentication fails (401)
     """
     # Validate Origin header to prevent cross-origin POST requests
     validate_origin(request)
+
+    # Extract user_id from authenticated user
+    user_id = current_user["id"]
+    logger.info(f"Job submission request from user: {user_id}")
+
     # Convert course_input to dict
     inputs = course_input.model_dump()
 
@@ -222,9 +245,9 @@ async def submit_job(request: Request, course_input: CourseInputRequest, backgro
 
         logger.info(f"Creating new job with inputs: {inputs}")
 
-        # Create job in database
-        job_id = create_job(inputs)
-        logger.info(f"Job created with ID: {job_id}")
+        # Create job in database with user_id
+        job_id = create_job(inputs, user_id)
+        logger.info(f"Job created with ID: {job_id} for user: {user_id}")
 
         # Check if workers are available (non-blocking check)
         worker_status = check_celery_workers()
@@ -265,7 +288,11 @@ async def submit_job(request: Request, course_input: CourseInputRequest, backgro
 
 @app.get("/api/status/{job_id}", response_model=JobStatusResponse, tags=["Jobs"])
 @limiter.limit("100/minute")
-async def get_job_status(request: Request, job_id: str):
+async def get_job_status(
+    request: Request,
+    job_id: str,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Get the current status of a job.
 
@@ -274,13 +301,16 @@ async def get_job_status(request: Request, job_id: str):
 
     Args:
         job_id: UUID of the job
+        current_user: Authenticated user (automatically extracted from JWT)
 
     Returns:
         JobStatusResponse: Current job status and results (if completed)
 
     Raises:
-        HTTPException: If job is not found
+        HTTPException: If job is not found or user is not authorized
+        AuthenticationError: If authentication fails (401)
     """
+    user_id = current_user["id"]
     job = get_job(job_id)
 
     if not job:
@@ -289,6 +319,16 @@ async def get_job_status(request: Request, job_id: str):
             detail={
                 "error": "Job not found",
                 "message": f"No job found with ID: {job_id}"
+            }
+        )
+
+    # Verify job belongs to the authenticated user (RLS will enforce this, but double-check)
+    if job.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "Forbidden",
+                "message": "You do not have permission to access this job"
             }
         )
 
@@ -331,7 +371,11 @@ async def get_job_status(request: Request, job_id: str):
 
 @app.post("/api/cancel/{job_id}", tags=["Jobs"])
 @limiter.limit("20/hour")
-async def cancel_job(request: Request, job_id: str):
+async def cancel_job(
+    request: Request,
+    job_id: str,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Cancel a running or pending job.
 
@@ -342,15 +386,19 @@ async def cancel_job(request: Request, job_id: str):
     Args:
         request: FastAPI request object (for rate limiting and origin validation)
         job_id: UUID of the job to cancel
+        current_user: Authenticated user (automatically extracted from JWT)
 
     Returns:
         dict: Cancellation confirmation
 
     Raises:
         HTTPException: If origin is invalid, job is not found, or cannot be cancelled
+        AuthenticationError: If authentication fails (401)
     """
     # Validate Origin header to prevent cross-origin POST requests
     validate_origin(request)
+
+    user_id = current_user["id"]
     job = get_job(job_id)
 
     if not job:
@@ -359,6 +407,16 @@ async def cancel_job(request: Request, job_id: str):
             detail={
                 "error": "Job not found",
                 "message": f"No job found with ID: {job_id}"
+            }
+        )
+
+    # Verify job belongs to the authenticated user
+    if job.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "Forbidden",
+                "message": "You do not have permission to cancel this job"
             }
         )
 

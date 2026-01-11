@@ -98,6 +98,12 @@ def run_crew_task(
         logger.info(f"Job {job_id} was cancelled before execution started (elapsed: {elapsed:.2f}s)")
         return {"status": "cancelled", "message": "Job was cancelled before execution"}
 
+    # Extract user_id from job for user-scoped caching
+    user_id = job.get("user_id") if job else None
+    if not user_id:
+        logger.error(f"Job {job_id} missing user_id, cannot proceed")
+        return {"status": "failed", "message": "Job missing user authentication"}
+
     try:
         # Update status to running
         update_job_status(
@@ -133,6 +139,7 @@ def run_crew_task(
         # Check cache for course analysis
         cached_analysis = get_cached_analysis(
             normalized_inputs,
+            user_id,
             cache_type="analysis",
             bypass_cache=bypass_cache
         )
@@ -216,7 +223,7 @@ def run_crew_task(
                 "raw_analysis": markdown_content[:2000]
             }
 
-            set_cached_analysis(normalized_inputs, analysis_results, cache_type="analysis")
+            set_cached_analysis(normalized_inputs, user_id, analysis_results, cache_type="analysis")
             logger.info(f"💾 CACHE STORED - Job {job_id}: Cached analysis for future use")
             if textbook_info:
                 logger.debug(f" Cached: title='{textbook_info.get('title', 'N/A')}', author='{textbook_info.get('author', 'N/A')}'")
@@ -384,6 +391,7 @@ def run_crew_task_sync(
         # Check cache for course analysis
         cached_analysis = get_cached_analysis(
             normalized_inputs,
+            user_id,
             cache_type="analysis",
             bypass_cache=bypass_cache
         )
@@ -477,7 +485,7 @@ def run_crew_task_sync(
                 "raw_analysis": markdown_content[:2000]
             }
 
-            set_cached_analysis(normalized_inputs, analysis_results, cache_type="analysis")
+            set_cached_analysis(normalized_inputs, user_id, analysis_results, cache_type="analysis")
             logger.info(f"💾 CACHE STORED - Job {job_id}: Cached analysis for future use")
             if textbook_info:
                 logger.debug(f" Cached: title='{textbook_info.get('title', 'N/A')}', author='{textbook_info.get('author', 'N/A')}'")

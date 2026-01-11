@@ -14,12 +14,13 @@ from backend.logging_config import get_logger
 logger = get_logger(__name__)
 
 
-def create_job(inputs: dict) -> str:
+def create_job(inputs: dict, user_id: str) -> str:
     """
     Create a new job in Supabase database.
 
     Args:
         inputs: Dictionary of course input parameters
+        user_id: UUID of the authenticated user
 
     Returns:
         str: UUID of the created job
@@ -33,6 +34,7 @@ def create_job(inputs: dict) -> str:
     search_title = _generate_search_title(inputs)
 
     job_data = {
+        "user_id": user_id,
         "status": "pending",
         "inputs": inputs,
         "search_title": search_title,
