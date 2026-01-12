@@ -222,8 +222,9 @@ async def submit_job(
     # Validate Origin header to prevent cross-origin POST requests
     validate_origin(request)
 
-    # Extract user_id from authenticated user
+    # Extract user_id and access_token from authenticated user
     user_id = current_user["id"]
+    access_token = current_user.get("access_token")
     logger.info(f"Job submission request from user: {user_id}")
 
     # Convert course_input to dict
@@ -248,8 +249,8 @@ async def submit_job(
 
         logger.info(f"Creating new job with inputs: {inputs}")
 
-        # Create job in database with user_id
-        job_id = create_job(inputs, user_id)
+        # Create job in database with user_id and access_token for RLS
+        job_id = create_job(inputs, user_id, access_token=access_token)
         logger.info(f"Job created with ID: {job_id} for user: {user_id}")
 
         # Check if workers are available (non-blocking check)
@@ -314,7 +315,8 @@ async def get_job_status(
         AuthenticationError: If authentication fails (401)
     """
     user_id = current_user["id"]
-    job = get_job(job_id)
+    access_token = current_user.get("access_token")
+    job = get_job(job_id, access_token=access_token)
 
     if not job:
         raise HTTPException(
@@ -402,7 +404,8 @@ async def cancel_job(
     validate_origin(request)
 
     user_id = current_user["id"]
-    job = get_job(job_id)
+    access_token = current_user.get("access_token")
+    job = get_job(job_id, access_token=access_token)
 
     if not job:
         raise HTTPException(
@@ -444,11 +447,13 @@ async def cancel_job(
         task_cancelled = cancel_crew_job(job_id)
 
         # Mark job as cancelled in database
+        access_token = current_user.get("access_token")
         update_job_status(
             job_id,
             status="cancelled",
             status_message="Job cancelled by user",
-            error="Job was cancelled before completion"
+            error="Job was cancelled before completion",
+            access_token=access_token
         )
 
         if task_cancelled:

@@ -93,7 +93,7 @@ def run_crew_task(
     logger.info(f"Job {job_id} parameters: {inputs}")
 
     # Check if job was cancelled before starting
-    job = get_job(job_id)
+    job = get_job(job_id, use_service_role=True)
     if job and job.get("status") == "cancelled":
         elapsed = time.time() - start_time
         logger.info(f"Job {job_id} was cancelled before execution started (elapsed: {elapsed:.2f}s)")
@@ -111,7 +111,8 @@ def run_crew_task(
             job_id,
             status="running",
             status_message="Initializing CrewAI agents...",
-            metadata={"celery_task_id": self.request.id}
+            metadata={"celery_task_id": self.request.id},
+            use_service_role=True
         )
 
         # Normalize inputs - convert None to empty string, but preserve lists for desired_resource_types
@@ -148,7 +149,8 @@ def run_crew_task(
                         job_id=job_id,
                         status="failed",
                         error=error_msg,
-                        status_message="Input validation failed"
+                        status_message="Input validation failed",
+                        use_service_role=True
                     )
                     return {"error": error_msg}
 
@@ -166,7 +168,8 @@ def run_crew_task(
             update_job_status(
                 job_id,
                 status="running",
-                status_message="Using cached course analysis, discovering resources..."
+                status_message="Using cached course analysis, discovering resources...",
+                use_service_role=True
             )
         else:
             cache_reason = "bypass_cache=True" if bypass_cache else "no cached data found"
@@ -174,7 +177,8 @@ def run_crew_task(
             update_job_status(
                 job_id,
                 status="running",
-                status_message="Analyzing course and book structure..."
+                status_message="Analyzing course and book structure...",
+                use_service_role=True
             )
 
         # Initialize crew
@@ -191,7 +195,8 @@ def run_crew_task(
         update_job_status(
             job_id,
             status="running",
-            status_message="Parsing results..."
+            status_message="Parsing results...",
+            use_service_role=True
         )
 
         # Extract raw output
@@ -216,7 +221,8 @@ def run_crew_task(
                 status="failed",
                 error=error_msg,
                 status_message="Failed to access course or book resources",
-                raw_output=markdown_content[:1000]
+                raw_output=markdown_content[:1000],
+                use_service_role=True
             )
             return {
                 "status": "failed",
@@ -255,7 +261,7 @@ def run_crew_task(
             metadata["textbook_info"] = textbook_info
 
         # Check if job was cancelled during execution
-        job = get_job(job_id)
+        job = get_job(job_id, use_service_role=True)
         if job and job.get("status") == "cancelled":
             logger.info(f"Job {job_id} was cancelled during execution, discarding results")
             return {"status": "cancelled", "message": "Job was cancelled during execution"}
@@ -267,7 +273,8 @@ def run_crew_task(
             status_message="Resource discovery completed successfully",
             results=resources,
             raw_output=markdown_content,
-            metadata=metadata
+            metadata=metadata,
+            use_service_role=True
         )
 
         elapsed = time.time() - start_time
@@ -304,7 +311,8 @@ def run_crew_task(
                 "technical_error": technical_error,  # Store technical details in metadata
                 "stack_trace": stack_trace,
                 "celery_task_id": self.request.id
-            }
+            },
+            use_service_role=True
         )
 
         # Re-raise exception to trigger Celery retry mechanism
@@ -367,7 +375,7 @@ def run_crew_task_sync(
     logger.info(f"Job {job_id} parameters: {inputs}")
 
     # Check if job was cancelled before starting
-    job = get_job(job_id)
+    job = get_job(job_id, use_service_role=True)
     if job and job.get("status") == "cancelled":
         logger.info(f"Job {job_id} was cancelled before execution started")
         return {"status": "cancelled", "message": "Job was cancelled before execution"}
@@ -384,7 +392,8 @@ def run_crew_task_sync(
             job_id,
             status="running",
             status_message="Initializing CrewAI agents...",
-            metadata={"sync_mode": True}
+            metadata={"sync_mode": True},
+            use_service_role=True
         )
 
         # Normalize inputs - convert None to empty string, but preserve lists for desired_resource_types
@@ -421,7 +430,8 @@ def run_crew_task_sync(
                         job_id=job_id,
                         status="failed",
                         error=error_msg,
-                        status_message="Input validation failed"
+                        status_message="Input validation failed",
+                        use_service_role=True
                     )
                     return {"error": error_msg}
 
@@ -439,7 +449,8 @@ def run_crew_task_sync(
             update_job_status(
                 job_id,
                 status="running",
-                status_message="Using cached course analysis, discovering resources..."
+                status_message="Using cached course analysis, discovering resources...",
+                use_service_role=True
             )
         else:
             cache_reason = "bypass_cache=True" if bypass_cache else "no cached data found"
@@ -447,7 +458,8 @@ def run_crew_task_sync(
             update_job_status(
                 job_id,
                 status="running",
-                status_message="Analyzing course and book structure..."
+                status_message="Analyzing course and book structure...",
+                use_service_role=True
             )
 
         # Initialize crew
@@ -474,7 +486,8 @@ def run_crew_task_sync(
         update_job_status(
             job_id,
             status="running",
-            status_message="Parsing results..."
+            status_message="Parsing results...",
+            use_service_role=True
         )
 
         # Extract raw output
@@ -499,7 +512,8 @@ def run_crew_task_sync(
                 status="failed",
                 error=error_msg,
                 status_message="Failed to access course or book resources",
-                raw_output=markdown_content[:1000]
+                raw_output=markdown_content[:1000],
+                use_service_role=True
             )
             return {
                 "status": "failed",
@@ -538,7 +552,7 @@ def run_crew_task_sync(
             metadata["textbook_info"] = textbook_info
 
         # Check if job was cancelled during execution
-        job = get_job(job_id)
+        job = get_job(job_id, use_service_role=True)
         if job and job.get("status") == "cancelled":
             logger.info(f"Job {job_id} was cancelled during execution, discarding results")
             return {"status": "cancelled", "message": "Job was cancelled during execution"}
@@ -550,7 +564,8 @@ def run_crew_task_sync(
             status_message="Resource discovery completed successfully",
             results=resources,
             raw_output=markdown_content,
-            metadata=metadata
+            metadata=metadata,
+            use_service_role=True
         )
 
         elapsed = time.time() - start_time
@@ -587,7 +602,8 @@ def run_crew_task_sync(
                 "technical_error": technical_error,  # Store technical details in metadata
                 "stack_trace": stack_trace,
                 "sync_mode": True
-            }
+            },
+            use_service_role=True
         )
 
         return {

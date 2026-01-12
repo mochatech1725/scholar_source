@@ -14,13 +14,14 @@ from backend.logging_config import get_logger
 logger = get_logger(__name__)
 
 
-def create_job(inputs: dict, user_id: str) -> str:
+def create_job(inputs: dict, user_id: str, access_token: str = None) -> str:
     """
     Create a new job in Supabase database.
 
     Args:
         inputs: Dictionary of course input parameters
         user_id: UUID of the authenticated user
+        access_token: Optional JWT access token for RLS authentication
 
     Returns:
         str: UUID of the created job
@@ -28,7 +29,7 @@ def create_job(inputs: dict, user_id: str) -> str:
     Raises:
         Exception: If job creation fails
     """
-    supabase = get_supabase_client()
+    supabase = get_supabase_client(access_token=access_token)
 
     # Generate search title from inputs for user-friendly display
     search_title = _generate_search_title(inputs)
@@ -50,17 +51,19 @@ def create_job(inputs: dict, user_id: str) -> str:
         raise Exception(f"Failed to create job in database: {str(e)}")
 
 
-def get_job(job_id: str) -> Optional[Dict[str, Any]]:
+def get_job(job_id: str, access_token: str = None, use_service_role: bool = False) -> Optional[Dict[str, Any]]:
     """
     Get job data from Supabase database.
 
     Args:
         job_id: UUID of the job
+        access_token: Optional JWT access token for RLS authentication (for API endpoints)
+        use_service_role: If True, use service role key to bypass RLS (for background operations)
 
     Returns:
         dict | None: Job data dictionary or None if not found
     """
-    supabase = get_supabase_client()
+    supabase = get_supabase_client(access_token=access_token, use_service_role=use_service_role)
 
     try:
         response = supabase.table("jobs").select("*").eq("id", job_id).execute()
@@ -81,7 +84,9 @@ def update_job_status(
     error: Optional[str] = None,
     status_message: Optional[str] = None,
     raw_output: Optional[str] = None,
-    metadata: Optional[dict] = None
+    metadata: Optional[dict] = None,
+    access_token: str = None,
+    use_service_role: bool = False
 ) -> None:
     """
     Update job status and optional fields in Supabase.
@@ -94,11 +99,13 @@ def update_job_status(
         status_message: Current progress message (optional)
         raw_output: Raw markdown output from crew (optional)
         metadata: Additional metadata (optional)
+        access_token: Optional JWT access token for RLS authentication (for API endpoints)
+        use_service_role: If True, use service role key to bypass RLS (for background operations)
 
     Raises:
         Exception: If update fails
     """
-    supabase = get_supabase_client()
+    supabase = get_supabase_client(access_token=access_token, use_service_role=use_service_role)
 
     update_data = {"status": status}
 

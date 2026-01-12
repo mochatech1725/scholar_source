@@ -57,7 +57,7 @@ export async function submitJob(inputs) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify(cleanedInputs),
+    body: JSON.stringify({ course_input: cleanedInputs }),
   });
 
   if (!response.ok) {

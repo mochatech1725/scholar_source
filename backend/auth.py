@@ -149,4 +149,5 @@ async def get_current_user(
         "id": user_id,
         "email": payload.get("email"),
         "payload": payload,
+        "access_token": token,  # Include token for RLS authentication
     }
