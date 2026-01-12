@@ -23,6 +23,11 @@ export default defineConfig({
 
     // Retry failed tests
     retry: 0,
+
+    // Environment variables for tests
+    env: {
+      VITE_API_URL: 'http://localhost:5173',
+    },
   },
 
   // Resolve aliases to match Vite config
