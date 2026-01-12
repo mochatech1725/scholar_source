@@ -4,7 +4,19 @@
  * Handles all HTTP requests to the FastAPI backend.
  */
 
+import { supabase } from '../lib/supabase';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+/**
+ * Get the current user's JWT token
+ *
+ * @returns {Promise<string|null>} JWT token or null if not authenticated
+ */
+async function getAuthToken() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || null;
+}
 
 /**
  * Submit a new job to find educational resources
@@ -34,12 +46,18 @@ export async function submitJob(inputs) {
       })
   );
 
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error('You must be logged in to submit jobs');
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/submit`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify(cleanedInputs),
+    body: JSON.stringify({ course_input: cleanedInputs }),
   });
 
   if (!response.ok) {
@@ -57,7 +75,16 @@ export async function submitJob(inputs) {
  * @returns {Promise<Object>} Job status response
  */
 export async function getJobStatus(jobId) {
-  const response = await fetch(`${API_BASE_URL}/api/status/${jobId}`);
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error('You must be logged in to check job status');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/status/${jobId}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
 
   if (!response.ok) {
     const error = await response.json();
@@ -74,10 +101,16 @@ export async function getJobStatus(jobId) {
  * @returns {Promise<Object>} Cancellation response
  */
 export async function cancelJob(jobId) {
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error('You must be logged in to cancel jobs');
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/cancel/${jobId}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
   });
 

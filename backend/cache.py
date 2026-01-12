@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 from backend.database import get_supabase_client
+from backend.logging_config import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 # Path to config files (relative to project root)
 CONFIG_DIR = Path(__file__).parent.parent / "src" / "scholar_source" / "config"
@@ -116,6 +120,7 @@ def _generate_cache_key(inputs: Dict[str, Any], config_hash: str) -> str:
 
 def get_cached_analysis(
     inputs: Dict[str, Any],
+    user_id: str,
     cache_type: str = "analysis",
     bypass_cache: bool = False
 ) -> Optional[Dict[str, Any]]:
@@ -123,13 +128,14 @@ def get_cached_analysis(
     Check cache for existing course analysis results.
 
     Returns cached results if:
-    1. Cache entry exists for the given inputs
+    1. Cache entry exists for the given inputs and user
     2. Config hash matches current config files (ensures cache is valid)
     3. Cache entry hasn't expired (if TTL is set)
     4. bypass_cache is False
 
     Args:
         inputs: Course input parameters
+        user_id: UUID of the authenticated user
         cache_type: Type of cache entry ("analysis" for course analysis only,
                    "full" for complete results including resources)
         bypass_cache: If True, bypass cache and return None
@@ -140,19 +146,19 @@ def get_cached_analysis(
     # Bypass cache if requested
     if bypass_cache:
         return None
-    
+
     try:
         supabase = get_supabase_client()
-        
+
         # Compute current config hash
         current_config_hash = _compute_config_hash()
-        
+
         # Generate cache key (include cache_type in key to separate analysis vs full results)
         cache_key_base = _generate_cache_key(inputs, current_config_hash)
         cache_key = f"{cache_type}:{cache_key_base}"
-        
-        # Query cache table
-        response = supabase.table("course_cache").select("*").eq("cache_key", cache_key).execute()
+
+        # Query cache table (filtered by user_id for user-scoped cache)
+        response = supabase.table("course_cache").select("*").eq("cache_key", cache_key).eq("user_id", user_id).execute()
 
         if not response.data:
             return None
@@ -188,32 +194,35 @@ def get_cached_analysis(
 
 
 def set_cached_analysis(
-    inputs: Dict[str, Any], 
+    inputs: Dict[str, Any],
+    user_id: str,
     results: Dict[str, Any],
     cache_type: str = "analysis"
 ) -> None:
     """
     Store course analysis results in cache.
-    
+
     Args:
         inputs: Course input parameters
+        user_id: UUID of the authenticated user
         results: Analysis results to cache (textbook_info, topics, etc.)
         cache_type: Type of cache entry ("analysis" for course analysis only,
                    "full" for complete results including resources)
     """
     try:
         supabase = get_supabase_client()
-        
+
         # Compute current config hash
         current_config_hash = _compute_config_hash()
-        
+
         # Generate cache key (include cache_type in key)
         cache_key_base = _generate_cache_key(inputs, current_config_hash)
         cache_key = f"{cache_type}:{cache_key_base}"
-        
+
         # Store in cache
         cache_data = {
             "cache_key": cache_key,
+            "user_id": user_id,
             "config_hash": current_config_hash,
             "cache_type": cache_type,  # Store type for filtering/debugging
             "inputs": inputs,  # Store inputs for debugging/auditing

@@ -14,6 +14,7 @@ import Hero from '../components/Hero';
 import InlineSearchStatus from '../components/InlineSearchStatus';
 import ResultsTable from '../components/ResultsTable';
 import StatusMessage from '../components/StatusMessage';
+import UserMenu from '../components/UserMenu/UserMenu';
 import { TextLabel, HelperText, OptionalBadge, TextInput, Button } from '../components/ui';
 
 export default function HomePage() {
@@ -230,6 +231,7 @@ export default function HomePage() {
               Student Study Resource Finder
             </h1>
           </div>
+          <UserMenu />
         </div>
       </header>
 

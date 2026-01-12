@@ -8,6 +8,13 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List
 from datetime import datetime
 import re
+from backend.security_utils import (
+    validate_url,
+    detect_prompt_injection,
+    validate_domain_list,
+    validate_text_input,
+    validate_isbn as validate_isbn_format
+)
 
 
 class CourseInputRequest(BaseModel):
@@ -38,6 +45,90 @@ class CourseInputRequest(BaseModel):
                 for k, v in data.items()
             }
         return data
+
+    @field_validator('course_url', 'book_url', mode='after')
+    @classmethod
+    def validate_urls(cls, v):
+        """Validate URL format and check for security issues"""
+        if v is None or v == "":
+            return v
+
+        # Validate URL format and scheme
+        if not validate_url(v):
+            raise ValueError(f"Invalid URL format or unsafe URL scheme")
+
+        # Check for prompt injection in URL
+        is_suspicious, reason = detect_prompt_injection(v)
+        if is_suspicious:
+            raise ValueError(f"URL contains suspicious patterns: {reason}")
+
+        return v
+
+    @field_validator('book_title', 'book_author', 'textbook', mode='after')
+    @classmethod
+    def validate_text_fields(cls, v):
+        """Validate text fields for length and security"""
+        if v is None or v == "":
+            return v
+
+        # Validate text input (length, control characters)
+        is_valid, error = validate_text_input(v, max_length=200)
+        if not is_valid:
+            raise ValueError(error)
+
+        # Check for prompt injection
+        is_suspicious, reason = detect_prompt_injection(v)
+        if is_suspicious:
+            raise ValueError(f"Input contains suspicious patterns: {reason}")
+
+        return v
+
+    @field_validator('topics_list', mode='after')
+    @classmethod
+    def validate_topics(cls, v):
+        """Validate topics list for security"""
+        if v is None or v == "":
+            return v
+
+        # Validate with longer max length for topics
+        is_valid, error = validate_text_input(v, max_length=1000)
+        if not is_valid:
+            raise ValueError(error)
+
+        # Check for prompt injection
+        is_suspicious, reason = detect_prompt_injection(v)
+        if is_suspicious:
+            raise ValueError(f"Topics list contains suspicious patterns: {reason}")
+
+        return v
+
+    @field_validator('excluded_sites', 'targeted_sites', mode='after')
+    @classmethod
+    def validate_sites(cls, v):
+        """Validate domain lists"""
+        if v is None or v == "":
+            return v
+
+        # Validate domain list format
+        is_valid, error = validate_domain_list(v)
+        if not is_valid:
+            raise ValueError(error)
+
+        return v
+
+    @field_validator('isbn', mode='after')
+    @classmethod
+    def validate_isbn(cls, v):
+        """Validate ISBN format"""
+        if v is None or v == "":
+            return v
+
+        # Validate ISBN format
+        is_valid, error = validate_isbn_format(v)
+        if not is_valid:
+            raise ValueError(error)
+
+        return v
 
     # Email validation - COMMENTED OUT
     # @field_validator('email', mode='after')
