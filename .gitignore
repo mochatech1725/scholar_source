@@ -1,6 +1,6 @@
 # Environment variables (secrets - never commit)
 .env
-.env.local
+.env.*
 *.env.local
 web/.env.*
 
