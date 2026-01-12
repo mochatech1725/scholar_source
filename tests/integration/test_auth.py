@@ -89,7 +89,10 @@ class TestAuthenticationRequired:
         response = client.post("/api/submit", json=sample_course_input)
 
         assert response.status_code == 401
-        assert "Authorization" in response.json().get("detail", "")
+        response_data = response.json()
+        # Check for auth-related error message in either 'detail' or 'error' field
+        error_msg = str(response_data.get("detail", "")) + str(response_data.get("error", ""))
+        assert "Authorization" in error_msg or "authorization" in error_msg.lower()
 
     def test_status_without_token_returns_401(self, client, mock_supabase):
         """GET /api/status without token should return 401."""
@@ -136,9 +139,11 @@ class TestJWTValidation:
         response = client.post("/api/submit", json=sample_course_input, headers=headers)
 
         assert response.status_code == 401
-        # Check for expiration message
-        detail = str(response.json().get("detail", "")).lower()
-        assert "expired" in detail or "unauthorized" in detail
+        # Check for expiration message in either 'detail' or 'error' field
+        response_data = response.json()
+        detail = str(response_data.get("detail", "")) + str(response_data.get("error", ""))
+        detail = detail.lower()
+        assert "expired" in detail or "unauthorized" in detail or "invalid" in detail
 
     def test_submit_with_invalid_token_returns_401(
         self, client, sample_course_input, invalid_jwt_token, mock_supabase

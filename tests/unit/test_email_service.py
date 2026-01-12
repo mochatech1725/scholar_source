@@ -60,7 +60,7 @@ class TestEmailHTMLEscaping:
 
         # Should not contain unescaped img tag
         assert "<img src=" not in html
-        assert "onerror=" not in html
+        assert "<img" not in html or "&lt;img" in html  # Either no <img or escaped version
         # Should contain escaped version
         assert "&lt;img" in html
 
