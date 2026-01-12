@@ -2,7 +2,7 @@
 .env
 .env.local
 *.env.local
-web/.env.local
+web/.env.*
 
 # Additional secrets and sensitive files
 .secrets/
@@ -87,3 +87,4 @@ web/.env.development
 *.sqlite3
 *.dump
 *.sql.backup
+
