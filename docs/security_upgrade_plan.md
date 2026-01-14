@@ -415,9 +415,44 @@ if isinstance(exception, ValueError) and "suspicious" in str(exception).lower():
     )
 ```
 
-### [ ]  2b Prompt Injection Protection
+### [ ] 2.5 Prompt Injection Protection Enhancement
 
-**Task:** Revamp existing prompt injection detection implementation in `backend/security_utils.py` to strengthen protection against prompt injection attacks.
+**Task:** Revamp existing prompt injection detection implementation in [backend/security_utils.py](backend/security_utils.py) to strengthen protection against prompt injection attacks.
+
+**Current Issue:** The existing `PROMPT_INJECTION_PATTERNS` (line 229) provides basic detection but is insufficient for comprehensive protection against sophisticated prompt injection attacks.
+
+**Required Improvements:**
+
+1. **Enhance Pattern Detection:**
+   - Add patterns for indirect prompt injection (e.g., "Repeat after me", "Translate this", "Summarize the following")
+   - Detect role confusion attacks ("You are a helpful assistant who...", "As an AI...")
+   - Catch instruction leakage attempts ("Show your system prompt", "What are your instructions")
+   - Detect delimiter/boundary attacks (unusual Unicode, zero-width characters, mixed scripts)
+   - Add patterns for goal hijacking ("Your new task is...", "Priority override...")
+
+2. **Multi-Layer Analysis:**
+   - Implement entropy analysis to detect gibberish or encoded payloads
+   - Check for excessive special characters or unusual character distributions
+   - Detect base64/hex encoded strings that might contain hidden instructions
+   - Analyze semantic similarity to known attack vectors using embeddings (optional, performance-dependent)
+
+3. **Context-Aware Validation:**
+   - Different validation strictness for different input fields (URLs vs. free text vs. domains)
+   - Whitelist approach for structured fields (ISBN, domains) rather than blacklist
+   - Length and complexity limits per field type
+
+4. **Logging and Monitoring:**
+   - Log all blocked attempts with pattern matches for analysis
+   - Track false positive rates to tune patterns
+   - Create alert system for repeated injection attempts from same user/IP
+
+5. **Testing:**
+   - Create comprehensive test suite with known prompt injection attacks
+   - Test against OWASP LLM Top 10 prompt injection examples
+   - Include adversarial examples and edge cases
+   - Regular updates as new attack vectors emerge
+
+**Priority:** HIGH - Current implementation provides basic protection but needs hardening
 
 **Status:** Pending
 
@@ -929,36 +964,6 @@ VITE_API_BASE_URL=http://localhost:8000  # Or production URL
    - How to create test users
    - How to bypass auth for testing (if needed)
 
-### 7.2 Create Migration Guide (MIGRATION.md)
-
-**New file:** `MIGRATION.md`
-
-**Contents:**
-1. Database schema changes
-2. Environment variables to add
-3. Steps to run migration
-4. How to verify migration success
-5. Rollback instructions (if needed)
-
-### 7.3 Create .env.example Files
-
-**File:** `backend/.env.example`
-
-**Add:**
-```
-SUPABASE_JWT_SECRET=your-jwt-secret-here
-```
-
-**File:** `web/.env.example`
-
-**Create:**
-```
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here
-VITE_API_BASE_URL=http://localhost:8000
-```
-
----
 
 ## Critical Files to Modify
 
