@@ -1157,6 +1157,20 @@ def transform_error_for_user(error: Exception) -> dict:
 - [ ] Implement cache cleanup job (remove expired entries)
 - [ ] Consider implementing Option B (individual task execution) for better performance
 
+**Security Enhancements:**
+- [ ] **Advanced Prompt Injection Detection**: Enhance pattern detection with:
+  - Indirect injection patterns ("Repeat after me", "Translate this")
+  - Role confusion attacks ("You are now...", "As an AI...")
+  - Instruction leakage attempts ("Show system prompt")
+  - Delimiter/boundary attacks (unusual Unicode, zero-width characters)
+  - Goal hijacking patterns ("Your new task is...", "Priority override")
+  - Entropy analysis for encoded payloads
+  - Base64/hex encoded string detection
+- [ ] Implement per-user rate limits (in addition to IP-based)
+- [ ] Add API key rotation strategy and automation
+- [ ] Implement security headers (HSTS, X-Frame-Options, CSP)
+- [ ] Add request signing for critical operations
+
 **Performance Optimizations:**
 - Migrate to Redis for cache storage if database-backed caching becomes a bottleneck
 - Implement horizontal scaling with distributed rate limiting
