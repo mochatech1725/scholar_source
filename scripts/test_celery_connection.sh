@@ -23,7 +23,11 @@ python -c "
 from backend.celery_app import app
 print('   ✅ Celery app imported successfully')
 print(f'   📋 Broker: {app.conf.broker_url[:40]}...')
-print(f'   📋 Backend: {app.conf.result_backend[:40]}...')
+result_backend = app.conf.result_backend
+if result_backend:
+    print(f'   📋 Result Backend: {result_backend[:40]}...')
+else:
+    print('   📋 Result Backend: Disabled (results stored in database)')
 " || {
     echo "   ❌ Failed to import Celery app"
     exit 1

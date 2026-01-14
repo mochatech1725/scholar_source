@@ -56,8 +56,15 @@ Before deploying, ensure you have:
 2. Copy and save these values:
    - **Project URL** (e.g., `https://abcdefgh.supabase.co`)
    - **anon/public key** (long string starting with `eyJ...`)
+   - **service_role key** (under "Service role" section - keep this secret!)
 
-**Status:** ✅ Database configured and ready
+3. Go to **Project Settings** → **API** → Scroll down to **JWT Settings**
+4. Copy and save:
+   - **JWT Secret** (used for backend JWT verification - CRITICAL for authentication)
+
+**Important:** Never commit these credentials to version control. Use environment variables only.
+
+**Status:** ✅ Database configured with authentication ready
 
 ---
 
@@ -166,14 +173,14 @@ must remember to go to the actual service->variables->shared, and add any specif
 OPENAI_API_KEY=sk-proj-...your_key_here
 SERPER_API_KEY=...your_serper_key_here
 
-# Database
+# Database & Authentication
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=eyJhbGc...your_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+SUPABASE_JWT_SECRET=your_jwt_secret_here  # CRITICAL: Required for JWT verification
 
 # Redis (Required for task queue and rate limiting)
 REDIS_URL=redis://default:PASSWORD@HOST:PORT
-
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
 
 RESEND_API_KEY=re_your_resend_api_key_here
 
@@ -358,7 +365,7 @@ By default, Railway runs 1 instance of each process. To scale:
 ### 2.10 Verify Backend Deployment
 
 1. Copy your Railway deployment URL (e.g., `https://scholarsource-dev.up.railway.app`)
-2. Test the health endpoint:
+2. **Test the health endpoint (no auth required):**
 
 ```bash
 curl https://scholarsource-dev.up.railway.app/api/health
@@ -366,10 +373,12 @@ curl https://scholarsource-dev.up.railway.app/api/health
 
 **Expected response:**
 ```json
-{"status": "healthy"}
+{"status": "healthy", "database": "connected", "version": "0.1.0"}
 ```
 
-3. **Submit Test Job:**
+3. **Verify Authentication is Required:**
+
+   Try to submit a job without authentication (should fail):
    ```bash
    curl -X POST https://scholarsource-dev.up.railway.app/api/submit \
      -H "Content-Type: application/json" \
@@ -380,13 +389,67 @@ curl https://scholarsource-dev.up.railway.app/api/health
        "book_author": "Test Author"
      }'
    ```
-   Expected: Returns `job_id`
 
-4. **Check Job Status:**
-   ```bash
-   curl https://scholarsource-dev.up.railway.app/api/status/{job_id}
+   **Expected response (401 Unauthorized):**
+   ```json
+   {"error": "Missing Authorization header"}
    ```
-   Expected: Returns job status (`queued`, `running`, `completed`, or `failed`)
+
+4. **Create Test User in Supabase:**
+
+   - Go to Supabase Dashboard → Authentication → Users
+   - Click **"Add user"** → **"Create new user"**
+   - Enter email: `test@yourdomain.com`
+   - Set password (save it!)
+   - Click **"Create user"**
+
+5. **Get JWT Token for Testing:**
+
+   You can obtain a JWT token by:
+   - Using the frontend login form (preferred)
+   - Or using Supabase Auth API directly:
+
+   ```bash
+   curl -X POST 'https://YOUR_SUPABASE_URL/auth/v1/token?grant_type=password' \
+     -H "apikey: YOUR_SUPABASE_ANON_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "email": "test@yourdomain.com",
+       "password": "your-password"
+     }'
+   ```
+
+   Save the `access_token` from the response.
+
+6. **Submit Test Job (with authentication):**
+   ```bash
+   curl -X POST https://scholarsource-dev.up.railway.app/api/submit \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+     -d '{
+       "course_name": "Test Course",
+       "university_name": "Test University",
+       "book_title": "Test Book",
+       "book_author": "Test Author"
+     }'
+   ```
+
+   **Expected response:**
+   ```json
+   {
+     "job_id": "uuid-here",
+     "status": "pending",
+     "message": "Job created successfully"
+   }
+   ```
+
+7. **Check Job Status (with authentication):**
+   ```bash
+   curl https://scholarsource-dev.up.railway.app/api/status/{job_id} \
+     -H "Authorization: Bearer YOUR_JWT_TOKEN"
+   ```
+
+   **Expected:** Returns job status (`pending`, `running`, `completed`, or `failed`)
 
 5. **Monitor Worker Logs:**
    - Go to Railway dashboard → Deployments → Latest
@@ -467,8 +530,15 @@ npm run preview
 2. Add the following:
 
 ```bash
+# Backend API URL
 VITE_API_URL=https://scholarsource-dev-app.up.railway.app
+
+# Supabase Configuration (for frontend authentication)
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGc...your_anon_key_here
 ```
+
+**Important:** Use the same Supabase URL and anon key from Part 1.3
 
 3. Select **"Production"** environment
 4. Click **"Save"**
@@ -490,14 +560,35 @@ VITE_API_URL=https://scholarsource-dev-app.up.railway.app
 ### [✅]3.7 Verify Frontend Deployment
 
 1. Visit your Cloudflare Pages URL: `https://scholar_source.pages.dev`
-2. Test the form submission workflow:
-   - Fill in course information
-   - Submit the form
-   - Wait for job to complete
-   - Verify results display correctly
-3. Test copy and export buttons
 
-**Status:** ✅ Frontend deployed and accessible via Cloudflare Pages
+2. **Test Authentication Flow:**
+   - Verify you see the login/signup page on first visit
+   - Click "Sign Up" tab
+   - Create a new account with email and password
+   - Verify you're redirected to the main app after signup
+   - Log out using the user menu
+   - Log back in with the same credentials
+   - Verify session persists on page reload
+
+3. **Test Authenticated Form Submission:**
+   - Fill in course information (e.g., "Introduction to Computer Science")
+   - Submit the form
+   - Verify job status updates appear (pending → running → completed)
+   - Wait for job to complete (~2-5 minutes)
+   - Verify results display correctly with resource links
+
+4. **Test User Isolation:**
+   - Note your job ID
+   - Log out
+   - Create a different test account
+   - Verify you cannot see jobs from the first account
+
+5. **Test UI Features:**
+   - Test copy to clipboard buttons
+   - Test export to different formats
+   - Test responsive design on mobile/tablet
+
+**Status:** ✅ Frontend deployed with authentication working on Cloudflare Pages
 
 ---
 
@@ -582,25 +673,38 @@ supabase db dump -f backup_$(date +%Y%m%d).sql
 
 Test the complete workflow in production:
 
-1. **Submit a job:**
+1. **Test Authentication:**
    - Go to your production URL
-   - Fill in course information
-   - Submit the form
-   - Note the job ID
+   - Verify login/signup page appears for unauthenticated users
+   - Create a new account (test@yourdomain.com)
+   - Verify successful signup redirects to main app
+   - Log out
+   - Log back in with same credentials
+   - Verify session persists on page reload
 
-2. **Monitor job execution:**
+2. **Submit an authenticated job:**
+   - Fill in course information (e.g., "MIT 6.006 Introduction to Algorithms")
+   - Submit the form
+   - Note the job ID returned
+
+3. **Monitor job execution:**
    - Watch the loading status updates
    - Verify status polling works (every 2 seconds)
    - Wait for job completion (2-5 minutes)
+   - Check Railway logs for worker activity
 
-3. **Verify results:**
-   - Check that results display correctly
-   - Test "Copy" buttons
+4. **Verify results:**
+   - Check that results display correctly with resource cards
+   - Verify resource titles, URLs, and descriptions render properly
+   - Test "Copy" buttons for URLs
+   - Test export functionality
 
-4. **Test error handling:**
+5. **Test error handling:**
+   - Submit form with malicious input (e.g., `<script>alert('XSS')</script>`) → should be rejected
    - Submit form with no inputs → should show validation error
-   - Visit invalid job ID → should show 404
-   - Turn off Railway service → frontend should handle gracefully
+   - Try to access another user's job → should return 403/404
+   - Submit job with JavaScript URL → should be rejected
+   - Test with expired/invalid JWT token → should return 401
 
 ### 5.2 Performance Testing
 
@@ -620,17 +724,36 @@ Test the complete workflow in production:
 
 ### 5.3 Security Testing
 
-1. **Test CORS:**
+1. **Test Authentication & Authorization:**
+   - Try API requests without JWT token → should return 401
+   - Try with invalid/expired token → should return 401
+   - Try to access another user's job → should return 403/404
+   - Verify JWT signature validation is working
+
+2. **Test Input Validation:**
+   - Try prompt injection patterns (e.g., "Ignore previous instructions") → should be rejected
+   - Try XSS payloads (`<script>alert('XSS')</script>`) → should be rejected
+   - Try JavaScript/data URLs → should be rejected
+   - Try malformed ISBNs → should be rejected
+   - Try IP addresses in domain fields → should be rejected
+   - Verify legitimate academic input passes validation
+
+3. **Test CORS:**
    - Try accessing API from unauthorized origin → should be blocked
    - Verify only allowed origins can make requests
 
-2. **Test SQL injection:**
-   - Try malicious inputs in form fields
-   - Verify Supabase safely handles all inputs (JSONB fields are safe)
+4. **Test SQL Injection Protection:**
+   - Try SQL injection in form fields → should be safely handled by Supabase RLS
+   - Verify Supabase Row-Level Security is active
 
-3. **Test rate limiting (if implemented):**
-   - Submit many requests quickly
-   - Verify rate limiting works
+5. **Test Rate Limiting:**
+   - Submit many requests quickly → should be rate limited
+   - Verify slowapi middleware is working
+
+6. **Test Email Security:**
+   - Submit job that completes successfully
+   - Check received email for proper HTML escaping
+   - Verify no script tags or malicious content in email
 
 ---
 

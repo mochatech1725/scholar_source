@@ -48,7 +48,7 @@ def run_crew_async(job_id: str, inputs: Dict[str, str], bypass_cache: bool = Fal
     SYNC_MODE = os.getenv("SYNC_MODE", "false").lower() in ("true", "1", "yes")
     
     # Verify job exists and is in correct status
-    job = get_job(job_id)
+    job = get_job(job_id, use_service_role=True)
     if not job:
         raise ValueError(f"Job {job_id} does not exist")
 
@@ -72,7 +72,8 @@ def run_crew_async(job_id: str, inputs: Dict[str, str], bypass_cache: bool = Fal
             metadata={
                 "sync_mode": True,
                 "bypass_cache": bypass_cache
-            }
+            },
+            use_service_role=True
         )
         
         # Run the task synchronously (this will block)
@@ -107,7 +108,8 @@ def run_crew_async(job_id: str, inputs: Dict[str, str], bypass_cache: bool = Fal
             metadata={
                 "celery_task_id": celery_task_id,
                 "bypass_cache": bypass_cache
-            }
+            },
+            use_service_role=True
         )
 
         return celery_task_id
@@ -134,7 +136,7 @@ def cancel_crew_job(job_id: str) -> bool:
     SYNC_MODE = os.getenv("SYNC_MODE", "false").lower() in ("true", "1", "yes")
     
     # Get the job to find the Celery task ID
-    job = get_job(job_id)
+    job = get_job(job_id, use_service_role=True)
     if not job:
         logger.warning(f"Cannot cancel job {job_id}: Job not found")
         return False
@@ -146,7 +148,8 @@ def cancel_crew_job(job_id: str) -> bool:
             job_id,
             status="cancelled",
             status_message="Job cancelled by user (sync mode)",
-            error="Job was cancelled (sync mode - task may complete)"
+            error="Job was cancelled (sync mode - task may complete)",
+            use_service_role=True
         )
         return True
 
@@ -161,7 +164,8 @@ def cancel_crew_job(job_id: str) -> bool:
             job_id,
             status="cancelled",
             status_message="Job cancelled by user",
-            error="Job was cancelled (no active task found)"
+            error="Job was cancelled (no active task found)",
+            use_service_role=True
         )
         return False
 
@@ -173,7 +177,8 @@ def cancel_crew_job(job_id: str) -> bool:
             job_id,
             status="cancelled",
             status_message="Job cancelled by user",
-            error="Job was cancelled (Celery not available)"
+            error="Job was cancelled (Celery not available)",
+            use_service_role=True
         )
         return False
 
@@ -187,7 +192,8 @@ def cancel_crew_job(job_id: str) -> bool:
         job_id,
         status="cancelled",
         status_message="Job cancelled by user",
-        error="Job was cancelled before completion"
+        error="Job was cancelled before completion",
+        use_service_role=True
     )
 
     logger.info(f"Successfully cancelled job {job_id} (Celery task: {celery_task_id})")

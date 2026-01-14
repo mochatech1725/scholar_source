@@ -7,14 +7,14 @@ It handles job execution, worker management, and task routing.
 
 import os
 import ssl
-from dotenv import load_dotenv
+from backend.env_loader import load_environment
 from celery import Celery
 from celery.signals import worker_ready
 from kombu import Queue, Exchange
 from backend.logging_config import get_logger, configure_logging
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables
+load_environment()
 
 # Configure logging for Celery worker
 configure_logging(log_level="INFO")
@@ -49,10 +49,11 @@ else:
     logger.info(f"Broker URL: {REDIS_URL[:40]}...")
 
     # Initialize Celery app
+    # Note: result_backend=None because we store results in database, not Redis
     app = Celery(
         "scholar_source",
         broker=REDIS_URL,
-        backend=REDIS_URL,
+        backend=None,  # Results stored in database, not Redis
         include=["backend.tasks"]  # Module where tasks are defined
     )
 
@@ -73,9 +74,8 @@ if app is not None:
     enable_utc=True,
 
     # Result backend settings
-    result_backend=REDIS_URL,
-    result_expires=3600,  # Results expire after 1 hour
-    result_extended=True,  # Store more task metadata
+    # result_backend=None - Results stored in database, not Redis
+    # This saves Redis memory since we don't retrieve results from Celery
 
     # Task execution settings
     task_track_started=True,  # Track when tasks start
@@ -126,8 +126,8 @@ if app is not None:
     task_send_sent_event=True,
     
     # Error handling
-    task_ignore_result=False,  # Store results even for failed tasks
-    task_store_errors_even_if_ignored=True,
+    task_ignore_result=True,  # Don't store results in Redis - we use database instead
+    task_store_errors_even_if_ignored=True,  # Still store errors for debugging
 
     # Security (in production, consider message signing)
     # task_serializer='json' already set above

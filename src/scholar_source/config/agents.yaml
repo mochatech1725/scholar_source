@@ -11,7 +11,8 @@ course_intelligence_agent:
     to ensure downstream agents find relevant, on-target resources. You're skilled at
     parsing course websites, handling relative URLs, and finding authoritative information
     about textbooks and course materials.
-  llm: openai/gpt-4o
+  llm: openai/gpt-4o-mini
+  temperature: 0
   verbose: true
 
 resource_discovery_agent:
@@ -29,6 +30,7 @@ resource_discovery_agent:
     and established open education platforms. You're efficient with search tools and can
     quickly assess resource quality from titles, URLs, and source credibility.
   llm: openai/gpt-4o-mini
+  temperature: 0
   verbose: true
 
 resource_validator_agent:
@@ -45,6 +47,7 @@ resource_validator_agent:
     broken links, suspicious URLs, and off-topic content. You prioritize validation speed
     while maintaining high quality standards.
   llm: openai/gpt-4o-mini
+  temperature: 0
   verbose: true
 
 output_formatter_agent:
@@ -62,4 +65,5 @@ output_formatter_agent:
     resources and explain why each one matters. Your guides are concise yet comprehensive,
     actionable yet friendly.
   llm: openai/gpt-4o-mini
+  temperature: 0
   verbose: true

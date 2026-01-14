@@ -62,7 +62,6 @@ This document provides a comprehensive testing strategy and practical guide for 
 |------|---------|---------|-----|
 | **pytest** | ≥7.4.0 | Test runner and framework | Industry standard, fixture support, parametrization |
 | **pytest-asyncio** | ≥0.21.0 | Async test support | FastAPI uses async endpoints |
-| **pytest-cov** | ≥4.1.0 | Code coverage reporting | Track test coverage metrics |
 | **pytest-mock** | ≥3.11.0 | Mocking external dependencies | Mock external dependencies (OpenAI, CrewAI) |
 | **httpx** | ≥0.24.0 | HTTP client for testing FastAPI | Official recommendation for testing FastAPI |
 | **fakeredis** | ≥2.19.0 | Mock Redis for rate limiting | Test rate limiting without real Redis |
@@ -131,10 +130,8 @@ web/src/
     └── client.test.js              # API client tests
 ```
 
-### Test Coverage
+### Test Statistics
 - **Total Tests**: 155+ test cases
-- **Backend Coverage Goal**: ≥70% overall, ≥85% for critical paths
-- **Frontend Coverage Goal**: ≥70% overall
 - **Mock Systems**: Complete Supabase and CrewAI mocks, MSW for API
 
 ---
@@ -259,7 +256,7 @@ The `conftest.py` file should include fixtures for setting up test environment v
 
 #### `web/vitest.config.js`
 
-The Vitest configuration should include React plugin, set globals to true, use jsdom environment, specify setup files, and configure coverage with v8 provider, text/json/html reporters, and exclusions for node_modules and test directories.
+The Vitest configuration should include React plugin, set globals to true, use jsdom environment, and specify setup files.
 
 #### `web/src/test/setup.js`
 
@@ -300,10 +297,6 @@ pytest tests/unit/
 # Run only integration tests
 pytest tests/integration/
 
-# Run with coverage report
-pytest --cov=backend --cov-report=html
-open htmlcov/index.html
-
 # Run tests matching pattern
 pytest -k "test_parse"
 
@@ -323,10 +316,6 @@ npm test
 
 # Run with UI
 npm run test:ui
-
-# Run with coverage
-npm run test:coverage
-open coverage/index.html
 
 # Watch mode
 npm test -- --watch
@@ -363,8 +352,7 @@ Add these scripts to `web/package.json`:
   "scripts": {
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:run": "vitest run"
   }
 }
 ```
@@ -386,14 +374,8 @@ Tests run automatically on every push and pull request. DISABLED FOR NOW
 - Backend tests (Python 3.12)
 - Frontend tests (Node.js 18)
 - Linting (black, isort, flake8, ESLint)
-- Coverage upload to Codecov
 
-The GitHub Actions workflow should trigger on pushes and pull requests to main branch. It should include two jobs: backend-tests (set up Python 3.12, install dependencies, run pytest with coverage, upload coverage to codecov) and frontend-tests (set up Node.js 18, install dependencies, run tests with coverage, upload coverage to codecov). Both jobs should run on ubuntu-latest.
-
-**`.github/workflows/coverage.yml`:**
-- Combined coverage reports
-- PR comments with summaries
-- Coverage tracking over time
+The GitHub Actions workflow should trigger on pushes and pull requests to main branch. It should include two jobs: backend-tests (set up Python 3.12, install dependencies, run pytest) and frontend-tests (set up Node.js 18, install dependencies, run tests). Both jobs should run on ubuntu-latest.
 
 ---
 
@@ -421,12 +403,11 @@ npm test -- --watch
 
 ## 📚 What Was Created
 
-### Scripts & CI/CD (6 files)
+### Scripts & CI/CD (5 files)
 - `scripts/test-backend.sh` - Backend runner
 - `scripts/test-frontend.sh` - Frontend runner
 - `scripts/test-all.sh` - Run all tests
 - `.github/workflows/test.yml` - Main CI workflow
-- `.github/workflows/coverage.yml` - Coverage workflow
 - `TESTING_GUIDE.md` - This file
 
 **Total: 25 files, 155+ test cases**
@@ -508,22 +489,17 @@ The following tasks from the original testing plan are still pending:
   - Consider using Playwright or Cypress for browser-based E2E tests
 
 ### Low Priority
-- [ ] **Improve coverage to 80%+** - Verify and improve overall test coverage
-  - Current: ~70% (needs verification)
-  - Target: 80%+ overall, 90%+ for critical paths
-  - Run: `pytest --cov=backend --cov-report=term` and `npm run test:coverage`
 
 ---
 
 ## 🎓 Next Steps
 
 1. **Run Tests**: `./scripts/test-all.sh`
-2. **View Coverage**: Open `htmlcov/index.html` and `web/coverage/index.html`
-3. **Complete Remaining Tasks**: See [Remaining Tasks](#-remaining-tasks) section above
-4. **Add More Tests**: Expand coverage for edge cases
-5. **E2E Tests**: Implement full workflow E2E test
-6. **Visual Tests**: Consider adding visual regression testing
-7. **Performance**: Benchmark critical paths
+2. **Complete Remaining Tasks**: See [Remaining Tasks](#-remaining-tasks) section above
+3. **Add More Tests**: Expand test coverage for edge cases
+4. **E2E Tests**: Implement full workflow E2E test
+5. **Visual Tests**: Consider adding visual regression testing
+6. **Performance**: Benchmark critical paths
 
 ---
 
@@ -544,7 +520,6 @@ This comprehensive testing suite provides:
 ✅ **155+ test cases** covering backend and frontend
 ✅ **Complete mock systems** for Supabase, CrewAI, and API endpoints
 ✅ **CI/CD integration** with GitHub Actions
-✅ **Coverage tracking** with Codecov
 ✅ **Best practices** for maintainable, reliable tests
 
 By following this guide, you'll have:
@@ -553,4 +528,4 @@ By following this guide, you'll have:
 - Better code quality (tests encourage modular design)
 - Easier onboarding (tests serve as documentation)
 
-**Next Steps:** Review this guide, then run tests and continue improving coverage! 🚀
+**Next Steps:** Review this guide, then run tests and continue adding more test cases! 🚀

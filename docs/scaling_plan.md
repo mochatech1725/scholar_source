@@ -201,48 +201,63 @@ Migration from thread-based job execution to a distributed task queue architectu
 
 ```
 ┌─────────────┐
-│   Frontend  │ (React/Vite)
+│   Frontend  │ (React/Vite - Cloudflare Pages)
 └──────┬──────┘
        │ HTTP/REST
 ┌──────▼─────────────────────────────────────────┐
 │        FastAPI API Layer (Multiple Instances)  │
 │  ┌──────────────────────────────────────────┐  │
 │  │ API Endpoints (Stateless)                │  │
-│  │  - /api/submit → Enqueue job             │  │
+│  │  - /api/submit → Enqueue job to Celery   │  │
 │  │  - /api/status/{job_id} → DB query       │  │
-│  │  - /api/cancel/{job_id} → Cancel queue   │  │
+│  │  - /api/cancel/{job_id} → Cancel Celery  │  │
 │  └──────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────┐  │
 │  │ Rate Limiting (Redis-backed)             │  │
-│  │  - Shared state across instances         │  │
+│  │  - Shared state across API instances     │  │
 │  └──────────────────────────────────────────┘  │
 └──────┬─────────────────────────────────────────┘
        │
-┌──────▼─────────────────────────────────────────┐
-│           Redis (Task Queue + Rate Limit)      │
-│  - Job Queue: Enqueued jobs                    │
-│  - Rate Limit: Shared rate limit state         │
-│  - Result Backend: Optional result storage     │
-└──────┬─────────────────────────────────────────┘
+       │ Celery Task Enqueue (via Redis)
        │
 ┌──────▼─────────────────────────────────────────┐
-│     Worker Processes (Multiple Instances)      │
+│      Redis (Celery Message Broker/Backend)     │
 │  ┌──────────────────────────────────────────┐  │
-│  │ Worker 1: Consumes jobs from queue       │  │
-│  │ Worker 2: Consumes jobs from queue       │  │
-│  │ Worker N: Consumes jobs from queue       │  │
-│  │  - Each runs CrewAI execution            │  │
-│  │  - Updates job status in DB              │  │
-│  │  - Process isolation                     │  │
+│  │ Celery Task Queue: Stores enqueued jobs  │  │
+│  │ Rate Limit State: Shared across instances │  │
+│  │ Result Backend: Optional task results    │  │
 │  └──────────────────────────────────────────┘  │
 └──────┬─────────────────────────────────────────┘
+       │
+       │ Workers consume jobs from queue
+       │ (Workers continuously poll Redis for new jobs)
+       │
+┌──────▼─────────────────────────────────────────┐
+│   Celery Worker Processes (Multiple Instances) │
+│  ┌──────────────────────────────────────────┐  │
+│  │ Worker 1: Polls Redis, executes jobs      │  │
+│  │ Worker 2: Polls Redis, executes jobs      │  │
+│  │ Worker N: Polls Redis, executes jobs      │  │
+│  │  - Each worker runs CrewAI execution      │  │
+│  │  - Updates job status in DB               │  │
+│  │  - Process isolation (separate from API)  │  │
+│  └──────────────────────────────────────────┘  │
+└──────┬─────────────────────────────────────────┘
+       │
+       │ Job Status Updates
        │
 ┌──────▼─────────────────────────────────────────┐
 │            Supabase PostgreSQL                 │
-│  - jobs table                                  │
-│  - course_cache table                          │
+│  - jobs table (job status, results)            │
+│  - course_cache table (analysis cache)        │
 └────────────────────────────────────────────────┘
 ```
+
+**Key Architecture Changes:**
+- **API Layer**: Stateless, can scale horizontally. Jobs are enqueued to Celery instead of executing immediately.
+- **Redis**: Serves as Celery's message broker (task queue) and result backend. Also stores shared rate limit state.
+- **Celery Workers**: Separate processes that consume jobs from Redis queue and execute CrewAI tasks independently.
+- **Process Isolation**: API and workers run in separate processes, enabling independent scaling and fault isolation.
 
 ### 4.2 Scaling Dimensions
 

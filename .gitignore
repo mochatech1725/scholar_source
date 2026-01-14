@@ -1,8 +1,16 @@
 # Environment variables (secrets - never commit)
 .env
-.env.local
+.env.*
 *.env.local
-web/.env.local
+web/.env.*
+
+# Additional secrets and sensitive files
+.secrets/
+*.secret
+*.key
+*.pem
+secrets.json
+credentials.json
 
 # Python cache
 __pycache__/
@@ -24,6 +32,11 @@ dist/
 wheels/
 *.egg
 
+# Dependency lock files (if using alternative package managers)
+Pipfile.lock
+uv.lock
+poetry.lock
+
 # PyInstaller
 *.manifest
 *.spec
@@ -42,15 +55,16 @@ coverage.xml
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# pyenv
-.python-version
-
 # IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# Additional IDE secrets
+.vscode/secrets.json
+.idea/workspace.xml
 
 # OS
 .DS_Store
@@ -63,3 +77,11 @@ logs/
 web/.env.dev
 web/.env.production
 web/.env.development
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.sql.backup
+

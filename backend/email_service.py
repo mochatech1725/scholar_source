@@ -5,13 +5,15 @@ Handles sending email notifications when jobs complete.
 Uses Resend for email delivery.
 """
 
+import html
 import os
 from typing import List, Dict, Any
 import resend
-from dotenv import load_dotenv
+from backend.env_loader import load_environment
 from backend.logging_config import get_logger
 
-load_dotenv()
+# Load environment variables
+load_environment()
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -87,12 +89,17 @@ def _build_email_html(
     # Build resource list HTML
     resources_html = ""
     for resource in resources:
-        resource_type = resource.get("type", "Resource")
-        title = resource.get("title", "Untitled")
-        url = resource.get("url", "#")
-        source = resource.get("source", "Unknown")
-        description = resource.get("description", "")
+        # Escape all user-provided data to prevent HTML injection
+        resource_type = html.escape(resource.get("type", "Resource"))
+        title = html.escape(resource.get("title", "Untitled"))
+        url_raw = resource.get("url", "#")
+        url = html.escape(url_raw)  # Escape for display
+        source = html.escape(resource.get("source", "Unknown"))
+        description_raw = resource.get("description", "")
+        description = html.escape(description_raw) if description_raw else ""
 
+        # Note: url_raw is used in href attribute (already a URL context)
+        # but we still use the escaped version for display text
         resources_html += f"""
         <div style="margin-bottom: 20px; padding: 15px; background-color: #f9fafb; border-left: 4px solid #3b82f6; border-radius: 4px;">
             <div style="margin-bottom: 8px;">
@@ -102,7 +109,7 @@ def _build_email_html(
                 <strong style="font-size: 16px; color: #1f2937;">{title}</strong>
             </div>
             <div style="margin-bottom: 8px;">
-                <a href="{url}" style="color: #3b82f6; text-decoration: none; word-break: break-all;">
+                <a href="{url_raw}" style="color: #3b82f6; text-decoration: none; word-break: break-all;">
                     {url}
                 </a>
             </div>
@@ -113,8 +120,12 @@ def _build_email_html(
         </div>
         """
 
+    # Escape search_title and job_id to prevent HTML injection
+    search_title_escaped = html.escape(search_title)
+    job_id_escaped = html.escape(job_id)
+
     # Build full email HTML
-    html = f"""
+    email_html = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -133,7 +144,7 @@ def _build_email_html(
             <!-- Search Title -->
             <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
                 <h2 style="margin: 0 0 10px 0; font-size: 20px; color: #1e40af;">
-                    {search_title}
+                    {search_title_escaped}
                 </h2>
                 <p style="margin: 0; color: #6b7280; font-size: 14px;">
                     We found {len(resources)} resource{"s" if len(resources) != 1 else ""} for you
@@ -158,7 +169,7 @@ def _build_email_html(
             <!-- Footer -->
             <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb;">
                 <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-                    Job ID: {job_id}
+                    Job ID: {job_id_escaped}
                 </p>
                 <p style="margin: 10px 0 0 0; color: #9ca3af; font-size: 12px;">
                     This email was sent because you requested results from ScholarSource.
@@ -169,4 +180,4 @@ def _build_email_html(
     </html>
     """
 
-    return html
+    return email_html

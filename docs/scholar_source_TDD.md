@@ -118,82 +118,113 @@ Deletes jobs older than specified number of days.
 
 #### 2.1.2 Job Management Flow
 
-The job management system coordinates job submission, execution, and status tracking through a combination of database state, background threads, and API endpoints.
+The job management system coordinates job submission, execution, and status tracking through a distributed task queue architecture with Celery, Redis, and Supabase.
 
-**1. Job Submission (`/api/submit`)**
-- Client POSTs job request to API endpoint
-- API validates inputs and checks rate limits
-- `create_job()` creates job record in Supabase with `status: "pending"`
-- API immediately returns `job_id` to client
-- `run_crew_async()` is called (non-blocking) to start background execution
+**Request Flow:**
 
-**2. Background Execution**
-- `run_crew_async()` spawns a daemon thread that runs `_run_crew_worker()`
-- API returns immediately while thread executes independently
-- Thread creates its own event loop for async execution
+1. **Client submits job** → POST `/api/submit`
+   - API validates input and checks rate limits (Redis-backed)
+   - `create_job()` creates job record in Supabase with `status: "pending"`
+   - `run_crew_async()` enqueues job to Celery queue (via `run_crew_task.apply_async()`)
+   - API returns `job_id` immediately (200 OK)
 
-**3. Job Execution (in background thread)**
-- Thread updates job status to `"running"` in Supabase via `update_job_status()`
-- CrewAI execution begins (LLM calls, web scraping, resource discovery)
-- Execution takes 2-10 minutes depending on complexity
-- Thread periodically updates `status_message` during execution
-- On completion: updates status to `"completed"` with results via `update_job_status()`
-- On failure: updates status to `"failed"` with error message via `update_job_status()`
+2. **API enqueues Celery task** → Job stored in Redis queue
+   - Job status updated to `"queued"` in Supabase
+   - Task metadata stored (celery_task_id, bypass_cache)
+   - API response returned immediately (non-blocking)
 
-**4. Status Polling (`/api/status/{job_id}`)**
-- Client polls this endpoint repeatedly to check job progress
-- API queries Supabase by `job_id` using `get_job()`
-- Returns current status, results (if completed), or error (if failed)
-- No direct communication between API and worker thread
+3. **Celery worker picks up task** → Worker consumes job from Redis queue
+   - Worker process polls Redis for jobs from `crew_jobs` queue
+   - Worker selects job based on queue and priority
+   - `run_crew_task()` executes in separate worker process
+
+4. **Worker executes CrewAI** → `run_crew_task()` runs multi-agent workflow
+   - Worker updates job status to `"running"` in Supabase
+   - CrewAI execution begins (LLM calls, web scraping, resource discovery)
+   - Execution takes 2-10 minutes depending on complexity
+   - Worker periodically updates `status_message` during execution
+
+5. **Worker updates job status** → Updates stored in Supabase database
+   - On completion: updates status to `"completed"` with results via `update_job_status()`
+   - On failure: updates status to `"failed"` with error message via `update_job_status()`
+   - Status messages include progress updates during execution
+
+6. **Client polls status** → GET `/api/status/{job_id}`
+   - Client polls this endpoint repeatedly (every 2 seconds) to check job progress
+   - API queries Supabase by `job_id` using `get_job()`
+   - Returns current status, results (if completed), or error (if failed)
+   - No direct communication between API and worker processes (database acts as coordination point)
 
 **Key Characteristics:**
 - **State Storage:** Supabase `jobs` table serves as the single source of truth for job state
-- **Execution Model:** Daemon threads (not async tasks, not a queue system)
-- **Communication:** Worker thread writes directly to Supabase; no inter-process communication
-- **No Queue:** Jobs start immediately when submitted (no queuing mechanism)
-- **No Cleanup:** Daemon threads exit automatically when execution completes; no explicit cleanup needed
+- **Execution Model:** Distributed task queue with Celery workers (separate processes, not threads)
+- **Communication:** Worker processes write to Supabase; Redis queue coordinates job distribution
+- **Queue System:** Jobs are queued in Redis, distributed across available workers
+- **Process Isolation:** Worker crashes don't affect API availability; jobs can be retried
+- **Scalability:** API and worker layers can scale independently based on demand
 
-The job record in Supabase acts as the coordination point between the API (which creates jobs and handles status polling) and the worker thread (which executes the CrewAI workflow and updates job status).
+The job record in Supabase acts as the coordination point between the API (which creates jobs and handles status polling) and the Celery worker processes (which execute the CrewAI workflow and update job status).
 
 ### 2.2 Crew Runner Component (`backend/crew_runner.py`)
 
 #### 2.2.1 Function Signatures
 
-**`run_crew_async(job_id: str, inputs: Dict[str, str], bypass_cache: bool = False) -> None`**
+**`run_crew_async(job_id: str, inputs: Dict[str, str], bypass_cache: bool = False) -> str`**
 
-Runs the ScholarSource crew asynchronously with cancellation support.
+Enqueues a ScholarSource crew job to the Celery task queue, or runs synchronously if in SYNC_MODE.
 
 - **Function flow:**
-  1. Updates job status to 'running'
-  2. Executes the crew with provided inputs using `kickoff_async()`
-  3. Parses the markdown output into structured resources
-  4. Updates job with results or error
-  5. Supports cancellation via `cancel_crew_job()`
+  1. Validates job exists and is in correct status
+  2. If SYNC_MODE: Runs job synchronously in current process (development only)
+  3. If Celery mode: Enqueues job to Celery queue via `run_crew_task.apply_async()`
+  4. Updates job status to 'queued' with Celery task ID
+  5. Returns Celery task ID (or "sync" in SYNC_MODE)
 - **Parameters:**
   - `job_id`: UUID of the job to run
   - `inputs`: Dictionary of course input parameters
   - `bypass_cache`: If True, bypass cache and get fresh results
+- **Returns:**
+  - `str`: Celery task ID (in async mode) or "sync" (in sync mode)
 
 **Implementation Details:**
-- Creates new thread with daemon=True
-- Creates new event loop in thread (asyncio.new_event_loop())
-- Calls `_run_crew_worker()` in the event loop
-- Thread runs independently of main process
+- Enqueues job to Celery queue using `run_crew_task.apply_async()`
+- Job routed to `crew_jobs` queue with default priority
+- Celery task ID stored in job metadata for cancellation tracking
+- Returns immediately after enqueuing (non-blocking)
 
-**`_run_crew_worker(job_id: str, inputs: Dict[str, str], bypass_cache: bool = False) -> None` (async)**
+### 2.3 Celery Task Component (`backend/tasks.py`)
 
-Worker function that runs in background thread.
+#### 2.3.1 Function Signatures
 
+**`run_crew_task(job_id: str, inputs: Dict[str, str], bypass_cache: bool = False) -> Dict[str, any]` (Celery Task)**
+
+Celery task that executes the ScholarSource crew. Runs in separate worker process.
+
+- **Function flow:**
+  1. Updates job status to 'running'
+  2. Checks cache (if not bypassed) using `get_cached_analysis()`
+  3. Executes the crew with provided inputs using `kickoff_async()`
+  4. Parses the markdown output into structured resources
+  5. Updates job with results or error
+  6. Supports cancellation via Celery's revoke mechanism
 - **Parameters:**
-  - `job_id`: UUID of the job
-  - `inputs`: Course input parameters
+  - `job_id`: UUID of the job to run
+  - `inputs`: Dictionary of course input parameters
   - `bypass_cache`: If True, bypass cache and get fresh results
+- **Returns:**
+  - `Dict[str, any]`: Status and results/error information
+
+**Implementation Details:**
+- Decorated with `@app.task()` making it a Celery task
+- Runs in separate worker process (not in API process)
+- Handles retries automatically (max 3 retries, 60s delay)
+- Updates job status via `update_job_status()` throughout execution
 
 **Execution Flow:**
 1. Check if job was cancelled before starting
-2. Check cache (if not bypassed) using `get_cached_analysis()`
-3. If cache hit and valid, update job with cached results and return
-4. Update job status to 'running'
+2. Update job status to 'running'
+3. Check cache (if not bypassed) using `get_cached_analysis()`
+4. If cache hit and valid, use cached results, skip to parsing
 5. Create ScholarSource crew instance
 6. Execute crew with `crew().kickoff_async(inputs=inputs)`
 7. Store async task in `_active_tasks` dict for cancellation
@@ -999,62 +1030,104 @@ Rate limiting is integrated into FastAPI by:
 
 ### 8.2 Multi-Instance Deployment Considerations
 
-#### 8.2.1 Critical Warning
+#### 8.2.1 Current Scalable Architecture
 
-**⚠️ CRITICAL: In-memory rate limiting ONLY works for single-instance deployments!**
+**✅ The system now uses a distributed task queue architecture with Celery and Redis:**
 
-**If you scale to multiple Railway instances (2+):**
-- ❌ **In-memory rate limiting WILL NOT WORK**
-- ❌ Rate limits will become ineffective (users can bypass by refreshing)
-- ✅ **You MUST migrate to Redis BEFORE scaling**
+- **API Layer** (FastAPI Backend service): Stateless, can scale horizontally
+- **Worker Layer** (Celery service): Celery creates separate processes that execute jobs.  Celery service can scale independently of FastAPI service.
+- **Redis**: Required for both task queuing (Celery broker) and rate limiting (shared state)
 
-**Example with 2 instances:**
+**Architecture Benefits:**
+- ✅ **Independent Scaling**: Scale API and Worker instances separately based on demand
+- ✅ **Process Isolation**: Worker crashes don't affect API availability
+- ✅ **Shared Rate Limiting**: Redis-backed rate limiting works across all API instances
+- ✅ **Task Distribution**: Jobs automatically distributed across available workers
+- ✅ **Fault Tolerance**: Jobs persist in Redis queue, can be retried if worker fails
 
-User makes 10 requests → Load balancer routes 5 to Instance A, 5 to Instance B. Instance A counts 5 requests (within limit), Instance B counts 5 requests (within limit). Actual total: 10 requests (should have been blocked at request #10). Result: Rate limit is 2× what you intended!
+#### 8.2.2 Redis Requirements
 
-#### 8.2.2 Redis Migration Guide
+**Redis is REQUIRED (not optional) for the current architecture:**
 
-**When to Switch to Redis:**
-- ✅ **BEFORE** scaling to 2+ Railway instances (not optional!)
-- When you need persistent rate limits across restarts
-- When you implement user authentication (track by user ID)
+1. **Celery Message Broker**: Stores enqueued jobs in task queues
+2. **Celery Result Backend**: Optional task result storage
+3. **Rate Limiting**: Shared state across all API instances
 
-**Migration Steps:**
+**Without Redis:**
+- ❌ Celery workers cannot receive jobs
+- ❌ Rate limiting falls back to in-memory (single-instance only)
+- ⚠️ System can run in `SYNC_MODE` (development only, not for production)
 
-1. **Add Railway Redis Service:**
+#### 8.2.3 Scaling Strategy
+
+**API Layer Scaling:**
+- Scale API instances based on HTTP request volume
+- All instances share Redis for rate limiting (consistent limits)
+- Stateless design allows horizontal scaling behind load balancer
+- Each instance can handle job submission (enqueues to Redis)
+
+**Worker Layer Scaling:**
+- Scale worker instances based on queue depth and job volume
+- Workers automatically consume jobs from Redis queue
+- Each worker can process multiple jobs concurrently (configurable)
+- Workers update job status in shared database
+
+**Example Scaling Scenario:**
+
+```
+Initial Setup:
+- 1 API instance (handles requests)
+- 1 Worker instance (2 concurrent jobs)
+
+High Load:
+- 3 API instances (handle more requests)
+- 5 Worker instances (10 concurrent jobs total)
+- 1 Redis instance (shared by all)
+```
+
+#### 8.2.4 Redis Setup for Production
+
+**Railway Deployment:**
+
+1. **Add Redis Service:**
    - Go to Railway Dashboard → "+ New" → "Database" → "Add Redis"
-   - Railway will provision a Redis instance (~$5-10/month)
+   - Or use external Redis Cloud service (recommended)
    - Copy the `REDIS_URL` connection string
 
-2. **Set Environment Variable:**
-   - Go to Railway dashboard → Variables tab
-   - Add `REDIS_URL` environment variable
-   - Value: `redis://default:password@red-xxxxx.railway.app:6379`
+2. **Set Environment Variables:**
+   - **Backend Service**: Add `REDIS_URL` environment variable
+   - **Celery Service**: Add `REDIS_URL` environment variable (same value)
+   - Value format: `redis://default:password@red-xxxxx.railway.app:6379`
 
-3. **Verify Redis Connection:**
-   - Check deployment logs for: `✅ Rate limiting: Redis (multi-instance mode)`
-   - If you see this message, Redis is working correctly
+3. **Verify Configuration:**
+   - **API logs**: Should show `✅ Rate limiting: Redis (multi-instance mode)`
+   - **Worker logs**: Should show `🚀 CELERY APP MODULE LOADED` and successful Redis connection
+   - **Health check**: `/api/health/workers` should show available workers
 
-4. **Test Rate Limiting:**
+4. **Test Multi-Instance Behavior:**
+   - Deploy 2+ API instances
    - Make requests from same IP
-   - Verify rate limits work across instances
-   - Should get 429 at request #11 (not #21)
+   - Verify rate limits work consistently across instances
+   - Submit multiple jobs and verify they're distributed to workers
 
-**Rollback Plan:**
-- Remove `REDIS_URL` from Railway variables
-- App automatically falls back to in-memory
-- Scale down to 1 instance temporarily until Redis is fixed
+**External Redis Options:**
+- **Redis Cloud**: Managed service, free tier available
+- **Upstash**: Serverless Redis, pay-per-use
+- **Railway Redis**: Integrated with Railway platform
 
 ### 8.3 Rate Limiting Configuration
 
 **Environment Variables:**
 
-Optional `REDIS_URL` environment variable for multi-instance deployments. Format: `redis://default:password@red-xxxxx.railway.app:6379`
+**Required `REDIS_URL` environment variable** for production deployments. Format: `redis://default:password@red-xxxxx.railway.app:6379`
+
+**Note:** In development, the system can run without Redis using `SYNC_MODE=true`, but this is not suitable for production multi-instance deployments.
 
 **Code Configuration:**
 - Limits are hardcoded in endpoint decorators
 - Can be made configurable via environment variables if needed
-- Default fallback: 1000 requests/hour
+- Redis-backed rate limiting provides consistent limits across all API instances
+- Rate limit state is shared via Redis, ensuring accurate enforcement in multi-instance deployments
 
 ---
 
@@ -1078,11 +1151,10 @@ Optional `REDIS_URL` environment variable for multi-instance deployments. Format
     - `test_job_lifecycle.py` - Job workflow tests
   - `e2e/` - End-to-end tests (future)
 
-**Test Coverage Goals:**
-- Markdown Parser: 90%+
-- API Endpoints: 85%+
-- Models: 80%+
-- Overall Backend: ≥70%
+**Test Quality Goals:**
+- Comprehensive test coverage for Markdown Parser
+- Thorough testing of API Endpoints
+- Complete validation testing for Models
 
 #### 9.1.2 Frontend Test Structure
 
@@ -1097,9 +1169,9 @@ Optional `REDIS_URL` environment variable for multi-instance deployments. Format
 - `web/src/api/` - API client tests
   - `client.test.js` - API client tests
 
-**Test Coverage Goals:**
-- UI Components: 70%+
-- Overall Frontend: ≥70%
+**Test Quality Goals:**
+- Comprehensive testing of UI Components
+- Thorough testing of API client functionality
 
 ### 9.2 Test Tools and Configuration
 
@@ -1108,7 +1180,6 @@ Optional `REDIS_URL` environment variable for multi-instance deployments. Format
 **Tools:**
 - **pytest** (≥7.4.0) - Test runner and framework
 - **pytest-asyncio** (≥0.21.0) - Async test support for FastAPI
-- **pytest-cov** (≥4.1.0) - Code coverage reporting
 - **pytest-mock** (≥3.11.0) - Mocking external dependencies
 - **httpx** (≥0.24.0) - HTTP client for testing FastAPI
 - **fakeredis** (≥2.19.0) - Mock Redis for rate limiting
@@ -1118,7 +1189,7 @@ Optional `REDIS_URL` environment variable for multi-instance deployments. Format
 
 Configuration includes:
 - testpaths set to 'tests'
-- adopts: verbose mode, coverage for backend module, HTML coverage report
+- adopts: verbose mode
 - asyncio_mode set to 'auto'
 
 **Installation:**
@@ -1142,7 +1213,7 @@ Configuration includes:
 - test environment: 'jsdom'
 - globals: true
 - setupFiles: './src/test/setup.js'
-- coverage provider: 'v8' with text, json, and html reporters
+- test environment and configuration
 
 **Installation:**
 
@@ -1186,23 +1257,11 @@ Run via `./scripts/test-all.sh`
 
 - Run all: `./scripts/test-backend.sh` or `pytest`
 - Run specific file: `pytest tests/unit/test_markdown_parser.py`
-- With coverage: `pytest --cov=backend --cov-report=html`
 
 **Frontend Tests:**
 
 - Run all: `cd web && npm test`
 - With UI: `npm run test:ui`
-- With coverage: `npm run test:coverage`
-
-#### 9.4.2 Coverage Reports
-
-**Backend:**
-
-Run `pytest --cov=backend --cov-report=html` then open `htmlcov/index.html`
-
-**Frontend:**
-
-Run `cd web && npm run test:coverage` then open `coverage/index.html`
 
 ## 10. References
 

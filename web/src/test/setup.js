@@ -35,7 +35,7 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock IntersectionObserver (if needed for lazy loading)
-global.IntersectionObserver = class IntersectionObserver {
+globalThis.IntersectionObserver = class IntersectionObserver {
   constructor() {}
   disconnect() {}
   observe() {}
@@ -54,7 +54,7 @@ Object.assign(navigator, {
 });
 
 // Mock console methods to reduce noise in tests (optional)
-global.console = {
+globalThis.console = {
   ...console,
   // Uncomment to suppress console logs in tests:
   // log: vi.fn(),
@@ -64,5 +64,5 @@ global.console = {
   // error: vi.fn(),
 };
 
-// Set up environment variables for tests
-process.env.VITE_API_URL = 'http://localhost:8000';
+// Environment variables are configured in vitest.config.js
+// Vite uses import.meta.env, which is automatically available in tests

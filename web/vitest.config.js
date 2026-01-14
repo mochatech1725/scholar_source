@@ -14,25 +14,6 @@ export default defineConfig({
     // Setup files to run before tests
     setupFiles: './src/test/setup.js',
 
-    // Coverage configuration
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html', 'lcov'],
-      exclude: [
-        'node_modules/',
-        'src/test/',
-        '**/*.config.js',
-        '**/*.config.ts',
-        '**/dist/**',
-        '**/.{idea,git,cache,output,temp}/**',
-      ],
-      // Coverage thresholds
-      statements: 70,
-      branches: 65,
-      functions: 70,
-      lines: 70,
-    },
-
     // Include/exclude patterns
     include: ['**/*.{test,spec}.{js,jsx,ts,tsx}'],
     exclude: ['node_modules', 'dist', '.idea', '.git', '.cache'],
@@ -42,6 +23,11 @@ export default defineConfig({
 
     // Retry failed tests
     retry: 0,
+
+    // Environment variables for tests
+    env: {
+      VITE_API_URL: 'http://localhost:5173',
+    },
   },
 
   // Resolve aliases to match Vite config

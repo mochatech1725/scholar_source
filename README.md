@@ -55,6 +55,20 @@ scholar_source/
 
 ---
 
+## Security Features
+
+ScholarSource implements enterprise-grade security measures:
+
+- **🔐 Authentication Required** - All API endpoints require valid Supabase JWT tokens
+- **🛡️ Input Validation** - Comprehensive validation and sanitization of all user inputs
+- **🚫 Prompt Injection Protection** - Multi-layer detection of malicious prompt patterns
+- **🔒 Row-Level Security (RLS)** - Users can only access their own jobs and data
+- **✉️ XSS Prevention** - HTML escaping in email notifications
+- **📦 Dependency Pinning** - All dependencies pinned to specific versions
+- **⚡ Rate Limiting** - Protection against abuse and DoS attacks
+
+---
+
 ## Installation
 
 ### Prerequisites
@@ -105,7 +119,14 @@ scholar_source/
    python -c "import fastapi, crewai, supabase; print('✅ All dependencies installed')"
    ```
 
-3. **Set up environment variables** (create `.env` file in project root):
+3. **Set up environment variables**:
+
+   Copy the example file and fill in your credentials:
+   ```bash
+   cp .env.example .env
+   ```
+
+   **Required variables:**
    ```bash
    # OpenAI API (required)
    OPENAI_API_KEY=your_openai_api_key_here
@@ -115,7 +136,11 @@ scholar_source/
 
    # Supabase Database (required)
    SUPABASE_URL=https://your-project-id.supabase.co
-   SUPABASE_KEY=your_supabase_anon_key_here
+   SUPABASE_ANON_KEY=your_supabase_anon_key_here
+
+   # Supabase JWT Secret (required for authentication)
+   # Get from: Supabase Dashboard > Settings > API > JWT Secret
+   SUPABASE_JWT_SECRET=your_supabase_jwt_secret_here
 
    # Optional: Cache TTL configuration
    COURSE_ANALYSIS_TTL_DAYS=30
@@ -127,6 +152,15 @@ scholar_source/
    # Optional: CORS allowed origins (comma-separated)
    ALLOWED_ORIGINS=http://localhost:5173,https://your-frontend-domain.com
    ```
+
+   **Getting your Supabase credentials:**
+   1. Go to [Supabase Dashboard](https://app.supabase.com)
+   2. Select your project
+   3. Go to **Settings > API**
+   4. Copy:
+      - **Project URL** → `SUPABASE_URL`
+      - **anon/public key** → `SUPABASE_ANON_KEY`
+      - **JWT Secret** → `SUPABASE_JWT_SECRET` (scroll down to find it)
 
 4. **Set up Supabase database:**
    - Create a new Supabase project at https://supabase.com
@@ -172,10 +206,75 @@ scholar_source/
    npm list react vite tailwindcss
    ```
 
-3. **Create environment file** (`web/.env.local`):
+3. **Create environment file**:
+
+   Copy the example file and fill in your credentials:
    ```bash
-   VITE_API_URL=http://localhost:8000
+   cp .env.example .env.local
    ```
+
+   **Required variables** (`web/.env.local`):
+   ```bash
+   # Backend API URL
+   VITE_API_URL=http://localhost:8000
+
+   # Supabase credentials (same as backend)
+   VITE_SUPABASE_URL=https://your-project-id.supabase.co
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+   ```
+
+   **Note:** These must match your backend Supabase credentials for authentication to work.
+
+---
+
+## Authentication Setup
+
+ScholarSource requires user authentication for all operations. Users must sign up and log in before submitting jobs.
+
+### First-Time Setup
+
+1. **Start both backend and frontend** (see "Running the Application" below)
+
+2. **Create your first user account:**
+   - Open http://localhost:5173 in your browser
+   - You'll see the login/signup page
+   - Click **Sign Up** tab
+   - Enter your email and password
+   - Check your email for the confirmation link (if email confirmation is enabled in Supabase)
+   - Log in with your credentials
+
+3. **Verify authentication is working:**
+   - After logging in, you should see the course input form
+   - Submit a test job to ensure everything works
+   - Your jobs are private and only visible to you
+
+### Managing Users
+
+**Creating test users for development:**
+```bash
+# Option 1: Via the web UI (recommended)
+# Just use the signup form at http://localhost:5173
+
+# Option 2: Via Supabase Dashboard
+# Go to Authentication > Users > Add User
+```
+
+**Disabling email confirmation for local development:**
+1. Go to **Supabase Dashboard > Authentication > Providers > Email**
+2. Toggle off "Confirm email"
+3. Users can sign up without email verification
+
+**Resetting passwords:**
+- Users can use the "Forgot Password" link (if implemented)
+- Or reset via **Supabase Dashboard > Authentication > Users > [User] > Reset Password**
+
+### Security Best Practices
+
+- **Never share JWT secrets** - Keep `SUPABASE_JWT_SECRET` private
+- **Use strong passwords** - Supabase enforces minimum password requirements
+- **Enable email confirmation in production** - Prevents fake accounts
+- **Monitor authentication logs** - Check Supabase Dashboard > Authentication > Logs
+- **Rotate API keys regularly** - Especially if compromised
 
 ---
 
@@ -293,18 +392,31 @@ Open http://localhost:5173 in your browser - you should see the course input for
 
 ## Environment Variables Reference
 
+### Backend (.env)
+
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | `OPENAI_API_KEY` | ✅ Yes | OpenAI API key for LLM inference | - |
 | `SERPER_API_KEY` | ✅ Yes | Serper API key for web search | - |
 | `SUPABASE_URL` | ✅ Yes | Supabase project URL | - |
-| `SUPABASE_KEY` | ✅ Yes | Supabase anon key | - |
+| `SUPABASE_ANON_KEY` | ✅ Yes | Supabase anon/public key | - |
+| `SUPABASE_JWT_SECRET` | ✅ Yes | Supabase JWT secret for token verification | - |
 | `REDIS_URL` | Conditional | Redis connection for task queue & rate limiting | `redis://localhost:6379/0` |
 | `SYNC_MODE` | No | Set to `true` to run without Redis (tasks run synchronously) | `false` |
 | `ALLOW_IN_MEMORY_RATE_LIMIT` | No | Set to `true` for in-memory rate limiting (no Redis needed) | `false` |
 | `COURSE_ANALYSIS_TTL_DAYS` | No | Cache TTL for course analysis (days) | 30 |
 | `RESOURCE_RESULTS_TTL_DAYS` | No | Cache TTL for full results (days) | 7 |
 | `ALLOWED_ORIGINS` | No | CORS allowed origins (comma-separated) | - |
+| `RESEND_API_KEY` | No | Email notification service API key | - |
+| `RESEND_FROM_EMAIL` | No | From email address for notifications | - |
+
+### Frontend (web/.env.local)
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `VITE_API_URL` | ✅ Yes | Backend API URL | - |
+| `VITE_SUPABASE_URL` | ✅ Yes | Supabase project URL (same as backend) | - |
+| `VITE_SUPABASE_ANON_KEY` | ✅ Yes | Supabase anon key (same as backend) | - |
 
 **Note:** 
 - `REDIS_URL` is required for production deployments. Get a free Redis instance from [Redis Cloud](https://redis.com/try-free/) or [Upstash](https://upstash.com/).

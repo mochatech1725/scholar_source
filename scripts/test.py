@@ -21,9 +21,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Load environment variables
-from dotenv import load_dotenv
-load_dotenv(project_root / '.env')
+# Load environment variables using centralized loader
+from backend.env_loader import load_environment
+load_environment()
 
 
 def test_imports():
@@ -67,7 +67,11 @@ def test_celery_config():
         # Basic config
         print(f'✅ App name: {app.main}')
         print(f'✅ Broker: {app.conf.broker_url[:30]}...')
-        print(f'✅ Backend: {app.conf.result_backend[:30]}...')
+        result_backend = app.conf.result_backend
+        if result_backend:
+            print(f'✅ Result Backend: {result_backend[:30]}...')
+        else:
+            print(f'✅ Result Backend: Disabled (results stored in database)')
         print(f'✅ Serializer: {app.conf.task_serializer}')
 
         # Queues
