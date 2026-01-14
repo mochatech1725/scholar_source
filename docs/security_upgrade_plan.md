@@ -1066,7 +1066,6 @@ VITE_API_BASE_URL=http://localhost:8000  # Or production URL
 - RLS policies provide defense-in-depth even if backend validation fails
 - Strict prompt injection mode may have false positives - monitor logs and adjust patterns if needed
 - Email HTML escaping is backward compatible - no migration needed for existing emails
-- All dependency versions should be tested in staging before deploying to production
 
 ---
 
