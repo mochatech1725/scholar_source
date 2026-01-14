@@ -415,6 +415,12 @@ if isinstance(exception, ValueError) and "suspicious" in str(exception).lower():
     )
 ```
 
+### [ ]  2b Prompt Injection Protection
+
+**Task:** Revamp existing prompt injection detection implementation in `backend/security_utils.py` to strengthen protection against prompt injection attacks.
+
+**Status:** Pending
+
 ---
 
 ## Phase [✅] 3: Email HTML Injection Fix
