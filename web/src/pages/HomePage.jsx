@@ -38,7 +38,7 @@ export default function HomePage() {
     desired_resource_types: [],
     excluded_sites: '',
     targeted_sites: '',
-    bypass_cache: false
+    bypass_cache: true
   });
   const [validationError, setValidationError] = useState('');
   const [isAdvancedOptionsExpanded, setIsAdvancedOptionsExpanded] = useState(false);
@@ -111,7 +111,7 @@ export default function HomePage() {
       desired_resource_types: [],
       excluded_sites: '',
       targeted_sites: '',
-      bypass_cache: false
+      bypass_cache: true
     });
     setValidationError('');
     setIsAdvancedOptionsExpanded(false);
