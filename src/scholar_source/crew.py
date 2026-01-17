@@ -7,7 +7,7 @@ from crewai_tools import (
 )
 from typing import List
 import os
-from scholar_source.tools import WebPageFetcherTool
+from scholar_source.tools import WebPageFetcherTool, TOCExtractorTool
 from scholar_source.utils import get_crew_output_file
 
 # If you want to run a snippet of code before or after the crew starts,
@@ -32,7 +32,8 @@ class ScholarSource():
             verbose=True,
             tools=[
                 SerperDevTool(),        # For web search to find course pages
-                WebPageFetcherTool()    # For fetching full page content
+                TOCExtractorTool(),     # For extracting TOC from book URLs (fast, TOC-only)
+                WebPageFetcherTool()    # For fetching full page content (course pages, syllabi)
             ]
         )
 
