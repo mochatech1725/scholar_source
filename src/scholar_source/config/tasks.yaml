@@ -14,16 +14,34 @@ course_analysis_task:
     IF {topics_list} PROVIDED:
     Use as user_specified_topics to narrow the search. Set search_priority="user_topics".
 
+    IF {isbn} PROVIDED (and no book_url, no book_title/book_author):
+    **Use "Search the internet with Serper" tool to look up the book by ISBN.**
+    Search query format: "ISBN {isbn}" or "book ISBN {isbn}".
+    **CRITICAL: Verify the ISBN matches exactly.** Extract the book title and author from search results.
+    Look for results from reputable sources (publisher sites, Amazon, Goodreads, WorldCat, Open Library).
+    **Only use book information if the ISBN matches exactly** - reject results where ISBN doesn't match.
+    Use the extracted title and author as book_title and book_author.
+    
+    **IF the search finds a book URL (publisher site, open textbook platform, etc.):**
+    **TREAT IT EXACTLY AS IF USER PROVIDED book_url DIRECTLY.**
+    **CRITICAL: Use "Table of Contents Extractor" tool (NOT "Webpage Content Fetcher").**
+    Fetch the book URL ONCE. Extract ONLY the Table of Contents. Return chapter/section titles as topics.
+    Do NOT read the book content. Do NOT follow any links. STOP immediately after extracting TOC.
+    The TOC Extractor tool will automatically limit content to just the table of contents section.
+    
+    If no book URL is found, use the extracted title and author to infer general topics.
+    Set textbook_source="isbn_lookup" in output.
+
     IF {book_title}/{book_author} PROVIDED without URLs:
     Use them directly. No fetching needed.
 
-    Inputs: {course_url}, {book_url}, {topics_list}, {book_title}, {book_author}, {textbook}
+    Inputs: {course_url}, {book_url}, {topics_list}, {book_title}, {book_author}, {isbn}, {textbook}
 
   expected_output: >
     {
       "textbook_title": "Title or null",
       "textbook_author": "Author or null",
-      "textbook_source": "book_url|course_page|user_provided|not_found",
+      "textbook_source": "book_url|course_page|user_provided|isbn_lookup|not_found",
       "general_course_topics": ["topic1", "topic2", ...],
       "user_specified_topics": ["topic1", ...] or [],
       "search_priority": "user_topics|general_topics",
