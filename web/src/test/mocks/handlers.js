@@ -23,7 +23,7 @@ export const handlers = [
     const body = await request.json();
 
     // Validate inputs
-    if (!body.course_url && !body.book_title && !body.isbn) {
+    if (!body.course_url && !body.book_url && !body.isbn) {
       return HttpResponse.json(
         {
           detail: {

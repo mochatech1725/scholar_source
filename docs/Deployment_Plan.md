@@ -385,8 +385,7 @@ curl https://scholarsource-dev.up.railway.app/api/health
      -d '{
        "course_name": "Test Course",
        "university_name": "Test University",
-       "book_title": "Test Book",
-       "book_author": "Test Author"
+       "isbn": "978-0262046305"
      }'
    ```
 
@@ -429,8 +428,7 @@ curl https://scholarsource-dev.up.railway.app/api/health
      -d '{
        "course_name": "Test Course",
        "university_name": "Test University",
-       "book_title": "Test Book",
-       "book_author": "Test Author"
+       "isbn": "978-0262046305"
      }'
    ```
 
