@@ -519,6 +519,7 @@ For detailed deployment instructions, see `docs/Deployment_Plan.md`.
 
 ## Documentation
 
+
 - **System Design Document:** `docs/scholar_source_SDD.md` - High-level architecture and design rationale
 - **Technical Design Document:** `docs/scholar_source_TDD.md` - Detailed implementation specifications
 - **Testing Guide:** `docs/TESTING_GUIDE.md` - Testing documentation
