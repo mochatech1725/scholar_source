@@ -427,7 +427,7 @@ export default function HomePage() {
                         </button>
                         {isResourceTypesExpanded && (
                           <div className="accordion-body accordion-body-blue accordion-grid">
-                            {['textbooks', 'practice_problem_sets', 'practice_exams_tests', 'lecture_videos'].map(type => (
+                            {['practice_problem_sets', 'practice_exams_tests', 'lecture_videos', 'textbooks'].map(type => (
                               <label key={type} className="accordion-checkbox-label">
                                 <input
                                   type="checkbox"

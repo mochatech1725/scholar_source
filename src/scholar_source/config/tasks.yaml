@@ -92,13 +92,30 @@ resource_search_task:
     - REJECT any URL containing these strings (substring match)
     - This overrides all other filtering
     
+    **RESOURCE PRIORITY (CRITICAL - FOLLOW THIS ORDER):**
+    Search priority: practice_exams_tests > practice_problem_sets > lecture_videos > open_textbook
+    
+    **IF user supplied {book_url} OR {isbn} (NOT course_url):**
+    **DO NOT search for or include any textbooks/open_textbooks.**
+    Focus ONLY on practice materials and lectures:
+    - First: Search for practice tests/exams (practice_exam, test)
+    - Second: Search for practice problem sets (practice_problem, problem_set)
+    - Third: Search for lecture videos (video_lecture, lecture_series)
+    - NEVER include open_textbook resources - user already has the book!
+    
+    **IF user supplied {course_url}:**
+    - First: Search for practice tests/exams (practice_exam, test)
+    - Second: Search for practice problem sets (practice_problem, problem_set)
+    - Third: Search for lecture videos (video_lecture, lecture_series)
+    - Fourth: Search for additional textbooks (open_textbook) - only if needed to reach 5-7 resources
+    
     Resource Types (if {desired_resource_types} provided):
     - ONLY search for specified types:
-      * "textbooks" → open_textbook
+      * "textbooks" → open_textbook (only if course_url provided, not for book_url/isbn)
       * "practice_problem_sets" → practice_problem, problem_set
       * "practice_exams_tests" → practice_exam, test
       * "lecture_videos" → video_lecture, lecture_series, educational_video
-    - If empty: use priority order (practice problems > textbooks > course materials > videos > papers)
+    - If empty: use the priority order above based on input type
 
     **TOPIC MATCHING:**
     From course_analysis_task output, check search_priority:

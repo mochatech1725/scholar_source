@@ -3,12 +3,14 @@ Table of Contents Extractor Tool
 
 Specifically extracts only the Table of Contents section from book pages.
 This is much faster than fetching entire page content.
+Supports both HTML web pages and PDF files.
 """
 from crewai.tools import BaseTool
 import requests
 from bs4 import BeautifulSoup
 from typing import Type, Optional
 from pydantic import BaseModel, Field
+import io
 
 
 class TOCExtractorToolInput(BaseModel):
@@ -18,21 +20,23 @@ class TOCExtractorToolInput(BaseModel):
 
 class TOCExtractorTool(BaseTool):
     """
-    Tool to extract ONLY the Table of Contents from a book webpage.
+    Tool to extract ONLY the Table of Contents from a book webpage or PDF.
     
     This tool is optimized for speed - it:
-    1. Fetches HTML from the URL
-    2. Looks for TOC-specific HTML structures (nav tags, TOC sections, chapter lists)
-    3. Extracts ONLY the TOC section
-    4. Returns a clean list of chapters/sections
+    1. Detects if URL is PDF or HTML
+    2. For PDFs: Extracts bookmarks/outline or first few pages
+    3. For HTML: Looks for TOC-specific HTML structures (nav tags, TOC sections, chapter lists)
+    4. Extracts ONLY the TOC section
+    5. Returns a clean list of chapters/sections
     
     Use this instead of full page fetcher when you only need the table of contents.
+    Supports both HTML web pages and PDF files.
     """
     name: str = "Table of Contents Extractor"
     description: str = (
-        "Extracts ONLY the Table of Contents from a book webpage. "
-        "Much faster than fetching full page content. Use this when book_url is provided "
-        "and you only need chapter/section titles as topics. "
+        "Extracts ONLY the Table of Contents from a book webpage or PDF file. "
+        "Much faster than fetching full page content. Supports both HTML pages and PDF files. "
+        "Use this when book_url is provided and you only need chapter/section titles as topics. "
         "Do NOT use this for course pages - use Webpage Content Fetcher instead."
     )
     args_schema: Type[BaseModel] = TOCExtractorToolInput
@@ -84,12 +88,75 @@ class TOCExtractorTool(BaseTool):
         
         return None
 
+    def _extract_toc_from_pdf(self, pdf_content: bytes) -> Optional[str]:
+        """Extract table of contents from PDF using bookmarks/outline"""
+        try:
+            try:
+                from pypdf import PdfReader
+            except ImportError:
+                # Fallback: try older PyPDF2 if pypdf not available
+                try:
+                    from PyPDF2 import PdfReader
+                except ImportError:
+                    return None
+            
+            pdf_file = io.BytesIO(pdf_content)
+            reader = PdfReader(pdf_file)
+            
+            # Extract bookmarks/outline (TOC is usually stored as bookmarks)
+            if reader.outline:
+                toc_lines = []
+                def extract_outline_items(items, level=0):
+                    for item in items:
+                        if isinstance(item, list):
+                            extract_outline_items(item, level + 1)
+                        else:
+                            title = item.title if hasattr(item, 'title') else str(item)
+                            if title:
+                                toc_lines.append(('  ' * level) + title)
+                
+                extract_outline_items(reader.outline)
+                if toc_lines:
+                    return '\n'.join(toc_lines)
+            
+            # Fallback: Extract first few pages (TOC is usually at the beginning)
+            # Limit to first 5 pages to avoid processing too much
+            text_content = []
+            for i, page in enumerate(reader.pages[:5]):
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text_content.append(page_text)
+                except Exception:
+                    continue
+            
+            if text_content:
+                # Combine first few pages and look for TOC-like patterns
+                combined_text = '\n'.join(text_content)
+                lines = combined_text.split('\n')
+                # Look for lines that might be TOC entries (have numbers, dots, or chapter keywords)
+                toc_candidates = []
+                toc_keywords = ['contents', 'chapter', 'section', 'part', 'preface', 'introduction']
+                
+                for line in lines[:300]:  # First 300 lines should cover TOC
+                    line_lower = line.lower().strip()
+                    if any(keyword in line_lower for keyword in toc_keywords) or \
+                       (len(line) > 3 and (line[0].isdigit() or '...' in line or '....' in line)):
+                        toc_candidates.append(line.strip())
+                
+                if toc_candidates:
+                    return '\n'.join(toc_candidates[:200])  # Limit to 200 TOC lines
+            
+            return None
+        except Exception:
+            return None
+
     def _run(self, url: str) -> str:
         """
-        Extract table of contents from book URL.
+        Extract table of contents from book URL (supports both HTML and PDF).
         
         Args:
-            url: The URL of the book page
+            url: The URL of the book page (HTML or PDF)
             
         Returns:
             str: Table of contents as clean text, or error message
@@ -100,6 +167,17 @@ class TOCExtractorTool(BaseTool):
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             })
             response.raise_for_status()
+
+            # Check if it's a PDF
+            content_type = response.headers.get('content-type', '').lower()
+            if url.lower().endswith('.pdf') or 'application/pdf' in content_type:
+                # Try to extract TOC from PDF
+                pdf_toc = self._extract_toc_from_pdf(response.content)
+                if pdf_toc:
+                    lines = [line.strip() for line in pdf_toc.split('\n') if line.strip()]
+                    return '\n'.join(lines[:300])
+                else:
+                    return "[Note: PDF detected but TOC extraction failed. PDF may not have bookmarks/outline structure.]"
 
             # Parse HTML
             soup = BeautifulSoup(response.text, 'html.parser')
