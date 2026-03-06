@@ -130,23 +130,18 @@ app.add_middleware(
 )
 ```
 
-### [✅] 2.2 Create Redis Database in Redis Cloud (Required for Scaling)
-1. *[✅] *Sign up for Redis Cloud** (if not already done):
-   - Go to https://redis.com/try-free/
-   - Create account and verify email
-   - Select "Fixed plan" → "Free" (30MB, perfect for getting started)
+### [✅] 2.2 Create Redis Database on Railway (Required for Scaling)
 
-2. [✅] **Create Redis Database:**
-   - Click "New database"
-   - Name: `scholarsource-queue`
-   - Region: Choose closest to your Railway deployment region
-   - Click "Activate"
+1. [✅] **Add Redis to your Railway project:**
+   - In your Railway project dashboard, click **"+ New"**
+   - Select **"Database"** → **"Add Redis"**
+   - Railway will provision a Redis instance within your project
 
-3. [✅] **Get Redis Connection URL:**
-   - Go to database configuration
-   - Copy the "Public endpoint" connection string
-   - Format: `redis://default:PASSWORD@HOST:PORT`
-   - **Save this URL** - you'll need it for Railway environment variables
+2. [✅] **Get Redis Connection URL:**
+   - Click on the Redis service in your Railway project
+   - Go to the **"Variables"** tab
+   - Copy the `REDIS_URL` variable (format: `redis://default:PASSWORD@HOST:PORT`)
+   - **Save this URL** - you'll need it for your backend and Celery service environment variables
 
 ### [✅] 2.3 Create Railway Deployment for Backend
 
