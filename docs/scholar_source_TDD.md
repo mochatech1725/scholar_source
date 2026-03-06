@@ -1107,8 +1107,6 @@ High Load:
    - Submit multiple jobs and verify they're distributed to workers
 
 **External Redis Options:**
-- **Redis Cloud**: Managed service, free tier available
-- **Upstash**: Serverless Redis, pay-per-use
 - **Railway Redis**: Integrated with Railway platform
 
 ### 8.3 Rate Limiting Configuration

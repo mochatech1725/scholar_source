@@ -414,10 +414,29 @@ The system uses a **relational database** (PostgreSQL) with JSONB fields for fle
 
 ### 5.3 Transient Data
 
-**In-Memory Data:**
-- Rate limit counters (single instance) or Redis counters (multi-instance)
-- Active crew execution state (thread-local)
-- Request context (FastAPI request state)
+Transient data is ephemeral — it exists only at runtime and is never persisted to the database. It is discarded when the relevant operation completes or the process restarts.
+
+#### Rate Limit Counters (`backend/rate_limiter.py`)
+
+Rate limiting is implemented via `slowapi`. The storage backend is chosen at startup based on environment configuration:
+
+- **Redis** (`REDIS_URL` set): Counters are stored in Redis, shared across all app instances. Required for multi-instance/production deployments.
+- **In-memory** (`ALLOW_IN_MEMORY_RATE_LIMIT=true` or `SYNC_MODE=true`): Counters live inside the `slowapi` `Limiter` object in the current process. Only safe for single-instance development/testing — each instance would have its own independent counter if scaled out.
+
+Startup raises a `ValueError` if neither condition is met, preventing silent misconfiguration in production.
+
+#### Crew Execution State (`backend/tasks.py`)
+
+While a job is running, its intermediate state (CrewAI agent context, intermediate outputs) lives in the executing process for the duration of that job. There are two execution modes:
+
+- **Async mode (default)**: The job is enqueued to Celery via `run_crew_task.apply_async()`. A Celery worker process picks it up and runs `crew.kickoff_async()` inside `asyncio.run()`. All transient state lives in that worker process and is gone when the task finishes.
+- **Sync mode** (`SYNC_MODE=true`): `run_crew_task_sync()` is called directly in the FastAPI process. If an async event loop is already running (e.g. from FastAPI), the crew is dispatched to a `ThreadPoolExecutor` thread with its own event loop to avoid conflicts. All state is discarded when the function returns.
+
+In both modes, durable state (status, results, errors) is written to PostgreSQL via `update_job_status()` at each lifecycle stage, so nothing meaningful is lost if the process dies after a stage completes.
+
+#### No Custom Request Context
+
+The SDD previously mentioned FastAPI `request.state` as a data store. In practice, the backend does not attach any custom per-request data to `request.state`. FastAPI provides this object automatically on every request, but it is not used for application logic in the current implementation.
 
 ---
 
