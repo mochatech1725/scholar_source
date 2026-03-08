@@ -31,14 +31,12 @@ export default function HomePage() {
   const [formData, setFormData] = useState({
     course_url: '',
     book_url: '',
-    book_title: '',
-    book_author: '',
     isbn: '',
     topics_list: '',
     desired_resource_types: [],
     excluded_sites: '',
     targeted_sites: '',
-    bypass_cache: false
+    bypass_cache: true
   });
   const [validationError, setValidationError] = useState('');
   const [isAdvancedOptionsExpanded, setIsAdvancedOptionsExpanded] = useState(false);
@@ -77,8 +75,6 @@ export default function HomePage() {
     setFormData({
       course_url: '',
       book_url: '',
-      book_title: '',
-      book_author: '',
       isbn: '',
       topics_list: formData.topics_list,
       desired_resource_types: formData.desired_resource_types,
@@ -93,7 +89,6 @@ export default function HomePage() {
     switch (searchParamType) {
       case 'course_url': return formData.course_url.trim() !== '';
       case 'book_url': return formData.book_url.trim() !== '';
-      case 'book_title_author': return formData.book_title.trim() !== '' && formData.book_author.trim() !== '';
       case 'isbn': return formData.isbn.trim() !== '';
       default: return false;
     }
@@ -104,14 +99,12 @@ export default function HomePage() {
     setFormData({
       course_url: '',
       book_url: '',
-      book_title: '',
-      book_author: '',
       isbn: '',
       topics_list: '',
       desired_resource_types: [],
       excluded_sites: '',
       targeted_sites: '',
-      bypass_cache: false
+      bypass_cache: true
     });
     setValidationError('');
     setIsAdvancedOptionsExpanded(false);
@@ -139,12 +132,6 @@ export default function HomePage() {
       case 'book_url':
         if (formData.book_url.trim() === '') {
           setValidationError('Please provide a Book URL');
-          return;
-        }
-        break;
-      case 'book_title_author':
-        if (formData.book_title.trim() === '' || formData.book_author.trim() === '') {
-          setValidationError('Please provide both Book Title and Author');
           return;
         }
         break;
@@ -289,7 +276,6 @@ export default function HomePage() {
                       <option value="">Select type...</option>
                       <option value="course_url">Course URL</option>
                       <option value="book_url">Book URL</option>
-                      <option value="book_title_author">Book Title + Author</option>
                       <option value="isbn">Book ISBN</option>
                     </TextInput>
                   </div>
@@ -297,9 +283,6 @@ export default function HomePage() {
                     {!searchParamType && "Selecting a search type will show required fields below."}
                     {searchParamType === 'course_url' && "Enter the URL of the course page you want to search."}
                     {searchParamType === 'book_url' && "Enter the URL of the book page you want to search."}
-                    {searchParamType === 'book_title_author' && (
-                      <>Enter both the <span className="font-medium">book title</span> and at least one <span className="font-medium">author</span>.</>
-                    )}
                     {searchParamType === 'isbn' && "Enter the ISBN of the book you want to search."}
                   </p>
                 </div>
@@ -341,45 +324,6 @@ export default function HomePage() {
                         disabled={isLoading}
                         required
                       />
-                    </div>
-                  </div>
-                )}
-
-                {searchParamType === 'book_title_author' && (
-                  <div className="search-grid-two-col">
-                    <div>
-                      <TextLabel htmlFor="book_title" required>
-                        Book Title
-                      </TextLabel>
-                      <div className="mt-1">
-                        <TextInput
-                          type="text"
-                          id="book_title"
-                          name="book_title"
-                          value={formData.book_title}
-                          onChange={handleChange}
-                          placeholder="e.g., Intro to Algorithms"
-                          disabled={isLoading}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <TextLabel htmlFor="book_author" required>
-                        Author(s)
-                      </TextLabel>
-                      <div className="mt-1">
-                        <TextInput
-                          type="text"
-                          id="book_author"
-                          name="book_author"
-                          value={formData.book_author}
-                          onChange={handleChange}
-                          placeholder="e.g., Cormen"
-                          disabled={isLoading}
-                          required
-                        />
-                      </div>
                     </div>
                   </div>
                 )}
@@ -483,7 +427,7 @@ export default function HomePage() {
                         </button>
                         {isResourceTypesExpanded && (
                           <div className="accordion-body accordion-body-blue accordion-grid">
-                            {['textbooks', 'practice_problem_sets', 'practice_exams_tests', 'lecture_videos'].map(type => (
+                            {['practice_problem_sets', 'practice_exams_tests', 'lecture_videos', 'textbooks'].map(type => (
                               <label key={type} className="accordion-checkbox-label">
                                 <input
                                   type="checkbox"

@@ -129,14 +129,3 @@ def set_debug_mode():
     _logging_configured = False  # Reset to allow reconfiguration
     configure_logging(log_level="DEBUG")
 
-
-def ensure_crewai_logging():
-    """
-    No-op function - CrewAI uses print() statements, not logging.
-    
-    This function exists for compatibility but doesn't do anything.
-    CrewAI's verbose=True output goes directly to stdout via print().
-    """
-    # CrewAI doesn't use Python logging for verbose output
-    # It uses print() statements, so we don't need to configure anything
-    pass

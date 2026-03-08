@@ -389,7 +389,7 @@ Row Level Security is enabled with a permissive policy allowing all operations.
 
 The model includes the following optional fields:
 - `university_name`, `course_name`, `course_url` (strings)
-- `book_title`, `book_author`, `isbn`, `book_pdf_path`, `book_url` (strings)
+- `isbn`, `book_pdf_path`, `book_url` (strings)
 - `topics_list`, `excluded_sites` (strings)
 - `desired_resource_types` (list of strings)
 - `bypass_cache` (boolean, defaults to False)
@@ -401,7 +401,7 @@ The model includes the following optional fields:
 
 2. **At Least One Field Required:**
    - Custom validation in `validate_crew_inputs()` function
-   - Checks for: course_url, course_name, university_name, book_title+author, isbn, book_pdf_path, book_url
+   - Checks for: course_url, course_name, university_name, isbn, book_pdf_path, book_url
    - Raises HTTPException 400 if none provided
 
 3. **Field Types:**
@@ -420,7 +420,7 @@ The model includes the following optional fields:
 The HomePage component uses React hooks for state management with the following state variables:
 
 - Job-related state: `jobId`, `isLoading`, `results`, `searchTitle`, `textbookInfo`, `error`, `statusMessage`
-- Form state: `searchParamType`, `formData` (containing course_url, book_url, book_title, book_author, isbn, topics_list, desired_resource_types, excluded_sites, bypass_cache), `validationError`
+- Form state: `searchParamType`, `formData` (containing course_url, book_url, isbn, topics_list, desired_resource_types, excluded_sites, bypass_cache), `validationError`
 
 **State Structure:**
 - `jobId` - Current job UUID (null when no active job)
@@ -478,13 +478,12 @@ The search form is implemented inline within HomePage rather than as a separate 
 #### 4.2.1 Form Fields
 
 **Search Type Selector:**
-- Dropdown with options: course_url, book_url, book_title_author, isbn
+- Dropdown with options: course_url, book_url, isbn
 - Controls which input fields are shown
 
 **Dynamic Input Fields (based on search type):**
 - `course_url` - URL input (shown when "Course URL" selected)
 - `book_url` - URL input (shown when "Book URL" selected)
-- `book_title` + `book_author` - Text inputs (shown when "Book Title + Author" selected)
 - `isbn` - Text input (shown when "Book ISBN" selected)
 
 **Optional Accordion Sections:**
@@ -501,7 +500,6 @@ The search form is implemented inline within HomePage rather than as a separate 
 Validates based on selected search type:
 - `course_url`: course_url must not be empty
 - `book_url`: book_url must not be empty
-- `book_title_author`: both book_title AND book_author must not be empty
 - `isbn`: isbn must not be empty
 
 **Validation Rules:**
@@ -615,7 +613,6 @@ Agent definition using `@agent` decorator. Reads configuration from `agents_conf
 
 JSON object with optional fields:
 - `course_url` (string)
-- `book_title`, `book_author` (strings)
 - `desired_resource_types` (array of strings)
 - `excluded_sites` (string, comma-separated domains)
 - `bypass_cache` (boolean, default false)
@@ -752,7 +749,6 @@ ScholarSource does not integrate with NotebookLM's API to automatically create n
 **Inputs to Hash:**
 1. course_url (if provided)
 2. book_url (if provided)
-3. book_title + book_author (if both provided)
 4. isbn (if provided)
 5. topics_list (sorted, comma-separated)
 6. desired_resource_types (sorted, comma-separated)
@@ -761,7 +757,7 @@ ScholarSource does not integrate with NotebookLM's API to automatically create n
 **Algorithm:**
 
 The `_generate_cache_key()` function:
-1. Builds key parts list from input parameters (course_url, book_url, book_title+author, isbn, topics_list, desired_resource_types)
+1. Builds key parts list from input parameters (course_url, book_url, isbn, topics_list, desired_resource_types)
 2. Normalizes topics and resource types by sorting
 3. Joins key parts with '|' separator and appends config_hash
 4. Computes SHA256 hash of the key string
@@ -801,7 +797,7 @@ Creates consistent cache keys from user inputs by normalizing and extracting onl
 - **Returns:** Normalized dictionary with sorted keys
 
 **Function flow:**
-1. Extracts only cache-relevant fields: `course_url`, `book_title`, `book_author`, `isbn`, `topics_list`, `desired_resource_types`
+1. Extracts only cache-relevant fields: `course_url`, `book_url`, `isbn`, `topics_list`, `desired_resource_types`
 2. Sorts keys alphabetically
 3. Normalizes URLs (removes trailing slashes, converts to lowercase)
 4. Returns sorted dictionary for consistent hashing
@@ -1111,8 +1107,6 @@ High Load:
    - Submit multiple jobs and verify they're distributed to workers
 
 **External Redis Options:**
-- **Redis Cloud**: Managed service, free tier available
-- **Upstash**: Serverless Redis, pay-per-use
 - **Railway Redis**: Integrated with Railway platform
 
 ### 8.3 Rate Limiting Configuration

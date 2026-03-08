@@ -206,7 +206,7 @@ def validate_crew_inputs(inputs: Dict[str, str]) -> bool:
 
     At least one of the following must be provided:
     - course_url
-    - (book_title AND book_author) OR isbn
+    - isbn
     - book_pdf_path
     - book_url
 
@@ -220,10 +220,7 @@ def validate_crew_inputs(inputs: Dict[str, str]) -> bool:
     has_course_url = bool(inputs.get('course_url'))
 
     # Check for book identification
-    has_book_info = bool(
-        (inputs.get('book_title') and inputs.get('book_author')) or
-        inputs.get('isbn')
-    )
+    has_book_info = bool(inputs.get('isbn'))
 
     # Check for book file or link
     has_book_file = bool(inputs.get('book_pdf_path'))

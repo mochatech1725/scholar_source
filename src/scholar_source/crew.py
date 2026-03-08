@@ -7,7 +7,8 @@ from crewai_tools import (
 )
 from typing import List
 import os
-from scholar_source.tools import WebPageFetcherTool
+from scholar_source.tools import WebPageFetcherTool, TOCExtractorTool
+from scholar_source.utils import get_crew_output_file
 
 # If you want to run a snippet of code before or after the crew starts,
 # you can use the @before_kickoff and @after_kickoff decorators
@@ -31,7 +32,8 @@ class ScholarSource():
             verbose=True,
             tools=[
                 SerperDevTool(),        # For web search to find course pages
-                WebPageFetcherTool()    # For fetching full page content
+                TOCExtractorTool(),     # For extracting TOC from book URLs (fast, TOC-only)
+                WebPageFetcherTool()    # For fetching full page content (course pages, syllabi)
             ]
         )
 
@@ -82,8 +84,8 @@ class ScholarSource():
     @task
     def resource_search_task(self) -> Task:
         return Task(
-            config=self.tasks_config['resource_search_task'], 
-            output_file='report.md'
+            config=self.tasks_config['resource_search_task'],
+            output_file=get_crew_output_file()
         )
 
     @task
@@ -96,7 +98,7 @@ class ScholarSource():
     def final_output_task(self) -> Task:
         return Task(
             config=self.tasks_config['final_output_task'],
-            output_file='report.md'
+            output_file=get_crew_output_file()
         )
 
     @crew

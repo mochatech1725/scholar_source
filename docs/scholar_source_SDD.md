@@ -24,9 +24,10 @@
 8. [Design Decisions and Rationale](#8-design-decisions-and-rationale)
 9. [Assumptions and Constraints](#9-assumptions-and-constraints)
 10. [Security Design](#10-security-design)
-11. [Future Improvements and Features](#11-future-improvements-and-features)
-12. [Glossary](#12-glossary)
-13. [References](#13-references)
+11. [Scalability and Performance Architecture](#11-scalability-and-performance-architecture)
+12. [Future Improvements and Features](#12-future-improvements-and-features)
+13. [Glossary](#13-glossary)
+14. [References](#14-references)
 
 ---
 
@@ -413,10 +414,29 @@ The system uses a **relational database** (PostgreSQL) with JSONB fields for fle
 
 ### 5.3 Transient Data
 
-**In-Memory Data:**
-- Rate limit counters (single instance) or Redis counters (multi-instance)
-- Active crew execution state (thread-local)
-- Request context (FastAPI request state)
+Transient data is ephemeral — it exists only at runtime and is never persisted to the database. It is discarded when the relevant operation completes or the process restarts.
+
+#### Rate Limit Counters (`backend/rate_limiter.py`)
+
+Rate limiting is implemented via `slowapi`. The storage backend is chosen at startup based on environment configuration:
+
+- **Redis** (`REDIS_URL` set): Counters are stored in Redis, shared across all app instances. Required for multi-instance/production deployments.
+- **In-memory** (`ALLOW_IN_MEMORY_RATE_LIMIT=true` or `SYNC_MODE=true`): Counters live inside the `slowapi` `Limiter` object in the current process. Only safe for single-instance development/testing — each instance would have its own independent counter if scaled out.
+
+Startup raises a `ValueError` if neither condition is met, preventing silent misconfiguration in production.
+
+#### Crew Execution State (`backend/tasks.py`)
+
+While a job is running, its intermediate state (CrewAI agent context, intermediate outputs) lives in the executing process for the duration of that job. There are two execution modes:
+
+- **Async mode (default)**: The job is enqueued to Celery via `run_crew_task.apply_async()`. A Celery worker process picks it up and runs `crew.kickoff_async()` inside `asyncio.run()`. All transient state lives in that worker process and is gone when the task finishes.
+- **Sync mode** (`SYNC_MODE=true`): `run_crew_task_sync()` is called directly in the FastAPI process. If an async event loop is already running (e.g. from FastAPI), the crew is dispatched to a `ThreadPoolExecutor` thread with its own event loop to avoid conflicts. All state is discarded when the function returns.
+
+In both modes, durable state (status, results, errors) is written to PostgreSQL via `update_job_status()` at each lifecycle stage, so nothing meaningful is lost if the process dies after a stage completes.
+
+#### No Custom Request Context
+
+The SDD previously mentioned FastAPI `request.state` as a data store. In practice, the backend does not attach any custom per-request data to `request.state`. FastAPI provides this object automatically on every request, but it is not used for application logic in the current implementation.
 
 ---
 
@@ -794,55 +814,134 @@ This section documents major architectural and design decisions, alternatives co
 
 ### 10.1 Security Architecture Overview
 
-The system follows a **defense-in-depth** strategy with multiple layers of security controls.
+The system follows a **defense-in-depth** strategy with multiple layers of security controls across authentication, input validation, data protection, and runtime security.
+
+**Security Principles:**
+- **Zero Trust**: All API requests require authentication
+- **Least Privilege**: Users can only access their own data (RLS enforcement)
+- **Input Validation**: Multi-layer validation (Pydantic + security utils)
+- **Defense in Depth**: Multiple security controls at each layer
+- **Fail Secure**: System rejects requests when security checks fail
 
 ### 10.2 Authentication and Authorization
 
-**Current State:**
-- **No user authentication** - Public access (MVP)
-- **Row Level Security (RLS)** - Enabled but permissive policy
-- **API keys** - Stored in environment variables (never in code)
+**Implementation:** Supabase Auth with JWT tokens
 
-**Future State:**
-- Add user authentication (Supabase Auth)
-- Restrict RLS policies to user-owned data
-- API key rotation strategy
+**Authentication Flow:**
+1. User signs up/logs in via Supabase Auth (email/password)
+2. Frontend receives JWT access token
+3. Frontend sends token in `Authorization: Bearer <token>` header
+4. Backend validates JWT signature and extracts user ID
+5. All database operations scoped to authenticated user
 
-**Design Rationale:**
-- MVP focuses on core functionality (resource discovery)
-- Authentication adds complexity (can be added later)
-- RLS provides foundation for future access control
+**Backend Authentication (`backend/auth.py`):**
+```python
+async def get_current_user(request: Request) -> dict:
+    """Extract and validate JWT token from Authorization header"""
+    - Validates Authorization header format
+    - Verifies JWT signature using SUPABASE_JWT_SECRET
+    - Checks token expiration
+    - Returns user payload (id, email, etc.)
+    - Raises AuthenticationError (401) if invalid
+```
 
-### 10.3 Data Security
+**Row Level Security (RLS):**
+- Database policies enforce user isolation
+- Users can only SELECT/INSERT/UPDATE/DELETE their own jobs
+- Users can only access their own cache entries
+- RLS policies use `auth.uid()` from JWT token
 
-**API Keys:**
-- Stored in environment variables (never in code)
-- Never exposed to frontend
-- Rotated periodically (future enhancement)
+**API Key Protection:**
+- All API keys stored in environment variables
+- Never exposed to frontend or logged
+- Separate keys for different services (OpenAI, Supabase, etc.)
 
-**Database:**
-- Supabase connection uses HTTPS
-- RLS policies prevent unauthorized access (when configured)
-- Anon key used (read-only for public data)
+### 10.3 Input Validation and Security
 
-**Input Validation:**
-- Pydantic models validate all inputs
-- SQL injection prevented by parameterized queries (Supabase client)
-- XSS prevented by React's automatic escaping
+**Multi-Layer Validation Architecture:**
+
+**Layer 1: Pydantic Model Validation (`backend/models.py`)**
+- Type checking and format validation
+- Calls security utility functions via field validators
+- Validates: URLs, ISBNs, domain lists, text length
+
+**Layer 2: Security Utilities (`backend/security_utils.py`)**
+
+*URL Validation:*
+```python
+def validate_url(url: str) -> bool:
+    - Blocks dangerous schemes: javascript:, data:, file:/, vbscript:
+    - Validates URL format and length (max 2048 chars)
+    - Prevents control characters and newlines
+```
+
+*Prompt Injection Detection:*
+```python
+def detect_prompt_injection(text: str) -> tuple[bool, str]:
+    - Detects jailbreak attempts ("ignore previous instructions")
+    - Blocks role manipulation ("you are now...", "act as...")
+    - Prevents HTML/code injection (<script>, ${...}, ---)
+    - Uses regex patterns for common attack vectors
+```
+
+*Domain List Validation:*
+```python
+def validate_domain_list(domains: str) -> tuple[bool, str]:
+    - Rejects IP addresses (prevents internal network access)
+    - Blocks localhost and special domains
+    - Validates domain format (DNS-compatible names only)
+    - Enforces max length limits
+```
+
+*Text Input Validation:*
+```python
+def validate_text_input(text: str, max_length: int) -> tuple[bool, str]:
+    - Enforces length limits (default 500 chars)
+    - Blocks excessive newlines (> 3 consecutive)
+    - Prevents control characters (except \t and \n)
+```
+
+*ISBN Validation:*
+```python
+def validate_isbn(isbn: str) -> tuple[bool, str]:
+    - Validates ISBN-10 and ISBN-13 formats
+    - Accepts hyphens and spaces (cleaned before validation)
+    - ISBN-10 allows 'X' as check digit
+```
+
+**Layer 3: HTML Escaping (`backend/email_service.py`)**
+- All user input in emails HTML-escaped using `html.escape()`
+- Prevents XSS in email content
+- Tested with 14 security test cases
+
+**SQL Injection Prevention:**
+- Supabase client uses parameterized queries
+- Never concatenate user input into SQL
+- All queries use SDK methods (no raw SQL)
 
 ### 10.4 Rate Limiting
 
-**Purpose:** Prevent abuse and API cost overruns.
+**Implementation:** SlowAPI with Redis backend (optional)
 
-**Implementation:**
-- IP-based rate limiting (10/hour, 2/minute on submit)
-- Protects against DDoS (basic level)
-- Prevents API cost overruns
+**Current Limits:**
+- `/api/submit`: 10 requests/hour, 2 requests/minute per IP
+- Prevents API cost overruns from OpenAI usage
+- Basic DDoS protection
 
-**Limitations:**
-- IP-based limits can affect shared networks (dorms, libraries)
-- VPN evasion possible (acceptable risk for MVP)
-- Consider per-user limits when authentication is added
+**Configuration:**
+```python
+@limiter.limit("10/hour; 2/minute")
+async def submit_job(...):
+```
+
+**Storage Options:**
+- **In-Memory**: Single-instance deployments (default)
+- **Redis**: Multi-instance deployments (set `REDIS_URL` env var)
+
+**Future Enhancements:**
+- Implement per-user rate limits (in addition to IP-based)
+- Add rate limit headers in responses
+- Implement sliding window algorithm for smoother limiting
 
 ### 10.5 CORS Protection
 
@@ -857,25 +956,216 @@ The system follows a **defense-in-depth** strategy with multiple layers of secur
 
 ### 10.6 CSRF Protection
 
-**Current Implementation:**
-- Origin header validation on state-changing POST requests
-- Validates requests come from allowed origins
-- Applied to `/api/submit` and `/api/cancel/{job_id}` endpoints
+**Implementation:** Origin header validation
+
+**Applied To:**
+- `/api/submit` - Job submission endpoint
+- `/api/cancel/{job_id}` - Job cancellation endpoint
+
+**Mechanism:**
+```python
+def validate_origin(request: Request):
+    """Validate Origin header matches allowed origins"""
+    origin = request.headers.get("origin")
+    if origin not in ALLOWED_ORIGINS:
+        raise HTTPException(status_code=403, detail="Invalid origin")
+```
 
 **Rationale:**
-- Traditional CSRF attacks exploit cookie-based sessions
-- Since ScholarSource has no authentication/sessions, traditional CSRF isn't a risk
-- Origin validation provides defense-in-depth against cross-origin POST requests
+- JWT tokens in Authorization header (not cookies) prevent traditional CSRF
+- Origin validation provides additional defense-in-depth
+- Ensures requests come from legitimate frontend
 
-**Future Considerations:**
-- When authentication is added, implement CSRF tokens (synchronizer token pattern)
-- Add SameSite cookie attributes for auth cookies
+### 10.7 Dependency Security
+
+**Strategy:** Pin all dependencies to specific versions
+
+**Implementation:**
+```
+# requirements.txt
+crewai[tools]==0.120.1
+fastapi==0.115.0
+pydantic[email]==2.9.2
+PyJWT==2.9.0
+cryptography==42.0.8
+```
+
+**Rationale:**
+- Prevents supply chain attacks (malicious updates)
+- Ensures reproducible builds
+- Allows controlled updates with security review
+
+**Update Process:**
+1. Review security advisories (GitHub Dependabot)
+2. Test updates in development
+3. Update version pins after validation
+
+### 10.8 Error Message Sanitization
+
+**Implementation:** `backend/error_utils.py`
+
+**Purpose:** Prevent information leakage in error messages
+
+**Sanitization Rules:**
+```python
+def transform_error_for_user(error: Exception) -> dict:
+    - Remove stack traces from user-facing errors
+    - Remove file paths and line numbers
+    - Remove internal variable names
+    - Replace with generic user-friendly messages
+```
+
+**Protected Information:**
+- File system paths
+- Internal function names
+- Stack traces
+- Environment details
+- Secrets or API keys
+
+### 10.9 Security Testing
+
+**Test Coverage:**
+- **Unit Tests**: 53 security utility tests
+- **Model Tests**: 23 input validation tests
+- **Integration Tests**: 19+ authentication tests
+- **Email Tests**: 14 XSS/injection tests
+
+**Test Categories:**
+1. URL validation (dangerous schemes, malformed URLs)
+2. Prompt injection detection
+3. Domain validation
+4. HTML escaping
+5. JWT validation (expired, invalid, malformed tokens)
+6. User isolation (RLS enforcement)
+7. Authorization header parsing
+
+**Continuous Testing:**
+- All security tests run in CI/CD pipeline
+- Required to pass before deployment
+- Regression testing on every code change
 
 ---
 
-## 11. Future Improvements and Features
+## 11. Scalability and Performance Architecture
 
-### 11.1 Future Improvements
+### 11.1 Current Architecture
+
+**Deployment Model:**
+```
+┌─────────────┐
+│   Frontend  │ (React/Vite - Cloudflare Pages)
+└──────┬──────┘
+       │ HTTP/REST
+┌──────▼─────────────────────────────────────────────┐
+│          FastAPI Backend (Railway)                 │
+│  ┌──────────────────────────────────────────────┐  │
+│  │ API Endpoints (FastAPI + Uvicorn)           │  │
+│  └──────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────┐  │
+│  │ Job Execution (Celery Workers)               │  │
+│  │  - Separate worker processes                 │  │
+│  │  - Async task queue                          │  │
+│  │  - Distributed execution                     │  │
+│  └──────────────────────────────────────────────┘  │
+└──────┬─────────────────────────────────────────────┘
+       │
+┌──────▼─────────────────────────────────────────────┐
+│            Supabase PostgreSQL                     │
+│  - jobs table (job status, results)                │
+│  - course_cache table (analysis cache)             │
+│  - User authentication (auth.users)                │
+└────────────────────────────────────────────────────┘
+```
+
+**Key Components:**
+- **API Layer**: Handles HTTP requests, authentication, rate limiting
+- **Task Queue**: Celery with Redis broker for distributed job execution
+- **Database**: Supabase PostgreSQL with RLS for data isolation
+- **Cache**: Database-backed course analysis cache
+
+### 11.2 Scalability Characteristics
+
+**Current Limits:**
+- Single Railway instance (vertical scaling)
+- Celery workers scale within instance
+- Database: Supabase (managed, auto-scaling)
+- Frontend: Cloudflare Pages (global CDN, auto-scaling)
+
+**Scaling Approach:**
+- **API Layer**: Can scale horizontally with load balancer
+- **Workers**: Scale by adding Celery worker processes
+- **Database**: Managed by Supabase (automatic scaling)
+- **Rate Limiting**: Redis-backed for multi-instance support
+
+**Bottlenecks Identified:**
+1. **CrewAI Execution**: CPU/memory intensive (10-60 seconds per job)
+2. **OpenAI API**: Rate limits and cost constraints
+3. **Single Instance**: Currently limited to Railway's instance size
+
+### 11.3 Performance Optimizations
+
+**Caching Strategy:**
+- Course analysis results cached for 7 days
+- Reduces redundant OpenAI API calls
+- User-scoped cache (privacy + personalization)
+
+**Async Architecture:**
+- FastAPI with async/await for I/O operations
+- Non-blocking HTTP requests
+- Concurrent database queries
+
+**Background Processing:**
+- Jobs executed in background (Celery)
+- API responds immediately with job_id
+- Client polls for status (non-blocking)
+
+**Database Optimization:**
+- Indexes on frequently queried fields (job_id, user_id, status)
+- RLS policies for security without performance penalty
+- Connection pooling via Supabase client
+
+### 11.4 Horizontal Scaling Plan
+
+**When Current Limits Are Reached:**
+
+**Phase 1: Worker Scaling**
+- Deploy dedicated Celery worker instances
+- Separate API and worker processes
+- Scale workers independently based on queue depth
+
+**Phase 2: API Scaling**
+- Deploy multiple FastAPI instances behind load balancer
+- Redis for distributed rate limiting
+- Session affinity not required (stateless API)
+
+**Phase 3: Database Optimization**
+- Upgrade Supabase plan if needed
+- Implement read replicas for status queries
+- Consider caching layer (Redis) for hot data
+
+**Estimated Capacity:**
+- Current: ~100-200 concurrent jobs
+- With worker scaling: ~1,000-2,000 concurrent jobs
+- With full horizontal scaling: ~10,000+ concurrent jobs
+
+### 11.5 Monitoring and Observability
+
+**Current Monitoring:**
+- Application logs (structured logging)
+- Railway metrics (CPU, memory, requests)
+- Supabase dashboard (database performance)
+
+**Future Enhancements:**
+- APM (Application Performance Monitoring)
+- Distributed tracing (OpenTelemetry)
+- Custom metrics (job completion time, cache hit rate)
+- Alerting (failed jobs, slow queries, high error rates)
+
+---
+
+## 12. Future Improvements and Features
+
+### 12.1 Future Improvements
 
 **Cache System Enhancements:**
 - [ ] Test force refresh functionality
@@ -885,6 +1175,20 @@ The system follows a **defense-in-depth** strategy with multiple layers of secur
 - [ ] Add metrics/monitoring for cache performance
 - [ ] Implement cache cleanup job (remove expired entries)
 - [ ] Consider implementing Option B (individual task execution) for better performance
+
+**Security Enhancements:**
+- [ ] **Advanced Prompt Injection Detection**: Enhance pattern detection with:
+  - Indirect injection patterns ("Repeat after me", "Translate this")
+  - Role confusion attacks ("You are now...", "As an AI...")
+  - Instruction leakage attempts ("Show system prompt")
+  - Delimiter/boundary attacks (unusual Unicode, zero-width characters)
+  - Goal hijacking patterns ("Your new task is...", "Priority override")
+  - Entropy analysis for encoded payloads
+  - Base64/hex encoded string detection
+- [ ] Implement per-user rate limits (in addition to IP-based)
+- [ ] Add API key rotation strategy and automation
+- [ ] Implement security headers (HSTS, X-Frame-Options, CSP)
+- [ ] Add request signing for critical operations
 
 **Performance Optimizations:**
 - Migrate to Redis for cache storage if database-backed caching becomes a bottleneck

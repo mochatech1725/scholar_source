@@ -28,6 +28,9 @@ from celery import Task
 # Add src to path to import ScholarSource
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+# Import utilities
+from scholar_source.utils import get_crew_output_path
+
 from backend.celery_app import app
 from scholar_source.crew import ScholarSource
 from backend.jobs import update_job_status, get_job
@@ -202,8 +205,8 @@ def run_crew_task(
         # Extract raw output
         raw_output = str(result.raw) if hasattr(result, 'raw') else str(result)
 
-        # Try to read the report.md file if it exists
-        report_path = Path("report.md")
+        # Try to read the report file if it exists
+        report_path = get_crew_output_path()
         if report_path.exists():
             with open(report_path, "r") as f:
                 markdown_content = f.read()
@@ -493,8 +496,8 @@ def run_crew_task_sync(
         # Extract raw output
         raw_output = str(result.raw) if hasattr(result, 'raw') else str(result)
 
-        # Try to read the report.md file if it exists
-        report_path = Path("report.md")
+        # Try to read the report file if it exists
+        report_path = get_crew_output_path()
         if report_path.exists():
             with open(report_path, "r") as f:
                 markdown_content = f.read()

@@ -15,3 +15,6 @@ celery==5.4.0
 # Authentication dependencies
 PyJWT==2.9.0
 cryptography==42.0.8
+
+# PDF parsing for TOC extraction (must be >=5.0.0 for embedchain compatibility)
+pypdf>=5.0.0,<6.0.0

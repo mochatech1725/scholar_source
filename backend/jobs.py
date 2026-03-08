@@ -151,9 +151,7 @@ def _generate_search_title(inputs: dict) -> str:
         return inputs["course_name"]
     elif inputs.get("university_name"):
         return f"{inputs['university_name']} Course"
-    # Fallback to book/textbook info if no course info provided
-    elif inputs.get("book_title"):
-        return inputs["book_title"]
+    # Fallback to textbook info if no course info provided
     elif inputs.get("textbook"):
         return inputs["textbook"]
     else:

@@ -1,71 +1,49 @@
 course_analysis_task:
   description: >
-    Analyze a university course page to extract textbook information, topics, and resource URLs.
+    Extract topics from the provided source. ONE fetch maximum.
 
-    PRIMARY OBJECTIVE:
-    Identify the main textbook_title and textbook_author for the course.
+    IF {book_url} EXISTS:
+    **CRITICAL: Use "Table of Contents Extractor" tool (NOT "Webpage Content Fetcher").**
+    Fetch it ONCE. Extract ONLY the Table of Contents. Return chapter/section titles as topics.
+    Do NOT read the book content. Do NOT follow any links. STOP immediately after extracting TOC.
+    The TOC Extractor tool will automatically limit content to just the table of contents section.
 
-    WORKFLOW:
+    IF {course_url} EXISTS (and no book_url):
+    Fetch it ONCE. Extract topics from syllabus/description. Follow syllabus link if present (1 extra fetch max).
 
-    1) Use user-provided textbook info (if available):
-       - If {book_title} and {book_author} provided → use them, set textbook_source="user_provided"
-       - If {isbn} provided → optionally confirm title/author
-       - If {book_pdf_path} or {book_url} provided → record for downstream agents
-       - If {textbook} provided → parse for title/author
+    IF {topics_list} PROVIDED:
+    Use as user_specified_topics to narrow the search. Set search_priority="user_topics".
 
-    2) Fetch course page:
-       - Use "Webpage Content Fetcher" on {course_url}
-       - Ignore global navigation (menus, headers, footers, "About", "People", "Events", etc.)
-       - Focus on central course content only
+    IF {isbn} PROVIDED (and no book_url):
+    **Use "Search the internet with Serper" tool to look up the book by ISBN.**
+    Search query format: "ISBN {isbn}" or "book ISBN {isbn}".
+    **CRITICAL: Verify the ISBN matches exactly.** Extract the book title and author from search results.
+    Look for results from reputable sources (publisher sites, Amazon, Goodreads, WorldCat, Open Library).
+    **Only use book information if the ISBN matches exactly** - reject results where ISBN doesn't match.
+    Use the extracted title and author as book_title and book_author.
+    
+    **IF the search finds a book URL (publisher site, open textbook platform, etc.):**
+    **TREAT IT EXACTLY AS IF USER PROVIDED book_url DIRECTLY.**
+    **CRITICAL: Use "Table of Contents Extractor" tool (NOT "Webpage Content Fetcher").**
+    Fetch the book URL ONCE. Extract ONLY the Table of Contents. Return chapter/section titles as topics.
+    Do NOT read the book content. Do NOT follow any links. STOP immediately after extracting TOC.
+    The TOC Extractor tool will automatically limit content to just the table of contents section.
+    
+    If no book URL is found, use the extracted title and author to infer general topics.
+    Set textbook_source="isbn_lookup" in output.
 
-    3) Extract textbook info from course page:
-       - Look in sections: "Materials", "Textbook", "Required Text", "Course Materials", "Resources"
-       - Parse formats: "Title, Author", "Title by Author", multi-line title/author
-       - Set textbook_source="course_page"
-       - If not found and none provided → set textbook_source="not_found"
-
-    4) Extract topics:
-       - If {topics_list} provided → treat as user_specified_topics (priority)
-       - Extract from syllabus/course description → general_course_topics
-       - If syllabus link exists → fetch with "Webpage Content Fetcher" (one level only)
-       - Extract subject keywords for discipline identification
-
-    5) Extract resource URLs:
-       - Collect URLs for lecture notes, problem sets, exams, videos from course page/syllabus
-       - Do NOT navigate to links, just record them
-
-    ERROR HANDLING:
-    - If course page not accessible → return clear error
-    - If no textbook and no topics → ask user for course_url or book info
-
-    Inputs: {course_url}, {textbook}, {topics_list}, {book_title}, {book_author},
-            {isbn}, {book_pdf_path}, {book_url}, {desired_resource_types}, {targeted_sites}
+    Inputs: {course_url}, {book_url}, {topics_list}, {isbn}, {textbook}
 
   expected_output: >
-    JSON-like object with:
-
-    Required fields:
-    - course_title: Course name from page (or null).
-    - course_number: Course code (or null).
-    - textbook_title: Main textbook title (null if not found).
-    - textbook_author: Main textbook author(s) (null if not found).
-    - textbook_source: "course_page" | "user_provided" | "not_found".
-    - search_priority: "user_topics" | "general_topics"
-      (based on whether topics_list is provided).
-
-    Topic fields:
-    - user_specified_topics: Array from topics_list (empty if none).
-    - general_course_topics: Array from syllabus/description.
-    - subject_keywords: Short keyword list describing the discipline.
-
-    Optional fields:
-    - textbook_edition: Edition if available.
-    - textbook_isbn: ISBN if found.
-    - syllabus_url: URL of the syllabus if found.
-    - resource_urls: List of resource links from course page/syllabus.
-    - course_level: "introductory" | "intermediate" | "advanced" if inferable.
-
-    Return clean JSON or clearly structured text that downstream agents can parse.
+    {
+      "textbook_title": "Title or null",
+      "textbook_author": "Author or null",
+      "textbook_source": "book_url|course_page|user_provided|isbn_lookup|not_found",
+      "general_course_topics": ["topic1", "topic2", ...],
+      "user_specified_topics": ["topic1", ...] or [],
+      "search_priority": "user_topics|general_topics",
+      "subject_keywords": ["keyword1", "keyword2"]
+    }
 
   agent: course_intelligence_agent
 
@@ -74,12 +52,23 @@ resource_search_task:
   description: >
     Search for 5-7 high-quality resources from USA-based sources matching the course topics and user preferences.
 
+    **RESOURCE TYPE ENFORCEMENT (HIGHEST PRIORITY):**
+    Check {desired_resource_types} FIRST before doing anything else.
+    - If {desired_resource_types} is non-empty (e.g., ["lecture_videos"] or ["practice_exams_tests", "practice_problem_sets"]):
+      * ONLY search for and return resources of those exact types.
+      * Do NOT include ANY other resource types, no matter what.
+      * Do NOT add textbooks if only videos were requested. Do NOT add videos if only practice problems were requested.
+      * Every single resource in your output MUST be one of the requested types.
+    - If {desired_resource_types} is empty or not provided:
+      * Use the default priority order defined below.
+
     **WORKFLOW:**
-    1. Parse user filters from inputs
-    2. Determine search focus from course_analysis_task output
-    3. Execute targeted searches (USA sources only)
-    4. Filter and validate results (reject non-USA sources)
-    5. Return curated list
+    1. Check {desired_resource_types} — if set, this overrides all other type decisions
+    2. Parse remaining user filters from inputs
+    3. Determine search focus from course_analysis_task output
+    4. Execute targeted searches (USA sources only, restricted to requested types if set)
+    5. Filter and validate results (reject non-USA sources and wrong resource types)
+    6. Return curated list
 
     **USA-ONLY REQUIREMENT:**
     ALL resources must be from USA-based institutions, universities, or platforms.
@@ -114,13 +103,30 @@ resource_search_task:
     - REJECT any URL containing these strings (substring match)
     - This overrides all other filtering
     
+    **RESOURCE PRIORITY (CRITICAL - FOLLOW THIS ORDER):**
+    Search priority: practice_exams_tests > practice_problem_sets > lecture_videos > open_textbook
+    
+    **IF user supplied {book_url} OR {isbn} (NOT course_url):**
+    **DO NOT search for or include any textbooks/open_textbooks.**
+    Focus ONLY on practice materials and lectures:
+    - First: Search for practice tests/exams (practice_exam, test)
+    - Second: Search for practice problem sets (practice_problem, problem_set)
+    - Third: Search for lecture videos (video_lecture, lecture_series)
+    - NEVER include open_textbook resources - user already has the book!
+    
+    **IF user supplied {course_url}:**
+    - First: Search for practice tests/exams (practice_exam, test)
+    - Second: Search for practice problem sets (practice_problem, problem_set)
+    - Third: Search for lecture videos (video_lecture, lecture_series)
+    - Fourth: Search for additional textbooks (open_textbook) - only if needed to reach 5-7 resources
+    
     Resource Types (if {desired_resource_types} provided):
     - ONLY search for specified types:
-      * "textbooks" → open_textbook
+      * "textbooks" → open_textbook (only if course_url provided, not for book_url/isbn)
       * "practice_problem_sets" → practice_problem, problem_set
       * "practice_exams_tests" → practice_exam, test
       * "lecture_videos" → video_lecture, lecture_series, educational_video
-    - If empty: use priority order (practice problems > textbooks > course materials > videos > papers)
+    - If empty: use the priority order above based on input type
 
     **TOPIC MATCHING:**
     From course_analysis_task output, check search_priority:
@@ -171,8 +177,20 @@ resource_validation_task:
     Validate resources from resource_discovery_agent for quality, accessibility, and relevance.
 
     **VALIDATION WORKFLOW (IN ORDER):**
-    
-    1. USER EXCLUSIONS (First - fastest check)
+
+    0. RESOURCE TYPE FILTER (Zeroth - before anything else)
+       - If {desired_resource_types} is non-empty:
+         * REJECT any resource whose resource_type does not match the requested types.
+         * Type mapping for matching:
+           - "textbooks" matches: open_textbook
+           - "practice_problem_sets" matches: practice_problem, problem_set
+           - "practice_exams_tests" matches: practice_exam, test
+           - "lecture_videos" matches: video_lecture, lecture_series, educational_video
+         * Set rejection_reason="Resource type '[type]' not in requested types: {desired_resource_types}"
+         * Skip all other checks for rejected resources
+       - If {desired_resource_types} is empty: skip this check.
+
+    1. USER EXCLUSIONS (Second - fastest check after type filter)
        - If {excluded_sites} provided, parse as comma-separated domains
        - REJECT any URL containing excluded strings (substring match)
        - Set rejection_reason="User excluded domain: [domain]"
