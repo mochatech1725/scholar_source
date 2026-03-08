@@ -32,23 +32,28 @@ def parse_markdown_to_resources(markdown_content: str, excluded_sites: Optional[
     """
     resources = []
 
+    # Extract textbook information from the full content before stripping sections
+    textbook_info = _extract_textbook_info(markdown_content)
+
+    # Strip non-resource sections so their URLs don't get picked up as resources.
+    # These sections (Textbook Information, NotebookLM instructions, Study Tips, etc.)
+    # contain links that are metadata/UI, not discovered resources.
+    content_for_resources = _strip_non_resource_sections(markdown_content)
+
     # Try multiple parsing strategies
-    resources = _parse_numbered_resources(markdown_content)
+    resources = _parse_numbered_resources(content_for_resources)
 
     # If no resources found, try alternative formats
     if not resources:
-        resources = _parse_link_sections(markdown_content)
+        resources = _parse_link_sections(content_for_resources)
 
     # If still no resources, try finding all markdown links
     if not resources:
-        resources = _parse_all_links(markdown_content)
+        resources = _parse_all_links(content_for_resources)
 
     # Filter out excluded domains if provided
     if excluded_sites and excluded_sites.strip():
         resources = _filter_excluded_domains(resources, excluded_sites)
-
-    # Extract textbook information
-    textbook_info = _extract_textbook_info(markdown_content)
 
     return {
         "resources": resources,
@@ -90,6 +95,30 @@ def _filter_excluded_domains(resources: List[Dict[str, Any]], excluded_sites: st
             filtered.append(resource)
     
     return filtered
+
+
+def _strip_non_resource_sections(content: str) -> str:
+    """
+    Remove sections that contain metadata/UI links (not discovered resources).
+
+    Strips:
+    - Textbook Information / Course Textbook sections
+    - NotebookLM instructions (How to Add These...)
+    - Study Tips sections
+    - Course Overview sections
+
+    This prevents URLs in those sections from being misidentified as resources.
+    """
+    section_headers = [
+        r'#+\s*(?:Textbook Information|Course Textbook|Official Textbook)',
+        r'#+\s*(?:How to Add|NotebookLM Instructions?|Adding.*NotebookLM)',
+        r'#+\s*(?:Study Tips?|Tips? for|Using Multiple)',
+        r'#+\s*(?:Course Overview|About This Course)',
+        r'#+\s*(?:Need More Help)',
+    ]
+
+    pattern = r'(' + '|'.join(section_headers) + r').*?(?=\n#+\s|\Z)'
+    return re.sub(pattern, '', content, flags=re.IGNORECASE | re.DOTALL)
 
 
 def _contains_error(url: str, title: str, description: str) -> bool:
