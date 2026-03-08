@@ -145,7 +145,7 @@ def get_cached_analysis(
         return None
 
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_client(use_service_role=True)
 
         # Compute current config hash
         current_config_hash = _compute_config_hash()
@@ -207,7 +207,7 @@ def set_cached_analysis(
                    "full" for complete results including resources)
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_client(use_service_role=True)
 
         # Compute current config hash
         current_config_hash = _compute_config_hash()
@@ -249,7 +249,7 @@ def clear_cache_for_config_change() -> int:
         int: Number of cache entries deleted
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_client(use_service_role=True)
         
         # Get current config hash
         current_config_hash = _compute_config_hash()
@@ -278,7 +278,7 @@ def get_cache_stats() -> Dict[str, Any]:
         dict: Cache statistics
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_client(use_service_role=True)
         
         # Get current config hash
         current_config_hash = _compute_config_hash()
