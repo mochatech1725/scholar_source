@@ -52,12 +52,23 @@ resource_search_task:
   description: >
     Search for 5-7 high-quality resources from USA-based sources matching the course topics and user preferences.
 
+    **RESOURCE TYPE ENFORCEMENT (HIGHEST PRIORITY):**
+    Check {desired_resource_types} FIRST before doing anything else.
+    - If {desired_resource_types} is non-empty (e.g., ["lecture_videos"] or ["practice_exams_tests", "practice_problem_sets"]):
+      * ONLY search for and return resources of those exact types.
+      * Do NOT include ANY other resource types, no matter what.
+      * Do NOT add textbooks if only videos were requested. Do NOT add videos if only practice problems were requested.
+      * Every single resource in your output MUST be one of the requested types.
+    - If {desired_resource_types} is empty or not provided:
+      * Use the default priority order defined below.
+
     **WORKFLOW:**
-    1. Parse user filters from inputs
-    2. Determine search focus from course_analysis_task output
-    3. Execute targeted searches (USA sources only)
-    4. Filter and validate results (reject non-USA sources)
-    5. Return curated list
+    1. Check {desired_resource_types} — if set, this overrides all other type decisions
+    2. Parse remaining user filters from inputs
+    3. Determine search focus from course_analysis_task output
+    4. Execute targeted searches (USA sources only, restricted to requested types if set)
+    5. Filter and validate results (reject non-USA sources and wrong resource types)
+    6. Return curated list
 
     **USA-ONLY REQUIREMENT:**
     ALL resources must be from USA-based institutions, universities, or platforms.
@@ -166,8 +177,20 @@ resource_validation_task:
     Validate resources from resource_discovery_agent for quality, accessibility, and relevance.
 
     **VALIDATION WORKFLOW (IN ORDER):**
-    
-    1. USER EXCLUSIONS (First - fastest check)
+
+    0. RESOURCE TYPE FILTER (Zeroth - before anything else)
+       - If {desired_resource_types} is non-empty:
+         * REJECT any resource whose resource_type does not match the requested types.
+         * Type mapping for matching:
+           - "textbooks" matches: open_textbook
+           - "practice_problem_sets" matches: practice_problem, problem_set
+           - "practice_exams_tests" matches: practice_exam, test
+           - "lecture_videos" matches: video_lecture, lecture_series, educational_video
+         * Set rejection_reason="Resource type '[type]' not in requested types: {desired_resource_types}"
+         * Skip all other checks for rejected resources
+       - If {desired_resource_types} is empty: skip this check.
+
+    1. USER EXCLUSIONS (Second - fastest check after type filter)
        - If {excluded_sites} provided, parse as comma-separated domains
        - REJECT any URL containing excluded strings (substring match)
        - Set rejection_reason="User excluded domain: [domain]"
