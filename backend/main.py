@@ -6,8 +6,9 @@ Handles job submission and status polling.
 """
 
 import os
+import uuid
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from backend.models import (
@@ -480,6 +481,75 @@ async def cancel_job(
                 "message": user_message
             }
         )
+
+
+@app.post("/api/upload-pdf", tags=["Jobs"])
+@limiter.limit("5/hour")
+async def upload_pdf(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Upload a PDF textbook for chapter-aware resource search.
+
+    Saves the file to a temporary location and returns the path,
+    which should be passed as book_pdf_path in a subsequent /api/submit call.
+
+    Args:
+        file: PDF file to upload (max 50 MB)
+        current_user: Authenticated user (automatically extracted from JWT)
+
+    Returns:
+        dict: {"pdf_path": "/tmp/scholar_uploads/{user_id}/{uuid}.pdf"}
+
+    Raises:
+        HTTPException: If file is invalid or upload fails
+        AuthenticationError: If authentication fails (401)
+    """
+    validate_origin(request)
+    user_id = current_user["id"]
+
+    # Validate file type by extension and content-type
+    filename = file.filename or ""
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Invalid file type", "message": "Only PDF files are accepted"}
+        )
+    content_type = file.content_type or ""
+    if "pdf" not in content_type.lower():
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Invalid content type", "message": "File must be a PDF (application/pdf)"}
+        )
+
+    # Read and check size (50 MB limit)
+    MAX_SIZE = 50 * 1024 * 1024
+    contents = await file.read()
+    if len(contents) > MAX_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail={"error": "File too large", "message": "PDF must be 50 MB or smaller"}
+        )
+
+    # Save to scoped temp directory
+    upload_dir = f"/tmp/scholar_uploads/{user_id}"
+    os.makedirs(upload_dir, exist_ok=True)
+    pdf_path = f"{upload_dir}/{uuid.uuid4()}.pdf"
+
+    try:
+        with open(pdf_path, "wb") as f:
+            f.write(contents)
+    except Exception as e:
+        logger.error(f"PDF upload failed for user {user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Upload failed", "message": "Could not save uploaded file"}
+        )
+
+    logger.info(f"PDF uploaded for user {user_id}: {pdf_path}")
+    return {"pdf_path": pdf_path}
 
 
 # Development server command:

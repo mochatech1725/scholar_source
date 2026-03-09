@@ -131,7 +131,8 @@ def run_crew_task(
         required_keys = [
             'university_name', 'course_name', 'course_url', 'textbook',
             'topics_list', 'book_title', 'book_author', 'isbn',
-            'book_pdf_path', 'book_url', 'desired_resource_types', 'excluded_sites', 'targeted_sites'
+            'book_pdf_path', 'book_url', 'desired_resource_types', 'excluded_sites', 'targeted_sites',
+            'chapter', 'sections', 'preferred_creators'
         ]
 
         for key in required_keys:
@@ -238,6 +239,7 @@ def run_crew_task(
         parsed_data = parse_markdown_to_resources(markdown_content, excluded_sites=excluded_sites)
         resources = parsed_data.get("resources", [])
         textbook_info = parsed_data.get("textbook_info")
+        section_groups = parsed_data.get("section_groups")
 
         # Cache course analysis results if this was a fresh analysis
         if not cached_analysis and textbook_info:
@@ -262,6 +264,16 @@ def run_crew_task(
         }
         if textbook_info:
             metadata["textbook_info"] = textbook_info
+        if section_groups:
+            metadata["section_groups"] = section_groups
+
+        # Clean up uploaded PDF temp file if present
+        pdf_path = normalized_inputs.get('book_pdf_path', '')
+        if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
+            try:
+                os.unlink(pdf_path)
+            except Exception:
+                pass
 
         # Check if job was cancelled during execution
         job = get_job(job_id, use_service_role=True)
@@ -302,6 +314,14 @@ def run_crew_task(
         logger.error(f"❌ Job {job_id} failed with {error_type}: {technical_error} (elapsed: {elapsed:.2f}s)")
         logger.error(f"Job {job_id} failed parameters: {inputs}")
         logger.error(stack_trace)
+
+        # Clean up uploaded PDF on failure too
+        try:
+            pdf_path = normalized_inputs.get('book_pdf_path', '')
+            if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
+                os.unlink(pdf_path)
+        except Exception:
+            pass
 
         # Update job with user-friendly error message
         update_job_status(
@@ -412,7 +432,8 @@ def run_crew_task_sync(
         required_keys = [
             'university_name', 'course_name', 'course_url', 'textbook',
             'topics_list', 'book_title', 'book_author', 'isbn',
-            'book_pdf_path', 'book_url', 'desired_resource_types', 'excluded_sites', 'targeted_sites'
+            'book_pdf_path', 'book_url', 'desired_resource_types', 'excluded_sites', 'targeted_sites',
+            'chapter', 'sections', 'preferred_creators'
         ]
 
         for key in required_keys:
@@ -529,6 +550,7 @@ def run_crew_task_sync(
         parsed_data = parse_markdown_to_resources(markdown_content, excluded_sites=excluded_sites)
         resources = parsed_data.get("resources", [])
         textbook_info = parsed_data.get("textbook_info")
+        section_groups = parsed_data.get("section_groups")
 
         # Cache course analysis results if this was a fresh analysis
         if not cached_analysis and textbook_info:
@@ -553,6 +575,16 @@ def run_crew_task_sync(
         }
         if textbook_info:
             metadata["textbook_info"] = textbook_info
+        if section_groups:
+            metadata["section_groups"] = section_groups
+
+        # Clean up uploaded PDF temp file if present
+        pdf_path = normalized_inputs.get('book_pdf_path', '')
+        if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
+            try:
+                os.unlink(pdf_path)
+            except Exception:
+                pass
 
         # Check if job was cancelled during execution
         job = get_job(job_id, use_service_role=True)
@@ -593,6 +625,14 @@ def run_crew_task_sync(
         logger.error(f"❌ Job {job_id} failed with {error_type}: {technical_error} (elapsed: {elapsed:.2f}s)")
         logger.error(f"Job {job_id} failed parameters: {inputs}")
         logger.error(stack_trace)
+
+        # Clean up uploaded PDF on failure too
+        try:
+            pdf_path = normalized_inputs.get('book_pdf_path', '')
+            if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
+                os.unlink(pdf_path)
+        except Exception:
+            pass
 
         # Update job with user-friendly error message
         update_job_status(

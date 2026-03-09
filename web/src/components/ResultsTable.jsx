@@ -6,18 +6,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ResultCard from './ResultCard';
 
-export default function ResultsTable({ resources, searchTitle, textbookInfo, onClear }) {
+export default function ResultsTable({ resources, searchTitle, textbookInfo, sectionGroups, onClear }) {
   const [copiedSelected, setCopiedSelected] = useState(false);
   const [copiedSelectedAndOpened, setCopiedSelectedAndOpened] = useState(false);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
 
   const scrollRef = useRef(null);
 
-  const totalCount = resources?.length || 0;
+  // All resources flat — used for URL list, toggle handlers, total count
+  const allResources = useMemo(() => {
+    if (sectionGroups && sectionGroups.length > 0) {
+      return sectionGroups.flatMap((g) => g.resources);
+    }
+    return resources || [];
+  }, [resources, sectionGroups]);
+
+  const totalCount = allResources.length;
 
   const urlList = useMemo(() => {
-    return (resources || []).map((r) => r.url).filter(Boolean);
-  }, [resources]);
+    return allResources.map((r) => r.url).filter(Boolean);
+  }, [allResources]);
 
   // Track the current resources to detect changes
   const resourcesRef = useRef(resources);
@@ -85,13 +93,13 @@ export default function ResultsTable({ resources, searchTitle, textbookInfo, onC
   // Create memoized toggle handlers for each resource to avoid inline functions in map
   const toggleHandlers = useMemo(() => {
     const handlers = new Map();
-    resources.forEach((resource) => {
+    allResources.forEach((resource) => {
       if (resource.url) {
         handlers.set(resource.url, () => toggleSelected(resource.url));
       }
     });
     return handlers;
-  }, [resources, toggleSelected]);
+  }, [allResources, toggleSelected]);
 
   // Handle scroll to hide/show scroll indicator
   useEffect(() => {
@@ -112,9 +120,9 @@ export default function ResultsTable({ resources, searchTitle, textbookInfo, onC
     return () => {
       if (el) el.removeEventListener('scroll', handleScroll);
     };
-  }, [resources]);
+  }, [allResources]);
 
-  if (!resources || resources.length === 0) {
+  if (allResources.length === 0) {
     return (
       <div className="results-table-empty">
         <div className="results-table-empty-content">
@@ -251,24 +259,49 @@ export default function ResultsTable({ resources, searchTitle, textbookInfo, onC
             </div>
           </div>
 
-          {/* Grid of cards */}
-          <div className="results-table-grid">
-            {resources.map((resource, index) => {
-              // Use URL as key if available, otherwise create a stable unique key
-              // Never use index alone as it can cause issues when list is reordered/filtered
-              const uniqueKey = resource.url || `resource-${resource.title || resource.type || 'unknown'}-${index}`;
-              return (
-                <ResultCard
-                  key={uniqueKey}
-                  resource={resource}
-                  index={index}
-                  onCopy={copyToClipboard}
-                  isSelected={selectedUrls.has(resource.url)}
-                  onToggleSelect={resource.url ? toggleHandlers.get(resource.url) : undefined}
-                />
-              );
-            })}
-          </div>
+          {/* Grid of cards — section-grouped or flat */}
+          {sectionGroups && sectionGroups.length > 0 ? (
+            <div className="space-y-6">
+              {sectionGroups.map((group) => (
+                <div key={group.section}>
+                  <h3 className="text-base font-semibold text-slate-800 mb-3 pb-1 border-b border-slate-200">
+                    {group.section}
+                  </h3>
+                  <div className="results-table-grid">
+                    {group.resources.map((resource, index) => {
+                      const uniqueKey = resource.url || `${group.section}-resource-${index}`;
+                      return (
+                        <ResultCard
+                          key={uniqueKey}
+                          resource={resource}
+                          index={index}
+                          onCopy={copyToClipboard}
+                          isSelected={selectedUrls.has(resource.url)}
+                          onToggleSelect={resource.url ? toggleHandlers.get(resource.url) : undefined}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="results-table-grid">
+              {resources.map((resource, index) => {
+                const uniqueKey = resource.url || `resource-${resource.title || resource.type || 'unknown'}-${index}`;
+                return (
+                  <ResultCard
+                    key={uniqueKey}
+                    resource={resource}
+                    index={index}
+                    onCopy={copyToClipboard}
+                    isSelected={selectedUrls.has(resource.url)}
+                    onToggleSelect={resource.url ? toggleHandlers.get(resource.url) : undefined}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

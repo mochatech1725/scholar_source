@@ -34,6 +34,9 @@ class CourseInputRequest(BaseModel):
     excluded_sites: Optional[str] = Field(None, description="Comma-separated list of domains to exclude from results (e.g., 'khanacademy.org, coursera.org')")
     targeted_sites: Optional[str] = Field(None, description="Comma-separated list of domains to prioritize/target in search (e.g., 'stanford.edu, berkeley.edu')")
     bypass_cache: Optional[bool] = Field(False, description="Bypass cache - skip cached results and get fresh results")
+    chapter: Optional[str] = Field(None, description="Chapter name/number for section-by-section search (e.g., 'Chapter 16' or 'Vector Calculus')")
+    sections: Optional[str] = Field(None, description="Comma-separated specific sections to focus on (e.g., '16.1, 16.4' or 'Surface Integrals, Green\\'s Theorem'). Narrows the search within the chapter.")
+    preferred_creators: Optional[str] = Field(None, description="Comma-separated preferred content creators (e.g., 'Professor Leonard, PatrickJMT, 3Blue1Brown')")
 
     @model_validator(mode='before')
     @classmethod
@@ -61,6 +64,23 @@ class CourseInputRequest(BaseModel):
         is_suspicious, reason = detect_prompt_injection(v)
         if is_suspicious:
             raise ValueError(f"URL contains suspicious patterns: {reason}")
+
+        return v
+
+    @field_validator('chapter', 'sections', 'preferred_creators', mode='after')
+    @classmethod
+    def validate_chapter_fields(cls, v):
+        """Validate chapter and preferred_creators fields for length and security"""
+        if v is None or v == "":
+            return v
+
+        is_valid, error = validate_text_input(v, max_length=200)
+        if not is_valid:
+            raise ValueError(error)
+
+        is_suspicious, reason = detect_prompt_injection(v)
+        if is_suspicious:
+            raise ValueError(f"Input contains suspicious patterns: {reason}")
 
         return v
 
@@ -181,6 +201,7 @@ class Resource(BaseModel):
     source: str = Field(..., description="Source/provider (e.g., MIT OCW)")
     url: str = Field(..., description="Direct URL to resource")
     description: Optional[str] = Field(None, description="Brief description")
+    section: Optional[str] = Field(None, description="Section name (chapter-aware mode only)")
 
     class Config:
         json_schema_extra = {

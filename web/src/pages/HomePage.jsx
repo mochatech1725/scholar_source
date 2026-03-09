@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { submitJob } from '../api/client';
+import { submitJob, uploadPdf } from '../api/client';
 import Hero from '../components/Hero';
 import InlineSearchStatus from '../components/InlineSearchStatus';
 import ResultsTable from '../components/ResultsTable';
@@ -21,6 +21,7 @@ export default function HomePage() {
   const [jobId, setJobId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState(null);
+  const [sectionGroups, setSectionGroups] = useState(null);
   const [searchTitle, setSearchTitle] = useState(null);
   const [textbookInfo, setTextbookInfo] = useState(null);
   const [error, setError] = useState(null);
@@ -36,10 +37,16 @@ export default function HomePage() {
     desired_resource_types: [],
     excluded_sites: '',
     targeted_sites: '',
-    bypass_cache: true
+    bypass_cache: true,
+    chapter: '',
+    sections: '',
+    preferred_creators: '',
+    book_pdf_path: ''
   });
+  const [pdfFile, setPdfFile] = useState(null);
   const [validationError, setValidationError] = useState('');
   const [isAdvancedOptionsExpanded, setIsAdvancedOptionsExpanded] = useState(false);
+  const [isChapterSearchExpanded, setIsChapterSearchExpanded] = useState(false);
   const [isResourceTypesExpanded, setIsResourceTypesExpanded] = useState(false);
   const [isFocusTopicsExpanded, setIsFocusTopicsExpanded] = useState(false);
   const [isExcludeSitesExpanded, setIsExcludeSitesExpanded] = useState(false);
@@ -72,6 +79,7 @@ export default function HomePage() {
     const value = e.target.value;
     setSearchParamType(value);
     if (validationError) setValidationError('');
+    setPdfFile(null);
     setFormData({
       course_url: '',
       book_url: '',
@@ -80,7 +88,11 @@ export default function HomePage() {
       desired_resource_types: formData.desired_resource_types,
       excluded_sites: formData.excluded_sites,
       targeted_sites: formData.targeted_sites,
-      bypass_cache: formData.bypass_cache
+      bypass_cache: formData.bypass_cache,
+      chapter: formData.chapter,
+      sections: formData.sections,
+      preferred_creators: formData.preferred_creators,
+      book_pdf_path: ''
     });
   };
 
@@ -90,6 +102,7 @@ export default function HomePage() {
       case 'course_url': return formData.course_url.trim() !== '';
       case 'book_url': return formData.book_url.trim() !== '';
       case 'isbn': return formData.isbn.trim() !== '';
+      case 'book_pdf': return pdfFile !== null;
       default: return false;
     }
   };
@@ -104,10 +117,17 @@ export default function HomePage() {
       desired_resource_types: [],
       excluded_sites: '',
       targeted_sites: '',
-      bypass_cache: true
+      bypass_cache: true,
+      chapter: '',
+      sections: '',
+      preferred_creators: '',
+      book_pdf_path: ''
     });
+    setPdfFile(null);
+    setSectionGroups(null);
     setValidationError('');
     setIsAdvancedOptionsExpanded(false);
+    setIsChapterSearchExpanded(false);
     setIsResourceTypesExpanded(false);
     setIsFocusTopicsExpanded(false);
     setIsExcludeSitesExpanded(false);
@@ -141,6 +161,12 @@ export default function HomePage() {
           return;
         }
         break;
+      case 'book_pdf':
+        if (!pdfFile) {
+          setValidationError('Please select a PDF file to upload');
+          return;
+        }
+        break;
       default:
         setValidationError('Please select a valid search parameter type');
         return;
@@ -150,17 +176,24 @@ export default function HomePage() {
       setError(null);
       setStatusMessage(null);
       setResults(null);
+      setSectionGroups(null);
       setSearchTitle(null);
       setTextbookInfo(null);
       setJobId(null);
       setIsLoading(true);
 
+      let payload = { ...formData };
+
+      // Upload PDF first if needed
+      if (searchParamType === 'book_pdf' && pdfFile) {
+        const { pdf_path } = await uploadPdf(pdfFile);
+        payload = { ...payload, book_pdf_path: pdf_path };
+      }
+
       console.log('[HomePage] Submitting job...');
-      const response = await submitJob(formData);
+      const response = await submitJob(payload);
       console.log('[HomePage] Job submitted, response:', response);
-      console.log('[HomePage] Setting jobId to:', response.job_id);
       setJobId(response.job_id);
-      console.log('[HomePage] jobId state updated');
     } catch (err) {
       console.error('[HomePage] Job submission failed:', err);
       setError(err.message);
@@ -168,8 +201,9 @@ export default function HomePage() {
     }
   };
 
-  const handleComplete = useCallback((resources, rawOutput, title, textbook) => {
+  const handleComplete = useCallback((resources, rawOutput, title, textbook, sections) => {
     setResults(resources);
+    setSectionGroups(sections || null);
     setSearchTitle(title);
     setTextbookInfo(textbook);
     setIsLoading(false);
@@ -191,6 +225,7 @@ export default function HomePage() {
 
   const handleClearResults = useCallback(() => {
     setResults(null);
+    setSectionGroups(null);
     setSearchTitle(null);
     setTextbookInfo(null);
     setJobId(null);
@@ -277,6 +312,7 @@ export default function HomePage() {
                       <option value="course_url">Course URL</option>
                       <option value="book_url">Book URL</option>
                       <option value="isbn">Book ISBN</option>
+                      <option value="book_pdf">PDF Upload</option>
                     </TextInput>
                   </div>
                   <p id="search-type-helper" className="helper-text-inline">
@@ -284,6 +320,7 @@ export default function HomePage() {
                     {searchParamType === 'course_url' && "Enter the URL of the course page you want to search."}
                     {searchParamType === 'book_url' && "Enter the URL of the book page you want to search."}
                     {searchParamType === 'isbn' && "Enter the ISBN of the book you want to search."}
+                    {searchParamType === 'book_pdf' && "Upload a PDF textbook to extract chapters and find resources."}
                   </p>
                 </div>
 
@@ -347,6 +384,25 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
+
+                {searchParamType === 'book_pdf' && (
+                  <div>
+                    <TextLabel htmlFor="book_pdf_file" required>
+                      PDF Textbook
+                    </TextLabel>
+                    <div className="mt-1">
+                      <input
+                        type="file"
+                        id="book_pdf_file"
+                        accept=".pdf"
+                        disabled={isLoading}
+                        onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                        className="block w-full text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                    </div>
+                    <HelperText>Max 50 MB. PDF will be uploaded securely.</HelperText>
+                  </div>
+                )}
               </div>
 
               {/* Force Refresh Toggle - Mobile */}
@@ -390,6 +446,85 @@ export default function HomePage() {
                   </span>
                 </label>
               </div>
+
+              {/* Chapter Search - Collapsible Panel (shown for all book-type searches) */}
+              {(searchParamType === 'book_url' || searchParamType === 'isbn' || searchParamType === 'book_pdf') && (
+                <div className="advanced-options-panel mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsChapterSearchExpanded(!isChapterSearchExpanded)}
+                    className="advanced-options-header"
+                  >
+                    <div className="advanced-options-header-content">
+                      <span className="advanced-options-title">📖 Chapter Search</span>
+                      <OptionalBadge />
+                    </div>
+                    <svg className={`accordion-icon ${isChapterSearchExpanded ? 'accordion-icon-expanded' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {isChapterSearchExpanded && (
+                    <div className="advanced-options-body">
+                      <div className="search-grid-two-col mb-2">
+                        <div>
+                          <TextLabel htmlFor="chapter">
+                            Chapter
+                          </TextLabel>
+                          <div className="mt-1">
+                            <TextInput
+                              type="text"
+                              id="chapter"
+                              name="chapter"
+                              value={formData.chapter}
+                              onChange={handleChange}
+                              placeholder="e.g., Chapter 16 or Vector Calculus"
+                              disabled={isLoading}
+                            />
+                          </div>
+                          <HelperText>Find 3+ resources per section within this chapter.</HelperText>
+                        </div>
+
+                        <div>
+                          <TextLabel htmlFor="sections">
+                            Specific Sections
+                          </TextLabel>
+                          <div className="mt-1">
+                            <TextInput
+                              type="text"
+                              id="sections"
+                              name="sections"
+                              value={formData.sections}
+                              onChange={handleChange}
+                              placeholder="e.g., 16.1, 16.4"
+                              disabled={isLoading}
+                            />
+                          </div>
+                          <HelperText>Comma-separated sections to focus on (optional).</HelperText>
+                        </div>
+                      </div>
+
+                      <div>
+                        <TextLabel htmlFor="preferred_creators">
+                          Preferred Creators
+                        </TextLabel>
+                        <div className="mt-1">
+                          <TextInput
+                            type="text"
+                            id="preferred_creators"
+                            name="preferred_creators"
+                            value={formData.preferred_creators}
+                            onChange={handleChange}
+                            placeholder="e.g., Professor Leonard, PatrickJMT, 3Blue1Brown"
+                            disabled={isLoading}
+                          />
+                        </div>
+                        <HelperText>Comma-separated YouTube educators to prioritize.</HelperText>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Advanced Options - Collapsible Panel */}
               <div className="advanced-options-panel mb-2">
@@ -636,6 +771,7 @@ export default function HomePage() {
             {results && !isLoading && (
               <ResultsTable
                 resources={results}
+                sectionGroups={sectionGroups}
                 searchTitle={searchTitle}
                 textbookInfo={textbookInfo}
                 onClear={handleClearResults}
