@@ -245,8 +245,11 @@ async def submit_job(
         )
 
     try:
-        # Extract bypass_cache from inputs (don't store in job inputs)
-        bypass_cache = inputs.pop('bypass_cache', False)
+        # Extract cache bypass flags from inputs (don't store in job inputs)
+        # Support legacy bypass_cache as a fallback for both flags
+        legacy_bypass = inputs.pop('bypass_cache', False)
+        bypass_cache_analysis = inputs.pop('bypass_cache_analysis', False) or legacy_bypass
+        bypass_cache_results = inputs.pop('bypass_cache_results', False) or legacy_bypass
 
         logger.info(f"Creating new job with inputs: {inputs}")
 
@@ -256,11 +259,11 @@ async def submit_job(
 
         # Check if workers are available (non-blocking check)
         worker_status = check_celery_workers()
-        
-        # Start background crew execution (pass bypass_cache separately)
+
+        # Start background crew execution (pass cache flags separately)
         # Use BackgroundTasks to ensure this doesn't block the response,
         # even in SYNC_MODE
-        background_tasks.add_task(run_crew_async, job_id, inputs, bypass_cache)
+        background_tasks.add_task(run_crew_async, job_id, inputs, bypass_cache_analysis, bypass_cache_results)
 
         response = {
             "job_id": job_id,

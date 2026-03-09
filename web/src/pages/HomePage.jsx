@@ -37,7 +37,8 @@ export default function HomePage() {
     desired_resource_types: [],
     excluded_sites: '',
     targeted_sites: '',
-    bypass_cache: true,
+    bypass_cache_analysis: false,
+    bypass_cache_results: false,
     chapter: '',
     sections: '',
     preferred_creators: '',
@@ -88,7 +89,8 @@ export default function HomePage() {
       desired_resource_types: formData.desired_resource_types,
       excluded_sites: formData.excluded_sites,
       targeted_sites: formData.targeted_sites,
-      bypass_cache: formData.bypass_cache,
+      bypass_cache_analysis: formData.bypass_cache_analysis,
+      bypass_cache_results: formData.bypass_cache_results,
       chapter: formData.chapter,
       sections: formData.sections,
       preferred_creators: formData.preferred_creators,
@@ -117,7 +119,8 @@ export default function HomePage() {
       desired_resource_types: [],
       excluded_sites: '',
       targeted_sites: '',
-      bypass_cache: true,
+      bypass_cache_analysis: false,
+      bypass_cache_results: false,
       chapter: '',
       sections: '',
       preferred_creators: '',
@@ -405,44 +408,37 @@ export default function HomePage() {
                 )}
               </div>
 
-              {/* Force Refresh Toggle - Mobile */}
-              <div className="mb-1.5 lg:hidden">
-                <label htmlFor="bypass_cache_mobile" className="checkbox-label">
+              {/* Cache bypass toggles */}
+              <div className="mb-1.5 flex flex-col sm:flex-row gap-x-6 gap-y-1">
+                <label htmlFor="bypass_cache_analysis" className="checkbox-label">
                   <input
                     type="checkbox"
-                    id="bypass_cache_mobile"
-                    name="bypass_cache"
-                    checked={formData.bypass_cache}
+                    id="bypass_cache_analysis"
+                    name="bypass_cache_analysis"
+                    checked={formData.bypass_cache_analysis}
                     onChange={handleChange}
                     disabled={isLoading}
                     className="checkbox-input"
                   />
-                  <span className="checkbox-label-text">
-                    Bypass cache
-                  </span>
+                  <span className="checkbox-label-text">Bypass search-criteria cache</span>
                   <span className="checkbox-label-helper">
-                    Don't use cached results from previous searches. (Will make searches a bit slower.)
+                    Re-extract textbook/topics instead of using saved results.
                   </span>
                 </label>
-              </div>
 
-              {/* Force Refresh Toggle - Desktop */}
-              <div className="hidden lg:block mb-1.5">
-                <label htmlFor="bypass_cache" className="checkbox-label">
+                <label htmlFor="bypass_cache_results" className="checkbox-label">
                   <input
                     type="checkbox"
-                    id="bypass_cache"
-                    name="bypass_cache"
-                    checked={formData.bypass_cache}
+                    id="bypass_cache_results"
+                    name="bypass_cache_results"
+                    checked={formData.bypass_cache_results}
                     onChange={handleChange}
                     disabled={isLoading}
                     className="checkbox-input"
                   />
-                  <span className="checkbox-label-text">
-                    Bypass cache
-                  </span>
+                  <span className="checkbox-label-text">Bypass results cache</span>
                   <span className="checkbox-label-helper">
-                    Don't use cached results from previous searches. (Will make searches a bit slower.)
+                    Re-run the full resource search instead of using saved results.
                   </span>
                 </label>
               </div>
