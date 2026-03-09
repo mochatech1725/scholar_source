@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Sora:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,7 +9,7 @@
   }
 
   :root {
-    font-family: 'Sora', system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -26,15 +24,14 @@
 
   h1, h2, h3, h4, h5, h6 {
     @apply m-0 font-serif;
-    font-family: 'Fraunces', Georgia, serif;
-    font-weight: 700;
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-weight: 600; /* semibold as recommended */
   }
 
-  /* Display titles use Fraunces italic for visual impact */
+  /* Display titles use Poppins for visual impact */
   .display-title {
-    font-family: 'Fraunces', serif;
+    font-family: 'Poppins', sans-serif;
     font-weight: 700;
-    font-style: italic;
     letter-spacing: -0.02em;
   }
 
@@ -298,8 +295,6 @@
 
   .loading-status-title {
     @apply m-0 text-lg sm:text-xl font-semibold text-slate-900 tracking-tight;
-    font-family: 'Fraunces', serif;
-    font-weight: 700;
   }
 
   .loading-status-message {
@@ -381,7 +376,6 @@
 
   .form-section-title {
     @apply m-0 text-sm font-bold text-slate-900 flex items-center gap-1.5;
-    font-family: 'Fraunces', serif;
   }
 
   .form-section-toggle {
@@ -469,9 +463,8 @@
 
   .hero-title {
     @apply m-0 text-xl sm:text-2xl md:text-3xl text-white tracking-tight leading-tight;
-    font-family: "Fraunces", serif;
+    font-family: "Space Grotesk", sans-serif;
     font-weight: 700;
-    font-style: italic;
     letter-spacing: -0.02em;
   }
   
@@ -724,10 +717,9 @@
   }
 
   .home-page-header-title {
-    @apply m-0 text-lg sm:text-xl lg:text-2xl text-white leading-tight tracking-tight;
-    font-family: 'Fraunces', serif;
+    @apply m-0 text-lg sm:text-xl lg:text-2xl font-bold text-white leading-tight tracking-tight;
+    font-family: "Space Grotesk", sans-serif;
     font-weight: 700;
-    font-style: italic;
     letter-spacing: -0.02em;
   }
 
@@ -989,10 +981,7 @@
   }
 
   .hero-steps-eyebrow {
-    @apply m-0 mb-3 text-base font-bold text-blue-800;
-    font-family: 'Fraunces', serif;
-    font-style: italic;
-    letter-spacing: -0.01em;
+    @apply m-0 mb-3 text-xs font-bold uppercase tracking-widest text-blue-700;
   }
 
   .hero-steps-list {
@@ -1018,8 +1007,6 @@
 
   .hero-step-row-title {
     @apply m-0 text-sm font-semibold text-slate-800 leading-snug;
-    font-family: 'Fraunces', serif;
-    font-weight: 600;
   }
 
   .hero-step-row-desc {
@@ -1049,9 +1036,7 @@
   }
 
   .split-section-title {
-    @apply m-0 text-xl sm:text-2xl text-slate-900;
-    font-family: 'Fraunces', serif;
-    font-weight: 700;
+    @apply m-0 text-base font-semibold text-slate-900;
   }
 
   .split-form {
@@ -1086,9 +1071,7 @@
   }
 
   .target-resources-title {
-    @apply m-0 mb-3 text-lg text-slate-900;
-    font-family: 'Fraunces', serif;
-    font-weight: 700;
+    @apply m-0 mb-3 text-sm font-semibold text-slate-800;
   }
 
   /* Resource type toggle chips */

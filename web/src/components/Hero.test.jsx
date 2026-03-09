@@ -1,39 +1,41 @@
 /**
- * Tests for Hero component
+ * Tests for the hero / how-it-works section rendered by HomePage
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import Hero from './Hero';
+import HomePage from '../pages/HomePage';
 
-describe('Hero', () => {
-  it('renders hero section with title', () => {
-    render(<Hero />);
+// Stub out heavy child components so the hero section renders in isolation
+vi.mock('../api/client', () => ({
+  submitJob: vi.fn(),
+  uploadPdf: vi.fn(),
+}));
+vi.mock('../components/InlineSearchStatus', () => ({ default: () => null }));
+vi.mock('../components/ResultsTable', () => ({ default: () => null }));
+vi.mock('../components/StatusMessage', () => ({ default: () => null }));
+vi.mock('../components/UserMenu/UserMenu', () => ({ default: () => null }));
 
-    expect(screen.getByText(/ScholarSource/i)).toBeInTheDocument();
+describe('HomePage hero section', () => {
+  beforeEach(() => {
+    render(<HomePage />);
   });
 
-  it('renders description text', () => {
-    render(<Hero />);
-
-    // Check for description/subtitle
-    const description = screen.getByText(/discover/i) || screen.getByText(/educational/i);
-    expect(description).toBeInTheDocument();
+  it('renders the page heading', () => {
+    expect(screen.getByText(/Student Study Resource Finder/i)).toBeInTheDocument();
   });
 
-  it('applies correct styling classes', () => {
-    const { container } = render(<Hero />);
-
-    // Hero section should have appropriate Tailwind classes
-    const heroSection = container.firstChild;
-    expect(heroSection).toHaveClass('bg-gradient-to-r');
+  it('renders the how-it-works steps', () => {
+    expect(screen.getByText(/How it works/i)).toBeInTheDocument();
+    expect(screen.getByText(/Enter your course details/i)).toBeInTheDocument();
+    expect(screen.getByText(/AI discovers resources/i)).toBeInTheDocument();
+    expect(screen.getByText(/Select & copy links/i)).toBeInTheDocument();
+    expect(screen.getByText(/Generate study tools/i)).toBeInTheDocument();
   });
 
-  it('is responsive', () => {
-    const { container } = render(<Hero />);
-
-    // Should have responsive text sizes
-    const title = screen.getByRole('heading', { level: 1 });
-    expect(title).toHaveClass('text-4xl', 'md:text-5xl');
+  it('renders the Open NotebookLM link', () => {
+    const links = screen.getAllByRole('link', { name: /Open NotebookLM/i });
+    expect(links.length).toBeGreaterThan(0);
+    expect(links[0]).toHaveAttribute('href', 'https://notebooklm.google.com');
   });
 });
