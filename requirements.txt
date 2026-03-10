@@ -20,4 +20,4 @@ cryptography==42.0.8
 pypdf>=5.0.0,<6.0.0
 
 # File type validation via magic bytes
-python-magic-bin==0.4.14
+python-magic==0.4.27
