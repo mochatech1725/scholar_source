@@ -107,8 +107,9 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       const { error } = await supabase.auth.signOut();
 
-      if (error) throw error;
+      if (error && error.name !== 'AuthSessionMissingError') throw error;
     } catch (error) {
+      if (error.name === 'AuthSessionMissingError') return;
       setError(error.message);
       throw error;
     }
