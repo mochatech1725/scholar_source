@@ -367,8 +367,10 @@ export default function HomePage() {
 
               {/* ── Search Type — exclusive radio pills ── */}
               <div>
-                <TextLabel required>Search Type</TextLabel>
-                <p className="text-xs text-slate-500 mb-1.5">Choose one.</p>
+                <div className="flex items-baseline gap-2 mb-1.5">
+                  <TextLabel required>Search Type</TextLabel>
+                  <span className="text-xs text-slate-600 font-medium">Choose one.</span>
+                </div>
                 <div className="search-type-pills" role="radiogroup" aria-label="Search type">
                   {SEARCH_TYPES.map(({ value, label, icon }) => {
                     const isActive = searchParamType === value;
@@ -437,9 +439,6 @@ export default function HomePage() {
                   <HelperText>Max 50 MB. PDF will be uploaded securely.</HelperText>
                 </div>
               )}
-              {!searchParamType && (
-                <p className="text-sm text-slate-400 italic">Select a search type above to continue.</p>
-              )}
 
               {/* ── Target Resources (always open) ── */}
               <div className="target-resources-panel">
@@ -447,8 +446,10 @@ export default function HomePage() {
 
                 {/* Resource type toggle chips */}
                 <div className="mb-3">
-                  <TextLabel>Resource Types</TextLabel>
-                  <p className="text-xs text-slate-500 mb-2">Select specific types, or leave all unselected to find a mix.</p>
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <TextLabel>Resource Types</TextLabel>
+                    <span className="text-xs text-slate-600 font-medium">Select specific types, or leave all unselected to find a mix.</span>
+                  </div>
                   <div className="resource-type-chips">
                     {RESOURCE_TYPES.map(({ value, label, icon }) => {
                       const isActive = formData.desired_resource_types?.includes(value);
