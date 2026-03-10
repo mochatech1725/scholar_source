@@ -39,7 +39,7 @@ export default function HomePage() {
   const [statusMessage, setStatusMessage] = useState(null);
 
   // Form state
-  const [searchParamType, setSearchParamType] = useState('');
+  const [searchParamType, setSearchParamType] = useState('course_url');
   const [formData, setFormData] = useState({
     course_url: '',
     book_url: '',
@@ -364,13 +364,13 @@ export default function HomePage() {
 
             <form id="search-form" onSubmit={handleSubmit} className="split-form">
 
-              {/* ── Search Type — exclusive radio pills ── */}
-              <div>
-                <div className="flex items-baseline gap-2 mb-1.5">
+              {/* ── Search Type — icon tab bar ── */}
+              <div className="search-type-tab-group">
+                <div className="flex items-baseline gap-2 mb-2">
                   <TextLabel required>Search Type</TextLabel>
-                  <span className="text-xs text-slate-600 font-medium">Choose one.</span>
+                  <span className="text-xs text-slate-500">Select a type — the input will appear below.</span>
                 </div>
-                <div className="search-type-pills" role="radiogroup" aria-label="Search type">
+                <div className="search-type-tab-bar" role="radiogroup" aria-label="Search type">
                   {SEARCH_TYPES.map(({ value, label, icon }) => {
                     const isActive = searchParamType === value;
                     return (
@@ -381,63 +381,49 @@ export default function HomePage() {
                         aria-checked={isActive}
                         onClick={() => handleSearchParamChange(value)}
                         disabled={isLoading}
-                        className={`search-type-pill ${isActive ? 'search-type-pill-active' : ''}`}
+                        className={`search-type-tab ${isActive ? 'search-type-tab-active' : ''}`}
                       >
-                        <span className="search-type-pill-icon">{icon}</span>
-                        {label}
+                        <span className="search-type-tab-icon" aria-hidden="true">{icon}</span>
+                        <span className="search-type-tab-label">{label}</span>
                       </button>
                     );
                   })}
                 </div>
-              </div>
 
-              {/* ── Primary input field ── */}
-              {searchParamType === 'course_url' && (
-                <div>
-                  <TextLabel htmlFor="course_url" required>Course URL</TextLabel>
-                  <div className="mt-1">
-                    <TextInput type="url" id="course_url" name="course_url" value={formData.course_url}
-                      onChange={handleChange} placeholder="https://ocw.mit.edu/courses/..." disabled={isLoading} required />
+                {/* Input box — appears inside the tab group frame */}
+                {searchParamType && (
+                  <div className="search-type-tab-input-box">
+                    {searchParamType === 'course_url' && (
+                      <TextInput type="url" id="course_url" name="course_url" value={formData.course_url}
+                        onChange={handleChange} placeholder="https://canvas.university.edu/courses/…"
+                        disabled={isLoading} required />
+                    )}
+                    {searchParamType === 'book_url' && (
+                      <TextInput type="url" id="book_url" name="book_url" value={formData.book_url}
+                        onChange={handleChange} placeholder="https://openstax.org/books/…"
+                        disabled={isLoading} required />
+                    )}
+                    {searchParamType === 'isbn' && (
+                      <TextInput type="text" id="isbn" name="isbn" value={formData.isbn}
+                        onChange={handleChange} placeholder="978-0262046305"
+                        disabled={isLoading} required />
+                    )}
+                    {searchParamType === 'book_pdf' && (
+                      <>
+                        <input
+                          type="file"
+                          id="book_pdf_file"
+                          accept=".pdf"
+                          disabled={isLoading}
+                          onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                          className="block w-full text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                        <p className="mt-1 text-xs text-slate-500">Max 50 MB. PDF will be uploaded securely.</p>
+                      </>
+                    )}
                   </div>
-                  <HelperText>URL of the course page (e.g. MIT OCW, university syllabus)</HelperText>
-                </div>
-              )}
-              {searchParamType === 'book_url' && (
-                <div>
-                  <TextLabel htmlFor="book_url" required>Book URL</TextLabel>
-                  <div className="mt-1">
-                    <TextInput type="url" id="book_url" name="book_url" value={formData.book_url}
-                      onChange={handleChange} placeholder="https://..." disabled={isLoading} required />
-                  </div>
-                  <HelperText>URL of the textbook or book page</HelperText>
-                </div>
-              )}
-              {searchParamType === 'isbn' && (
-                <div>
-                  <TextLabel htmlFor="isbn" required>ISBN</TextLabel>
-                  <div className="mt-1">
-                    <TextInput type="text" id="isbn" name="isbn" value={formData.isbn}
-                      onChange={handleChange} placeholder="978-0262046305" disabled={isLoading} required />
-                  </div>
-                  <HelperText>10 or 13-digit ISBN of the textbook</HelperText>
-                </div>
-              )}
-              {searchParamType === 'book_pdf' && (
-                <div>
-                  <TextLabel htmlFor="book_pdf_file" required>PDF Textbook</TextLabel>
-                  <div className="mt-1">
-                    <input
-                      type="file"
-                      id="book_pdf_file"
-                      accept=".pdf"
-                      disabled={isLoading}
-                      onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-                      className="block w-full text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                  </div>
-                  <HelperText>Max 50 MB. PDF will be uploaded securely.</HelperText>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* ── Target Resources (always open) ── */}
               <div className="target-resources-panel">

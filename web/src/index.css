@@ -1261,26 +1261,43 @@
     @apply flex flex-col gap-3;
   }
 
-  /* Search type radio pills — clearly mutually exclusive with strong selected state */
-  .search-type-pills {
-    @apply mt-1 flex flex-wrap gap-2;
+  /* Search type — icon tab bar */
+  .search-type-tab-group {
+    @apply flex flex-col;
   }
 
-  .search-type-pill {
-    @apply inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all;
-    @apply border-slate-400 bg-white text-slate-600;
-    @apply hover:border-slate-600 hover:text-slate-800;
-    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1;
+  .search-type-tab-bar {
+    @apply flex border-b border-slate-200;
+  }
+
+  .search-type-tab {
+    @apply flex flex-col items-center gap-1.5 px-6 py-3 text-xs font-medium text-slate-400 transition-colors;
+    @apply border-b-2 border-transparent -mb-px;
+    @apply hover:text-slate-600;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary;
     @apply disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
-  .search-type-pill-active {
-    @apply border-primary bg-primary text-white shadow-md ring-2 ring-primary/30;
-    @apply hover:bg-primary-dark hover:border-primary-dark hover:text-white;
+  .search-type-tab-active {
+    @apply text-slate-900 border-b-2 font-bold;
+    border-bottom-color: #1e3a5f;
   }
 
-  .search-type-pill-icon {
-    @apply text-base leading-none;
+  .search-type-tab-icon {
+    @apply text-2xl leading-none;
+  }
+
+  .search-type-tab-label {
+    @apply leading-none;
+  }
+
+  .search-type-tab-input-box {
+    @apply pt-4 pb-2;
+  }
+
+  .search-type-tab-input-label {
+    @apply text-xs font-semibold tracking-widest text-slate-400 mb-2;
+    font-family: theme('fontFamily.mono');
   }
 
   /* Target Resources section — always visible, no collapse */
