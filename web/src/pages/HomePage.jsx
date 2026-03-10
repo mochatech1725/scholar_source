@@ -26,7 +26,6 @@ const RESOURCE_TYPES = [
   { value: 'lecture_videos',        label: 'Lecture Videos',    icon: '🎬' },
   { value: 'practice_problem_sets', label: 'Practice Problems', icon: '✏️' },
   { value: 'practice_exams_tests',  label: 'Practice Exams',    icon: '📝' },
-  { value: 'textbooks',             label: 'Textbooks',         icon: '📚' },
 ];
 
 export default function HomePage() {
