@@ -48,8 +48,6 @@ export default function HomePage() {
     desired_resource_types: [],
     excluded_sites: '',
     targeted_sites: '',
-    bypass_cache_analysis: false,
-    bypass_cache_results: false,
     chapter: '',
     sections: '',
     preferred_creators: '',
@@ -98,8 +96,6 @@ export default function HomePage() {
       desired_resource_types: prev.desired_resource_types,
       excluded_sites: prev.excluded_sites,
       targeted_sites: prev.targeted_sites,
-      bypass_cache_analysis: prev.bypass_cache_analysis,
-      bypass_cache_results: prev.bypass_cache_results,
       chapter: prev.chapter,
       sections: prev.sections,
       preferred_creators: prev.preferred_creators,
@@ -128,8 +124,6 @@ export default function HomePage() {
       desired_resource_types: [],
       excluded_sites: '',
       targeted_sites: '',
-      bypass_cache_analysis: false,
-      bypass_cache_results: false,
       chapter: '',
       sections: '',
       preferred_creators: '',
@@ -582,22 +576,6 @@ export default function HomePage() {
                   )}
                 </div>
               )}
-
-              {/* ── Cache bypass toggles ── */}
-              <div className="flex flex-col gap-1 pt-1 border-t border-slate-100">
-                <label htmlFor="bypass_cache_analysis" className="checkbox-label">
-                  <input type="checkbox" id="bypass_cache_analysis" name="bypass_cache_analysis"
-                    checked={formData.bypass_cache_analysis} onChange={handleChange}
-                    disabled={isLoading} className="checkbox-input" />
-                  <span className="checkbox-label-text">Bypass search-criteria cache</span>
-                </label>
-                <label htmlFor="bypass_cache_results" className="checkbox-label">
-                  <input type="checkbox" id="bypass_cache_results" name="bypass_cache_results"
-                    checked={formData.bypass_cache_results} onChange={handleChange}
-                    disabled={isLoading} className="checkbox-input" />
-                  <span className="checkbox-label-text">Bypass results cache</span>
-                </label>
-              </div>
 
               {/* Validation Error */}
               {validationError && (

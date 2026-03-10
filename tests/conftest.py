@@ -65,14 +65,11 @@ class MockSupabaseClient:
 
     def __init__(self):
         self.jobs_data: Dict[str, Dict[str, Any]] = {}
-        self.cache_data: Dict[str, Dict[str, Any]] = {}
 
     def table(self, table_name: str):
         """Return table mock."""
         if table_name == "jobs":
             return MockJobsTable(self.jobs_data)
-        elif table_name == "course_cache":
-            return MockCacheTable(self.cache_data)
         else:
             raise ValueError(f"Unknown table: {table_name}")
 
@@ -97,23 +94,6 @@ class MockJobsTable:
     def update(self, values: Dict[str, Any]):
         """Update query."""
         return MockUpdateQuery(self.data, values)
-
-
-class MockCacheTable:
-    """Mock course_cache table."""
-
-    def __init__(self, data: Dict[str, Dict[str, Any]]):
-        self.data = data
-
-    def select(self, *args):
-        """Select query."""
-        return MockSelectQuery(self.data)
-
-    def upsert(self, values: Dict[str, Any]):
-        """Upsert cache entry."""
-        cache_key = values.get("cache_key")
-        self.data[cache_key] = values
-        return MockExecute({"data": [values], "error": None})
 
 
 class MockSelectQuery:

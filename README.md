@@ -26,7 +26,6 @@ scholar_source/
 │   ├── models.py           # Pydantic request/response models
 │   ├── jobs.py             # Job management
 │   ├── crew_runner.py      # CrewAI execution wrapper
-│   ├── cache.py            # Caching system
 │   ├── rate_limiter.py     # Rate limiting
 │   └── markdown_parser.py  # Parse crew output to JSON
 │

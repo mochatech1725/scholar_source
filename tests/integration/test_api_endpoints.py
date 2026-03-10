@@ -114,16 +114,6 @@ class TestSubmitEndpoint:
 
         assert response.status_code == 200
 
-    def test_submit_with_bypass_cache(self, client, mock_supabase, mock_crew_success):
-        """Should accept bypass_cache flag."""
-        payload = {
-            "course_url": "https://example.com",
-            "bypass_cache": True
-        }
-        response = client.post("/api/submit", json=payload)
-
-        assert response.status_code == 200
-
     def test_submit_creates_job_in_database(self, client, mock_supabase, mock_crew_success):
         """Should create job record in database."""
         payload = {"course_url": "https://example.com"}
@@ -146,7 +136,6 @@ class TestSubmitEndpoint:
             "topics_list": "algorithms, data structures",
             "desired_resource_types": ["textbooks", "videos"],
             "excluded_sites": "example.com",
-            "bypass_cache": False
         }
         response = client.post("/api/submit", json=payload)
 

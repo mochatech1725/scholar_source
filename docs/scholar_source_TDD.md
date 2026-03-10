@@ -130,7 +130,7 @@ The job management system coordinates job submission, execution, and status trac
 
 2. **API enqueues Celery task** → Job stored in Redis queue
    - Job status updated to `"queued"` in Supabase
-   - Task metadata stored (celery_task_id, bypass_cache)
+   - Task metadata stored (celery_task_id)
    - API response returned immediately (non-blocking)
 
 3. **Celery worker picks up task** → Worker consumes job from Redis queue
@@ -169,7 +169,7 @@ The job record in Supabase acts as the coordination point between the API (which
 
 #### 2.2.1 Function Signatures
 
-**`run_crew_async(job_id: str, inputs: Dict[str, str], bypass_cache: bool = False) -> str`**
+**`run_crew_async(job_id: str, inputs: Dict[str, str]) -> str`**
 
 Enqueues a ScholarSource crew job to the Celery task queue, or runs synchronously if in SYNC_MODE.
 
@@ -182,7 +182,6 @@ Enqueues a ScholarSource crew job to the Celery task queue, or runs synchronousl
 - **Parameters:**
   - `job_id`: UUID of the job to run
   - `inputs`: Dictionary of course input parameters
-  - `bypass_cache`: If True, bypass cache and get fresh results
 - **Returns:**
   - `str`: Celery task ID (in async mode) or "sync" (in sync mode)
 
@@ -196,21 +195,19 @@ Enqueues a ScholarSource crew job to the Celery task queue, or runs synchronousl
 
 #### 2.3.1 Function Signatures
 
-**`run_crew_task(job_id: str, inputs: Dict[str, str], bypass_cache: bool = False) -> Dict[str, any]` (Celery Task)**
+**`run_crew_task(job_id: str, inputs: Dict[str, str]) -> Dict[str, any]` (Celery Task)**
 
 Celery task that executes the ScholarSource crew. Runs in separate worker process.
 
 - **Function flow:**
   1. Updates job status to 'running'
-  2. Checks cache (if not bypassed) using `get_cached_analysis()`
-  3. Executes the crew with provided inputs using `kickoff_async()`
-  4. Parses the markdown output into structured resources
-  5. Updates job with results or error
-  6. Supports cancellation via Celery's revoke mechanism
+  2. Executes the crew with provided inputs using `kickoff_async()`
+  3. Parses the markdown output into structured resources
+  4. Updates job with results or error
+  5. Supports cancellation via Celery's revoke mechanism
 - **Parameters:**
   - `job_id`: UUID of the job to run
   - `inputs`: Dictionary of course input parameters
-  - `bypass_cache`: If True, bypass cache and get fresh results
 - **Returns:**
   - `Dict[str, any]`: Status and results/error information
 
@@ -223,15 +220,12 @@ Celery task that executes the ScholarSource crew. Runs in separate worker proces
 **Execution Flow:**
 1. Check if job was cancelled before starting
 2. Update job status to 'running'
-3. Check cache (if not bypassed) using `get_cached_analysis()`
-4. If cache hit and valid, use cached results, skip to parsing
-5. Create ScholarSource crew instance
-6. Execute crew with `crew().kickoff_async(inputs=inputs)`
-7. Store async task in `_active_tasks` dict for cancellation
-8. Parse markdown output using `parse_markdown_to_resources()`
-9. Update job with results, raw_output, and metadata
-10. Store results in cache using `set_cached_analysis()`
-11. Handle exceptions and update job with error
+3. Create ScholarSource crew instance
+4. Execute crew with `crew().kickoff_async(inputs=inputs)`
+5. Store async task in `_active_tasks` dict for cancellation
+6. Parse markdown output using `parse_markdown_to_resources()`
+7. Update job with results, raw_output, and metadata
+8. Handle exceptions and update job with error
 
 **`cancel_crew_job(job_id: str) -> bool`**
 
@@ -351,36 +345,6 @@ Row Level Security is enabled with a permissive policy allowing all operations.
 - `idx_jobs_status` - Optimizes status queries (polling)
 - `idx_jobs_created_at` - Optimizes chronological queries
 
-#### 3.1.2 Course Cache Table DDL
-
-The `course_cache` table is created with the following schema:
-- Primary key: `cache_key` (TEXT)
-- `config_hash` (TEXT, NOT NULL) - Hash of agents.yaml + tasks.yaml
-- `cache_type` (TEXT, NOT NULL, default 'analysis') - Either 'analysis' or 'full'
-- JSONB fields for inputs and results
-- `cached_at` (TIMESTAMPTZ, defaults to NOW())
-
-Indexes:
-- `idx_course_cache_config_hash` on config_hash column
-- `idx_course_cache_cached_at` on cached_at column (DESC)
-
-Row Level Security is enabled with a permissive policy allowing all operations.
-
-**Field Descriptions:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `cache_key` | TEXT | Primary key, format: "analysis:hash" or "full:hash" |
-| `config_hash` | TEXT | SHA256 hash of agents.yaml + tasks.yaml (first 16 chars) |
-| `cache_type` | TEXT | 'analysis' or 'full' |
-| `inputs` | JSONB | Original input parameters (for debugging) |
-| `results` | JSONB | Cached results |
-| `cached_at` | TIMESTAMPTZ | Cache creation timestamp (for TTL) |
-
-**Indexes:**
-- `idx_course_cache_config_hash` - Optimizes config-based invalidation queries
-- `idx_course_cache_cached_at` - Optimizes TTL expiration queries
-
 ### 3.2 Data Validation Rules
 
 #### 3.2.1 CourseInputRequest Validation
@@ -392,7 +356,6 @@ The model includes the following optional fields:
 - `isbn`, `book_pdf_path`, `book_url` (strings)
 - `topics_list`, `excluded_sites` (strings)
 - `desired_resource_types` (list of strings)
-- `bypass_cache` (boolean, defaults to False)
 
 **Validation Logic:**
 1. **Empty String Conversion:**

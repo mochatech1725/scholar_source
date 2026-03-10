@@ -35,7 +35,6 @@ from backend.celery_app import app
 from scholar_source.crew import ScholarSource
 from backend.jobs import update_job_status, get_job
 from backend.markdown_parser import parse_markdown_to_resources
-from backend.cache import get_cached_analysis, set_cached_analysis
 from backend.logging_config import get_logger
 from backend.error_utils import transform_error_for_user
 from backend.security_utils import detect_prompt_injection
@@ -69,8 +68,6 @@ def run_crew_task(
     self: Task,
     job_id: str,
     inputs: Dict[str, str],
-    bypass_cache_analysis: bool = False,
-    bypass_cache_results: bool = False
 ) -> Dict[str, any]:
     """
     Celery task to run the ScholarSource crew.
@@ -86,8 +83,6 @@ def run_crew_task(
         self: Celery task instance (auto-injected when bind=True)
         job_id: UUID of the job to run
         inputs: Dictionary of course input parameters
-        bypass_cache_analysis: If True, bypass the search-criteria/analysis cache
-        bypass_cache_results: If True, bypass the full results cache
 
     Returns:
         Dict with status and results/error information
@@ -103,12 +98,6 @@ def run_crew_task(
         elapsed = time.time() - start_time
         logger.info(f"Job {job_id} was cancelled before execution started (elapsed: {elapsed:.2f}s)")
         return {"status": "cancelled", "message": "Job was cancelled before execution"}
-
-    # Extract user_id from job for user-scoped caching
-    user_id = job.get("user_id") if job else None
-    if not user_id:
-        logger.error(f"Job {job_id} missing user_id, cannot proceed")
-        return {"status": "failed", "message": "Job missing user authentication"}
 
     try:
         # Update status to running
@@ -160,67 +149,12 @@ def run_crew_task(
                     )
                     return {"error": error_msg}
 
-        # Check full results cache first (fastest path — skips crew entirely)
-        cached_results = get_cached_analysis(
-            normalized_inputs,
-            user_id,
-            cache_type="full",
-            bypass_cache=bypass_cache_results
+        update_job_status(
+            job_id,
+            status="running",
+            status_message="Analyzing course and book structure...",
+            use_service_role=True
         )
-
-        if cached_results:
-            logger.info(f"✅ RESULTS CACHE HIT - Job {job_id}: Returning cached full results")
-            resources = cached_results.get("resources", [])
-            textbook_info = cached_results.get("textbook_info")
-            section_groups = cached_results.get("section_groups")
-            raw_output = cached_results.get("raw_output", "")
-            metadata = {
-                "resource_count": len(resources),
-                "cache_used": True,
-                "cache_type": "full",
-                "celery_task_id": self.request.id
-            }
-            if textbook_info:
-                metadata["textbook_info"] = textbook_info
-            if section_groups:
-                metadata["section_groups"] = section_groups
-            update_job_status(
-                job_id,
-                status="completed",
-                status_message="Resource discovery completed successfully (from cache)",
-                results=resources,
-                raw_output=raw_output,
-                metadata=metadata,
-                use_service_role=True
-            )
-            return {"status": "completed", "job_id": job_id, "resource_count": len(resources)}
-
-        # Check analysis cache (skips textbook/topic extraction, still runs resource search)
-        cached_analysis = get_cached_analysis(
-            normalized_inputs,
-            user_id,
-            cache_type="analysis",
-            bypass_cache=bypass_cache_analysis
-        )
-
-        if cached_analysis:
-            logger.info(f"✅ ANALYSIS CACHE HIT - Job {job_id}: Using cached course analysis")
-            logger.debug(f"Cache data: textbook_title={cached_analysis.get('textbook_title', 'N/A')}")
-            update_job_status(
-                job_id,
-                status="running",
-                status_message="Using cached course analysis, discovering resources...",
-                use_service_role=True
-            )
-        else:
-            cache_reason = "bypass_cache_analysis=True" if bypass_cache_analysis else "no cached data found"
-            logger.info(f"❌ ANALYSIS CACHE MISS - Job {job_id}: Running fresh analysis ({cache_reason})")
-            update_job_status(
-                job_id,
-                status="running",
-                status_message="Analyzing course and book structure...",
-                use_service_role=True
-            )
 
         # Initialize crew
         crew_instance = ScholarSource()
@@ -278,36 +212,10 @@ def run_crew_task(
         textbook_info = parsed_data.get("textbook_info")
         section_groups = parsed_data.get("section_groups")
 
-        # Cache course analysis results if this was a fresh analysis
-        if not cached_analysis and textbook_info:
-            analysis_results = {
-                "textbook_title": textbook_info.get("title", ""),
-                "textbook_author": textbook_info.get("author", ""),
-                "textbook_source": textbook_info.get("source", ""),
-                "raw_analysis": markdown_content[:2000]
-            }
-            set_cached_analysis(normalized_inputs, user_id, analysis_results, cache_type="analysis")
-            logger.info(f"💾 ANALYSIS CACHE STORED - Job {job_id}")
-
-        # Cache full results
-        set_cached_analysis(
-            normalized_inputs,
-            user_id,
-            {
-                "resources": resources,
-                "textbook_info": textbook_info,
-                "section_groups": section_groups,
-                "raw_output": markdown_content
-            },
-            cache_type="full"
-        )
-        logger.info(f"💾 RESULTS CACHE STORED - Job {job_id}: {len(resources)} resources cached")
-
         # Prepare metadata
         metadata = {
             "resource_count": len(resources),
             "crew_output_length": len(raw_output),
-            "cache_used": bool(cached_analysis),
             "celery_task_id": self.request.id
         }
         if textbook_info:
@@ -424,8 +332,6 @@ async def _run_crew_async(crew, inputs: Dict[str, str], job_id: str):
 def run_crew_task_sync(
     job_id: str,
     inputs: Dict[str, str],
-    bypass_cache_analysis: bool = False,
-    bypass_cache_results: bool = False
 ) -> Dict[str, any]:
     """
     Synchronous version of run_crew_task that runs in-process without Celery.
@@ -436,8 +342,6 @@ def run_crew_task_sync(
     Args:
         job_id: UUID of the job to run
         inputs: Dictionary of course input parameters
-        bypass_cache_analysis: If True, bypass the search-criteria/analysis cache
-        bypass_cache_results: If True, bypass the full results cache
 
     Returns:
         Dict with status and results/error information
@@ -452,12 +356,6 @@ def run_crew_task_sync(
     if job and job.get("status") == "cancelled":
         logger.info(f"Job {job_id} was cancelled before execution started")
         return {"status": "cancelled", "message": "Job was cancelled before execution"}
-
-    # Extract user_id from job for user-scoped caching
-    user_id = job.get("user_id") if job else None
-    if not user_id:
-        logger.error(f"Job {job_id} missing user_id, cannot proceed")
-        return {"status": "failed", "message": "Job missing user authentication"}
 
     try:
         # Update status to running
@@ -509,67 +407,12 @@ def run_crew_task_sync(
                     )
                     return {"error": error_msg}
 
-        # Check full results cache first (fastest path — skips crew entirely)
-        cached_results = get_cached_analysis(
-            normalized_inputs,
-            user_id,
-            cache_type="full",
-            bypass_cache=bypass_cache_results
+        update_job_status(
+            job_id,
+            status="running",
+            status_message="Analyzing course and book structure...",
+            use_service_role=True
         )
-
-        if cached_results:
-            logger.info(f"✅ RESULTS CACHE HIT - Job {job_id}: Returning cached full results")
-            resources = cached_results.get("resources", [])
-            textbook_info = cached_results.get("textbook_info")
-            section_groups = cached_results.get("section_groups")
-            raw_output = cached_results.get("raw_output", "")
-            metadata = {
-                "resource_count": len(resources),
-                "cache_used": True,
-                "cache_type": "full",
-                "sync_mode": True
-            }
-            if textbook_info:
-                metadata["textbook_info"] = textbook_info
-            if section_groups:
-                metadata["section_groups"] = section_groups
-            update_job_status(
-                job_id,
-                status="completed",
-                status_message="Resource discovery completed successfully (from cache)",
-                results=resources,
-                raw_output=raw_output,
-                metadata=metadata,
-                use_service_role=True
-            )
-            return {"status": "completed", "job_id": job_id, "resource_count": len(resources)}
-
-        # Check analysis cache (skips textbook/topic extraction, still runs resource search)
-        cached_analysis = get_cached_analysis(
-            normalized_inputs,
-            user_id,
-            cache_type="analysis",
-            bypass_cache=bypass_cache_analysis
-        )
-
-        if cached_analysis:
-            logger.info(f"✅ ANALYSIS CACHE HIT - Job {job_id}: Using cached course analysis")
-            logger.debug(f"Cache data: textbook_title={cached_analysis.get('textbook_title', 'N/A')}")
-            update_job_status(
-                job_id,
-                status="running",
-                status_message="Using cached course analysis, discovering resources...",
-                use_service_role=True
-            )
-        else:
-            cache_reason = "bypass_cache_analysis=True" if bypass_cache_analysis else "no cached data found"
-            logger.info(f"❌ ANALYSIS CACHE MISS - Job {job_id}: Running fresh analysis ({cache_reason})")
-            update_job_status(
-                job_id,
-                status="running",
-                status_message="Analyzing course and book structure...",
-                use_service_role=True
-            )
 
         # Initialize crew
         crew_instance = ScholarSource()
@@ -637,36 +480,10 @@ def run_crew_task_sync(
         textbook_info = parsed_data.get("textbook_info")
         section_groups = parsed_data.get("section_groups")
 
-        # Cache course analysis results if this was a fresh analysis
-        if not cached_analysis and textbook_info:
-            analysis_results = {
-                "textbook_title": textbook_info.get("title", ""),
-                "textbook_author": textbook_info.get("author", ""),
-                "textbook_source": textbook_info.get("source", ""),
-                "raw_analysis": markdown_content[:2000]
-            }
-            set_cached_analysis(normalized_inputs, user_id, analysis_results, cache_type="analysis")
-            logger.info(f"💾 ANALYSIS CACHE STORED - Job {job_id}")
-
-        # Cache full results
-        set_cached_analysis(
-            normalized_inputs,
-            user_id,
-            {
-                "resources": resources,
-                "textbook_info": textbook_info,
-                "section_groups": section_groups,
-                "raw_output": markdown_content
-            },
-            cache_type="full"
-        )
-        logger.info(f"💾 RESULTS CACHE STORED - Job {job_id}: {len(resources)} resources cached")
-
         # Prepare metadata
         metadata = {
             "resource_count": len(resources),
             "crew_output_length": len(raw_output),
-            "cache_used": bool(cached_analysis),
             "sync_mode": True
         }
         if textbook_info:
@@ -759,7 +576,7 @@ def run_crew_task_sync(
 )
 def cleanup_old_results(self: Task) -> Dict[str, any]:
     """
-    Periodic task to clean up old job results and expired cache entries.
+    Periodic task to clean up old job results.
 
     This task can be scheduled using Celery Beat to run periodically.
 
@@ -770,7 +587,6 @@ def cleanup_old_results(self: Task) -> Dict[str, any]:
 
     # TODO: Implement cleanup logic
     # - Delete old jobs from database (e.g., completed jobs older than 30 days)
-    # - Clean up expired cache entries
     # - Clean up orphaned files
 
     return {

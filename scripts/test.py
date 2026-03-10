@@ -152,7 +152,7 @@ def test_refactored_runner():
         # Test function signatures
         sig = inspect.signature(run_crew_async)
         params = list(sig.parameters.keys())
-        assert 'job_id' in params and 'inputs' in params and 'bypass_cache' in params
+        assert 'job_id' in params and 'inputs' in params
         print(f'✅ run_crew_async signature: {params}')
         print(f'✅ Returns: {sig.return_annotation.__name__}')
 

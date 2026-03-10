@@ -88,23 +88,6 @@ class TestCourseInputRequest:
 
         assert request.targeted_sites == "stanford.edu, berkeley.edu"
 
-    def test_bypass_cache_flag(self):
-        """Should accept bypass_cache boolean flag."""
-        data = {
-            "course_url": "https://example.com",
-            "bypass_cache": True
-        }
-        request = CourseInputRequest(**data)
-
-        assert request.bypass_cache is True
-
-    def test_bypass_cache_defaults_to_false(self):
-        """Should default bypass_cache to False."""
-        data = {"course_url": "https://example.com"}
-        request = CourseInputRequest(**data)
-
-        assert request.bypass_cache is False
-
     def test_all_fields_optional_allows_empty_object(self):
         """Should allow empty object (all fields optional)."""
         data = {}
@@ -113,7 +96,6 @@ class TestCourseInputRequest:
         # All fields should be None or default
         assert request.course_url is None
         assert request.book_title is None
-        assert request.bypass_cache is False
 
     def test_isbn_field(self):
         """Should accept ISBN."""
@@ -345,13 +327,11 @@ class TestModelSerialization:
         request = CourseInputRequest(
             course_url="https://example.com",
             course_name="Test Course",
-            bypass_cache=True
         )
         data = request.model_dump()
 
         assert data['course_url'] == "https://example.com"
         assert data['course_name'] == "Test Course"
-        assert data['bypass_cache'] is True
 
     def test_resource_to_dict(self):
         """Should serialize Resource to dict."""
@@ -605,7 +585,6 @@ class TestSecurityValidation:
             "excluded_sites": "chegg.com, coursehero.com",
             "targeted_sites": "mit.edu, stanford.edu",
             "desired_resource_types": ["textbooks", "lecture_notes"],
-            "bypass_cache": False
         }
         request = CourseInputRequest(**data)
 
