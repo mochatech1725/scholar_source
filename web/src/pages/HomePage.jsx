@@ -361,8 +361,8 @@ export default function HomePage() {
               {/* ── Search Type — icon tab bar ── */}
               <div className="search-type-tab-group">
                 <div className="flex items-baseline gap-2 mb-2">
-                  <TextLabel required>Search Type</TextLabel>
-                  <span className="text-xs text-slate-500">Select a type — the input will appear below.</span>
+                  <TextLabel required>Search By</TextLabel>
+                  <span className="text-xs text-slate-500">Select what you have — a URL, ISBN, or PDF to upload.</span>
                 </div>
                 <div className="search-type-tab-bar" role="radiogroup" aria-label="Search type">
                   {SEARCH_TYPES.map(({ value, label, icon }) => {
