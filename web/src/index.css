@@ -880,7 +880,7 @@
   }
 
   .home-page-header {
-    @apply sticky top-0 z-20 shadow-lg overflow-hidden;
+    @apply sticky top-0 z-20 shadow-lg;
     background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 45%, #1a3254 100%);
   }
 
