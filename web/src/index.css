@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Sora:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Sora:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -504,10 +504,10 @@
 
   .hero-title {
     @apply m-0 text-xl sm:text-2xl md:text-3xl text-white tracking-tight leading-tight;
-    font-family: "Fraunces", serif;
+    font-family: 'Source Serif 4', Georgia, serif;
     font-weight: 700;
-    font-style: italic;
-    letter-spacing: -0.02em;
+    font-style: normal;
+    letter-spacing: -0.01em;
   }
   
 
@@ -928,9 +928,9 @@
 
   .home-page-header-title {
     @apply m-0 text-lg sm:text-xl lg:text-2xl text-white leading-tight tracking-tight;
-    font-family: 'Fraunces', serif;
+    font-family: 'Barlow Condensed', sans-serif;
     font-weight: 700;
-    font-style: italic;
+    font-style: normal;
     letter-spacing: -0.02em;
   }
 
@@ -1252,9 +1252,10 @@
   }
 
   .split-section-title {
-    @apply m-0 text-xl sm:text-2xl text-slate-900;
+    @apply m-0 text-xl sm:text-2xl;
     font-family: 'Fraunces', serif;
     font-weight: 700;
+    color: #1e3a5f;
   }
 
   .split-form {

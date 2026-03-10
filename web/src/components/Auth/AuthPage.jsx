@@ -9,29 +9,38 @@ import LoginForm from './LoginForm';
 import SignupForm from './SignupForm';
 
 export default function AuthPage() {
-  const [activeTab, setActiveTab] = useState('login'); // 'login' or 'signup'
+  const [activeTab, setActiveTab] = useState('login');
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-semibold text-slate-900 mb-2">
-            📚 ScholarSource
-          </h1>
-          <p className="text-sm text-slate-600">
-            Discover educational resources for your courses
-          </p>
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-10"
+      style={{ background: 'linear-gradient(160deg, #1e3a5f 0%, #2c5282 40%, #dbe6f5 70%, #f0f4f8 100%)' }}
+    >
+      {/* Logo + tagline */}
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <span className="text-4xl">📚</span>
+          <span
+            className="text-3xl font-bold text-white"
+            style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+          >
+            Scholar Source
+          </span>
         </div>
+        <p className="text-sm text-blue-200">Discover educational resources for your courses</p>
+      </div>
 
-        {/* Tab buttons */}
-        <div className="flex border-b border-slate-200 mb-6 bg-white rounded-t-lg">
+      {/* Card */}
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+        {/* Tabs */}
+        <div className="flex border-b border-slate-200">
           <button
             type="button"
             onClick={() => setActiveTab('login')}
-            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-inset ${
+            className={`flex-1 py-4 text-sm font-semibold transition-colors focus:outline-none ${
               activeTab === 'login'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'text-slate-900 border-b-2 border-slate-800'
+                : 'text-slate-400 hover:text-slate-600'
             }`}
           >
             Sign In
@@ -39,23 +48,30 @@ export default function AuthPage() {
           <button
             type="button"
             onClick={() => setActiveTab('signup')}
-            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-inset ${
+            className={`flex-1 py-4 text-sm font-semibold transition-colors focus:outline-none ${
               activeTab === 'signup'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'text-slate-900 border-b-2 border-slate-800'
+                : 'text-slate-400 hover:text-slate-600'
             }`}
           >
             Sign Up
           </button>
         </div>
 
-        {/* Form content */}
-        <div className="mt-0">
+        {/* Form */}
+        <div className="p-8">
           {activeTab === 'login' ? (
             <LoginForm onSwitchToSignup={() => setActiveTab('signup')} />
           ) : (
             <SignupForm onSwitchToLogin={() => setActiveTab('login')} />
           )}
+        </div>
+
+        {/* Footer trust line */}
+        <div className="px-8 pb-6 text-center text-xs text-slate-400 flex items-center justify-center gap-4">
+          <span>🔒 Secure</span>
+          <span>· No ads ·</span>
+          <span>📖 Free to use</span>
         </div>
       </div>
     </div>
