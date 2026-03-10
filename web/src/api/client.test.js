@@ -6,6 +6,7 @@ import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { submitJob, getJobStatus, cancelJob, checkHealth } from './client';
+import { APP_VERSION } from '../config/appVersion';
 
 const server = setupServer();
 
@@ -22,7 +23,7 @@ describe('API Client', () => {
         http.get(`${API_URL}/api/health`, () => {
           return HttpResponse.json({
             status: 'healthy',
-            version: '0.1.0',
+            version: APP_VERSION,
           });
         })
       );
@@ -30,7 +31,7 @@ describe('API Client', () => {
       const result = await checkHealth();
 
       expect(result.status).toBe('healthy');
-      expect(result.version).toBe('0.1.0');
+      expect(result.version).toBe(APP_VERSION);
     });
 
     it('throws error on failure', async () => {

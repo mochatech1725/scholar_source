@@ -5,6 +5,7 @@
  */
 
 import { http, HttpResponse } from 'msw';
+import { APP_VERSION } from '../../config/appVersion';
 
 const API_URL = 'http://localhost:8000';
 
@@ -13,7 +14,7 @@ export const handlers = [
   http.get(`${API_URL}/api/health`, () => {
     return HttpResponse.json({
       status: 'healthy',
-      version: '0.1.0',
+      version: APP_VERSION,
       database: 'connected',
     });
   }),

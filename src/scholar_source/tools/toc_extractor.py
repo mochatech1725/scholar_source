@@ -153,15 +153,29 @@ class TOCExtractorTool(BaseTool):
 
     def _run(self, url: str) -> str:
         """
-        Extract table of contents from book URL (supports both HTML and PDF).
-        
+        Extract table of contents from book URL or local file path (supports both HTML and PDF).
+
         Args:
-            url: The URL of the book page (HTML or PDF)
-            
+            url: The URL of the book page (HTML or PDF), or a local file path starting with /
+
         Returns:
             str: Table of contents as clean text, or error message
         """
         try:
+            # Handle local file paths (uploaded PDFs)
+            if url.startswith('/') or url.startswith('file://'):
+                local_path = url.replace('file://', '')
+                try:
+                    with open(local_path, 'rb') as f:
+                        pdf_content = f.read()
+                except FileNotFoundError:
+                    return f"ERROR: Local file not found: {local_path}"
+                pdf_toc = self._extract_toc_from_pdf(pdf_content)
+                if pdf_toc:
+                    lines = [line.strip() for line in pdf_toc.split('\n') if line.strip()]
+                    return '\n'.join(lines[:300])
+                return "[Note: Local PDF TOC extraction failed. PDF may not have bookmarks/outline structure.]"
+
             # Fetch with timeout
             response = requests.get(url, timeout=15, headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'

@@ -7,7 +7,7 @@ Replaces the old threading-based approach with a scalable queue-based architectu
 
 import sys
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 # Add src to path to import ScholarSource
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -19,14 +19,17 @@ from backend.logging_config import get_logger
 logger = get_logger(__name__)
 
 
-def run_crew_async(job_id: str, inputs: Dict[str, str], bypass_cache: bool = False) -> str:
+def run_crew_async(
+    job_id: str,
+    inputs: Dict[str, str],
+) -> str:
     """
     Enqueue a ScholarSource crew job to the Celery task queue, or run synchronously if in SYNC_MODE.
 
     In normal mode (with Redis/Celery):
     - Enqueues the job to Celery task queue
     - The actual job execution happens in a separate worker process
-    
+
     In SYNC_MODE (no Redis):
     - Runs the job synchronously in the current process
     - Blocks until completion (not recommended for production)
@@ -34,7 +37,6 @@ def run_crew_async(job_id: str, inputs: Dict[str, str], bypass_cache: bool = Fal
     Args:
         job_id: UUID of the job to run
         inputs: Dictionary of course input parameters
-        bypass_cache: If True, bypass cache and get fresh results
 
     Returns:
         str: Celery task ID (in async mode) or "sync" (in sync mode)
@@ -71,14 +73,13 @@ def run_crew_async(job_id: str, inputs: Dict[str, str], bypass_cache: bool = Fal
             status_message="Starting job execution (sync mode)...",
             metadata={
                 "sync_mode": True,
-                "bypass_cache": bypass_cache
             },
             use_service_role=True
         )
-        
+
         # Run the task synchronously (this will block)
         try:
-            result = run_crew_task_sync(job_id, inputs, bypass_cache)
+            result = run_crew_task_sync(job_id, inputs)
             logger.info(f"Job {job_id} completed in sync mode: {result.get('status')}")
             return "sync"
         except Exception as e:
@@ -91,7 +92,7 @@ def run_crew_async(job_id: str, inputs: Dict[str, str], bypass_cache: bool = Fal
         # Enqueue the task to Celery
         logger.info(f"Enqueueing job {job_id} to Celery task queue")
         celery_result = run_crew_task.apply_async(
-            args=[job_id, inputs, bypass_cache],
+            args=[job_id, inputs],
             task_id=None,  # Let Celery generate task ID
             queue="crew_jobs",  # Use the crew_jobs queue
             priority=5,  # Default priority (can be adjusted based on user tier, etc.)
@@ -107,7 +108,6 @@ def run_crew_async(job_id: str, inputs: Dict[str, str], bypass_cache: bool = Fal
             status_message="Job queued for processing",
             metadata={
                 "celery_task_id": celery_task_id,
-                "bypass_cache": bypass_cache
             },
             use_service_role=True
         )

@@ -196,62 +196,6 @@ class TestJobStatusPolling:
 
 
 @pytest.mark.integration
-class TestJobCaching:
-    """Test job caching behavior."""
-
-    def test_cache_used_for_identical_request(self, client, mock_supabase, mock_crew_success, mocker):
-        """Should use cache for identical course URL."""
-        from datetime import datetime, timezone, timedelta
-
-        # Mock cache to have entry
-        cache_key = "test_cache_key"
-        mocker.patch('backend.cache._generate_cache_key', return_value=cache_key)
-        mocker.patch('backend.cache._compute_config_hash', return_value="test_hash")
-
-        mock_supabase.cache_data[f"analysis:{cache_key}"] = {
-            "cache_key": f"analysis:{cache_key}",
-            "config_hash": "test_hash",
-            "cache_type": "analysis",
-            "inputs": {"course_url": "https://example.com"},
-            "results": {
-                "textbook_info": {"title": "Cached Book"},
-                "topics": ["cached", "topics"]
-            },
-            "cached_at": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
-        }
-
-        # Submit job with same URL
-        submit_resp = client.post("/api/submit", json={"course_url": "https://example.com"})
-        job_id = submit_resp.json()["job_id"]
-
-        # Job should complete (using cache or fresh)
-        max_attempts = 30
-        for _ in range(max_attempts):
-            status_resp = client.get(f"/api/status/{job_id}")
-            if status_resp.json()["status"] == "completed":
-                # Cache may or may not be used (depends on implementation)
-                return
-
-            time.sleep(0.5)
-
-    def test_bypass_cache_flag_skips_cache(self, client, mock_supabase, mock_crew_success, mocker):
-        """Should skip cache when bypass_cache is True."""
-        # Mock cache to have entry
-        mocker.patch('backend.cache.get_cached_analysis', return_value={"cached": "data"})
-
-        # Submit with bypass_cache
-        submit_resp = client.post("/api/submit", json={
-            "course_url": "https://example.com",
-            "bypass_cache": True
-        })
-
-        job_id = submit_resp.json()["job_id"]
-
-        # Should still create job (bypassing cache)
-        assert job_id in mock_supabase.jobs_data
-
-
-@pytest.mark.integration
 class TestJobErrorRecovery:
     """Test error handling and recovery."""
 
@@ -332,7 +276,6 @@ class TestJobInputVariations:
             "topics_list": "topic1, topic2, topic3",
             "desired_resource_types": ["textbooks", "videos", "practice_problems"],
             "excluded_sites": "site1.com, site2.org",
-            "bypass_cache": True
         }
 
         response = client.post("/api/submit", json=payload)

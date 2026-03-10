@@ -22,6 +22,12 @@ export default {
           '800': '#1e40af',
           '900': '#1e3a8a',
         },
+        // Slate Cobalt hero palette
+        cobalt: {
+          DEFAULT: '#2c5282',
+          dark: '#1e3a5f',
+          darker: '#1a3254',
+        },
         accent: {
           DEFAULT: '#0ea5e9', // Sky blue
           dark: '#0284c7',    // Darker sky
@@ -30,8 +36,9 @@ export default {
         success: '#22c55e',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        serif: ['Source Serif 4', 'Georgia', 'serif'],
+        sans: ['Sora', 'system-ui', '-apple-system', 'sans-serif'],
+        serif: ['Fraunces', 'Georgia', 'serif'],
+        mono: ['DM Mono', 'monospace'],
       },
       spacing: {
         xs: '4px',

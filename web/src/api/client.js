@@ -123,6 +123,37 @@ export async function cancelJob(jobId) {
 }
 
 /**
+ * Upload a PDF textbook for chapter-aware resource search
+ *
+ * @param {File} file - PDF file to upload
+ * @returns {Promise<Object>} { pdf_path: string }
+ */
+export async function uploadPdf(file) {
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error('You must be logged in to upload files');
+  }
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  const response = await fetch(`${API_BASE_URL}/api/upload-pdf`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: fd,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail?.message || 'Failed to upload PDF');
+  }
+
+  return response.json();
+}
+
+/**
  * Check API health
  *
  * @returns {Promise<Object>} Health status

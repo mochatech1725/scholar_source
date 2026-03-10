@@ -55,9 +55,13 @@ def parse_markdown_to_resources(markdown_content: str, excluded_sites: Optional[
     if excluded_sites and excluded_sites.strip():
         resources = _filter_excluded_domains(resources, excluded_sites)
 
+    # Detect section-grouped output (chapter-aware mode)
+    section_groups = _parse_section_groups(content_for_resources)
+
     return {
         "resources": resources,
-        "textbook_info": textbook_info
+        "textbook_info": textbook_info,
+        "section_groups": section_groups
     }
 
 
@@ -95,6 +99,45 @@ def _filter_excluded_domains(resources: List[Dict[str, Any]], excluded_sites: st
             filtered.append(resource)
     
     return filtered
+
+
+def _parse_section_groups(content: str) -> Optional[List[Dict[str, Any]]]:
+    """
+    Detect and parse section-grouped output from chapter-aware mode.
+
+    Looks for ### headers that introduce sections (e.g., "### Surface Integrals"
+    or "### Section: Surface Integrals"), then collects the numbered resources
+    under each header.
+
+    Returns:
+        List of {"section": str, "resources": List[dict]} if section headers found,
+        None otherwise (standard flat output).
+    """
+    # Match ### headers, optionally prefixed with "Section:"
+    section_pattern = re.compile(r'^###\s+(?:Section:\s*)?(.+)$', re.MULTILINE)
+    matches = list(section_pattern.finditer(content))
+
+    if not matches:
+        return None
+
+    groups = []
+    for i, match in enumerate(matches):
+        section_name = match.group(1).strip()
+        section_start = match.end()
+        section_end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+        section_content = content[section_start:section_end]
+
+        section_resources = _parse_numbered_resources(section_content)
+        if not section_resources:
+            section_resources = _parse_link_sections(section_content)
+
+        for r in section_resources:
+            r["section"] = section_name
+
+        if section_resources:
+            groups.append({"section": section_name, "resources": section_resources})
+
+    return groups if groups else None
 
 
 def _strip_non_resource_sections(content: str) -> str:

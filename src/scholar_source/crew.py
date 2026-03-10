@@ -46,7 +46,7 @@ class ScholarSource():
             config=agent_config,
             llm=model,
             verbose=True,
-            tools=[SerperDevTool()]
+            tools=[SerperDevTool(), YoutubeVideoSearchTool()]
         )
 
     @agent

@@ -105,7 +105,7 @@ export default function InlineSearchStatus({ jobId, onComplete, onError }) {
             book_author: data.book_author,
             ...textbookInfo
           };
-          onComplete(data.results, data.raw_output, data.search_title, courseInfo);
+          onComplete(data.results, data.raw_output, data.search_title, courseInfo, data.metadata?.section_groups || null);
         } else if (data.status === 'failed' || data.status === 'cancelled') {
           isActiveRef.current = false;
           clearInterval(intervalId);

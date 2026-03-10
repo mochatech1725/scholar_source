@@ -35,7 +35,6 @@ from backend.celery_app import app
 from scholar_source.crew import ScholarSource
 from backend.jobs import update_job_status, get_job
 from backend.markdown_parser import parse_markdown_to_resources
-from backend.cache import get_cached_analysis, set_cached_analysis
 from backend.logging_config import get_logger
 from backend.error_utils import transform_error_for_user
 from backend.security_utils import detect_prompt_injection
@@ -69,7 +68,6 @@ def run_crew_task(
     self: Task,
     job_id: str,
     inputs: Dict[str, str],
-    bypass_cache: bool = False
 ) -> Dict[str, any]:
     """
     Celery task to run the ScholarSource crew.
@@ -85,7 +83,6 @@ def run_crew_task(
         self: Celery task instance (auto-injected when bind=True)
         job_id: UUID of the job to run
         inputs: Dictionary of course input parameters
-        bypass_cache: If True, bypass cache and get fresh results
 
     Returns:
         Dict with status and results/error information
@@ -101,12 +98,6 @@ def run_crew_task(
         elapsed = time.time() - start_time
         logger.info(f"Job {job_id} was cancelled before execution started (elapsed: {elapsed:.2f}s)")
         return {"status": "cancelled", "message": "Job was cancelled before execution"}
-
-    # Extract user_id from job for user-scoped caching
-    user_id = job.get("user_id") if job else None
-    if not user_id:
-        logger.error(f"Job {job_id} missing user_id, cannot proceed")
-        return {"status": "failed", "message": "Job missing user authentication"}
 
     try:
         # Update status to running
@@ -131,7 +122,8 @@ def run_crew_task(
         required_keys = [
             'university_name', 'course_name', 'course_url', 'textbook',
             'topics_list', 'book_title', 'book_author', 'isbn',
-            'book_pdf_path', 'book_url', 'desired_resource_types', 'excluded_sites', 'targeted_sites'
+            'book_pdf_path', 'book_url', 'desired_resource_types', 'excluded_sites', 'targeted_sites',
+            'chapter', 'sections', 'preferred_creators'
         ]
 
         for key in required_keys:
@@ -157,32 +149,12 @@ def run_crew_task(
                     )
                     return {"error": error_msg}
 
-        # Check cache for course analysis
-        cached_analysis = get_cached_analysis(
-            normalized_inputs,
-            user_id,
-            cache_type="analysis",
-            bypass_cache=bypass_cache
+        update_job_status(
+            job_id,
+            status="running",
+            status_message="Analyzing course and book structure...",
+            use_service_role=True
         )
-
-        if cached_analysis:
-            logger.info(f"✅ CACHE HIT - Job {job_id}: Using cached course analysis")
-            logger.debug(f"Cache data: textbook_title={cached_analysis.get('textbook_title', 'N/A')}")
-            update_job_status(
-                job_id,
-                status="running",
-                status_message="Using cached course analysis, discovering resources...",
-                use_service_role=True
-            )
-        else:
-            cache_reason = "bypass_cache=True" if bypass_cache else "no cached data found"
-            logger.info(f"❌ CACHE MISS - Job {job_id}: Running fresh analysis ({cache_reason})")
-            update_job_status(
-                job_id,
-                status="running",
-                status_message="Analyzing course and book structure...",
-                use_service_role=True
-            )
 
         # Initialize crew
         crew_instance = ScholarSource()
@@ -238,30 +210,26 @@ def run_crew_task(
         parsed_data = parse_markdown_to_resources(markdown_content, excluded_sites=excluded_sites)
         resources = parsed_data.get("resources", [])
         textbook_info = parsed_data.get("textbook_info")
-
-        # Cache course analysis results if this was a fresh analysis
-        if not cached_analysis and textbook_info:
-            analysis_results = {
-                "textbook_title": textbook_info.get("title", ""),
-                "textbook_author": textbook_info.get("author", ""),
-                "textbook_source": textbook_info.get("source", ""),
-                "raw_analysis": markdown_content[:2000]
-            }
-
-            set_cached_analysis(normalized_inputs, user_id, analysis_results, cache_type="analysis")
-            logger.info(f"💾 CACHE STORED - Job {job_id}: Cached analysis for future use")
-            if textbook_info:
-                logger.debug(f" Cached: title='{textbook_info.get('title', 'N/A')}', author='{textbook_info.get('author', 'N/A')}'")
+        section_groups = parsed_data.get("section_groups")
 
         # Prepare metadata
         metadata = {
             "resource_count": len(resources),
             "crew_output_length": len(raw_output),
-            "cache_used": bool(cached_analysis),
             "celery_task_id": self.request.id
         }
         if textbook_info:
             metadata["textbook_info"] = textbook_info
+        if section_groups:
+            metadata["section_groups"] = section_groups
+
+        # Clean up uploaded PDF temp file if present
+        pdf_path = normalized_inputs.get('book_pdf_path', '')
+        if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
+            try:
+                os.unlink(pdf_path)
+            except Exception:
+                pass
 
         # Check if job was cancelled during execution
         job = get_job(job_id, use_service_role=True)
@@ -302,6 +270,14 @@ def run_crew_task(
         logger.error(f"❌ Job {job_id} failed with {error_type}: {technical_error} (elapsed: {elapsed:.2f}s)")
         logger.error(f"Job {job_id} failed parameters: {inputs}")
         logger.error(stack_trace)
+
+        # Clean up uploaded PDF on failure too
+        try:
+            pdf_path = normalized_inputs.get('book_pdf_path', '')
+            if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
+                os.unlink(pdf_path)
+        except Exception:
+            pass
 
         # Update job with user-friendly error message
         update_job_status(
@@ -356,18 +332,16 @@ async def _run_crew_async(crew, inputs: Dict[str, str], job_id: str):
 def run_crew_task_sync(
     job_id: str,
     inputs: Dict[str, str],
-    bypass_cache: bool = False
 ) -> Dict[str, any]:
     """
     Synchronous version of run_crew_task that runs in-process without Celery.
-    
+
     This function is used when SYNC_MODE=true (no Redis/Celery required).
     It performs the same operations as the Celery task but runs synchronously.
 
     Args:
         job_id: UUID of the job to run
         inputs: Dictionary of course input parameters
-        bypass_cache: If True, bypass cache and get fresh results
 
     Returns:
         Dict with status and results/error information
@@ -382,12 +356,6 @@ def run_crew_task_sync(
     if job and job.get("status") == "cancelled":
         logger.info(f"Job {job_id} was cancelled before execution started")
         return {"status": "cancelled", "message": "Job was cancelled before execution"}
-
-    # Extract user_id from job for user-scoped caching
-    user_id = job.get("user_id") if job else None
-    if not user_id:
-        logger.error(f"Job {job_id} missing user_id, cannot proceed")
-        return {"status": "failed", "message": "Job missing user authentication"}
 
     try:
         # Update status to running
@@ -412,7 +380,8 @@ def run_crew_task_sync(
         required_keys = [
             'university_name', 'course_name', 'course_url', 'textbook',
             'topics_list', 'book_title', 'book_author', 'isbn',
-            'book_pdf_path', 'book_url', 'desired_resource_types', 'excluded_sites', 'targeted_sites'
+            'book_pdf_path', 'book_url', 'desired_resource_types', 'excluded_sites', 'targeted_sites',
+            'chapter', 'sections', 'preferred_creators'
         ]
 
         for key in required_keys:
@@ -438,32 +407,12 @@ def run_crew_task_sync(
                     )
                     return {"error": error_msg}
 
-        # Check cache for course analysis
-        cached_analysis = get_cached_analysis(
-            normalized_inputs,
-            user_id,
-            cache_type="analysis",
-            bypass_cache=bypass_cache
+        update_job_status(
+            job_id,
+            status="running",
+            status_message="Analyzing course and book structure...",
+            use_service_role=True
         )
-
-        if cached_analysis:
-            logger.info(f"✅ CACHE HIT - Job {job_id}: Using cached course analysis")
-            logger.debug(f"Cache data: textbook_title={cached_analysis.get('textbook_title', 'N/A')}")
-            update_job_status(
-                job_id,
-                status="running",
-                status_message="Using cached course analysis, discovering resources...",
-                use_service_role=True
-            )
-        else:
-            cache_reason = "bypass_cache=True" if bypass_cache else "no cached data found"
-            logger.info(f"❌ CACHE MISS - Job {job_id}: Running fresh analysis ({cache_reason})")
-            update_job_status(
-                job_id,
-                status="running",
-                status_message="Analyzing course and book structure...",
-                use_service_role=True
-            )
 
         # Initialize crew
         crew_instance = ScholarSource()
@@ -529,30 +478,26 @@ def run_crew_task_sync(
         parsed_data = parse_markdown_to_resources(markdown_content, excluded_sites=excluded_sites)
         resources = parsed_data.get("resources", [])
         textbook_info = parsed_data.get("textbook_info")
-
-        # Cache course analysis results if this was a fresh analysis
-        if not cached_analysis and textbook_info:
-            analysis_results = {
-                "textbook_title": textbook_info.get("title", ""),
-                "textbook_author": textbook_info.get("author", ""),
-                "textbook_source": textbook_info.get("source", ""),
-                "raw_analysis": markdown_content[:2000]
-            }
-
-            set_cached_analysis(normalized_inputs, user_id, analysis_results, cache_type="analysis")
-            logger.info(f"💾 CACHE STORED - Job {job_id}: Cached analysis for future use")
-            if textbook_info:
-                logger.debug(f" Cached: title='{textbook_info.get('title', 'N/A')}', author='{textbook_info.get('author', 'N/A')}'")
+        section_groups = parsed_data.get("section_groups")
 
         # Prepare metadata
         metadata = {
             "resource_count": len(resources),
             "crew_output_length": len(raw_output),
-            "cache_used": bool(cached_analysis),
             "sync_mode": True
         }
         if textbook_info:
             metadata["textbook_info"] = textbook_info
+        if section_groups:
+            metadata["section_groups"] = section_groups
+
+        # Clean up uploaded PDF temp file if present
+        pdf_path = normalized_inputs.get('book_pdf_path', '')
+        if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
+            try:
+                os.unlink(pdf_path)
+            except Exception:
+                pass
 
         # Check if job was cancelled during execution
         job = get_job(job_id, use_service_role=True)
@@ -594,6 +539,14 @@ def run_crew_task_sync(
         logger.error(f"Job {job_id} failed parameters: {inputs}")
         logger.error(stack_trace)
 
+        # Clean up uploaded PDF on failure too
+        try:
+            pdf_path = normalized_inputs.get('book_pdf_path', '')
+            if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
+                os.unlink(pdf_path)
+        except Exception:
+            pass
+
         # Update job with user-friendly error message
         update_job_status(
             job_id,
@@ -623,7 +576,7 @@ def run_crew_task_sync(
 )
 def cleanup_old_results(self: Task) -> Dict[str, any]:
     """
-    Periodic task to clean up old job results and expired cache entries.
+    Periodic task to clean up old job results.
 
     This task can be scheduled using Celery Beat to run periodically.
 
@@ -634,7 +587,6 @@ def cleanup_old_results(self: Task) -> Dict[str, any]:
 
     # TODO: Implement cleanup logic
     # - Delete old jobs from database (e.g., completed jobs older than 30 days)
-    # - Clean up expired cache entries
     # - Clean up orphaned files
 
     return {

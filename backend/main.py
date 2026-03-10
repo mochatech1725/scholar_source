@@ -6,8 +6,10 @@ Handles job submission and status polling.
 """
 
 import os
+import uuid
+import magic
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from backend.models import (
@@ -24,6 +26,7 @@ from backend.csrf_protection import validate_origin
 from backend.celery_app import app as celery_app
 from backend.error_utils import transform_error_for_user
 from backend.auth import get_current_user, AuthenticationError
+from backend.version import APP_VERSION
 import os
 from slowapi.errors import RateLimitExceeded
 from backend.env_loader import load_environment
@@ -48,7 +51,7 @@ logger.info("Starting ScholarSource API...")
 app = FastAPI(
     title="ScholarSource API",
     description="Backend API for discovering educational resources aligned with course textbooks",
-    version="0.1.0"
+    version=APP_VERSION
 )
 
 # Register rate limiter with app
@@ -88,7 +91,7 @@ async def root():
     """Root endpoint - API information"""
     return {
         "message": "ScholarSource API",
-        "version": "0.1.0",
+        "version": APP_VERSION,
         "docs": "/docs",
         "health": "/api/health"
     }
@@ -162,7 +165,7 @@ async def health_check():
     # Database check can cause timeout during container startup
     return {
         "status": "healthy",
-        "version": "0.1.0",
+        "version": APP_VERSION,
         "database": "skipped"
     }
 
@@ -244,9 +247,6 @@ async def submit_job(
         )
 
     try:
-        # Extract bypass_cache from inputs (don't store in job inputs)
-        bypass_cache = inputs.pop('bypass_cache', False)
-
         logger.info(f"Creating new job with inputs: {inputs}")
 
         # Create job in database with user_id and access_token for RLS
@@ -255,11 +255,11 @@ async def submit_job(
 
         # Check if workers are available (non-blocking check)
         worker_status = check_celery_workers()
-        
-        # Start background crew execution (pass bypass_cache separately)
+
+        # Start background crew execution.
         # Use BackgroundTasks to ensure this doesn't block the response,
         # even in SYNC_MODE
-        background_tasks.add_task(run_crew_async, job_id, inputs, bypass_cache)
+        background_tasks.add_task(run_crew_async, job_id, inputs)
 
         response = {
             "job_id": job_id,
@@ -480,6 +480,83 @@ async def cancel_job(
                 "message": user_message
             }
         )
+
+
+@app.post("/api/upload-pdf", tags=["Jobs"])
+@limiter.limit("5/hour")
+async def upload_pdf(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Upload a PDF textbook for chapter-aware resource search.
+
+    Saves the file to a temporary location and returns the path,
+    which should be passed as book_pdf_path in a subsequent /api/submit call.
+
+    Args:
+        file: PDF file to upload (max 50 MB)
+        current_user: Authenticated user (automatically extracted from JWT)
+
+    Returns:
+        dict: {"pdf_path": "/tmp/scholar_uploads/{user_id}/{uuid}.pdf"}
+
+    Raises:
+        HTTPException: If file is invalid or upload fails
+        AuthenticationError: If authentication fails (401)
+    """
+    validate_origin(request)
+    user_id = current_user["id"]
+
+    # Validate file type by extension and content-type
+    filename = file.filename or ""
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Invalid file type", "message": "Only PDF files are accepted"}
+        )
+    content_type = file.content_type or ""
+    if "pdf" not in content_type.lower():
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Invalid content type", "message": "File must be a PDF (application/pdf)"}
+        )
+
+    # Read and check size (50 MB limit)
+    MAX_SIZE = 50 * 1024 * 1024
+    contents = await file.read()
+    if len(contents) > MAX_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail={"error": "File too large", "message": "PDF must be 50 MB or smaller"}
+        )
+
+    # Validate true file type via magic bytes (not just extension/content-type)
+    detected_mime = magic.from_buffer(contents[:2048], mime=True)
+    if detected_mime != "application/pdf":
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Invalid file", "message": "File contents do not match a valid PDF"}
+        )
+
+    # Save to scoped temp directory
+    upload_dir = f"/tmp/scholar_uploads/{user_id}"
+    os.makedirs(upload_dir, exist_ok=True)
+    pdf_path = f"{upload_dir}/{uuid.uuid4()}.pdf"
+
+    try:
+        with open(pdf_path, "wb") as f:
+            f.write(contents)
+    except Exception as e:
+        logger.error(f"PDF upload failed for user {user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Upload failed", "message": "Could not save uploaded file"}
+        )
+
+    logger.info(f"PDF uploaded for user {user_id}: {pdf_path}")
+    return {"pdf_path": pdf_path}
 
 
 # Development server command:

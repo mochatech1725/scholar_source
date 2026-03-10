@@ -26,7 +26,6 @@ scholar_source/
 │   ├── models.py           # Pydantic request/response models
 │   ├── jobs.py             # Job management
 │   ├── crew_runner.py      # CrewAI execution wrapper
-│   ├── cache.py            # Caching system
 │   ├── rate_limiter.py     # Rate limiting
 │   └── markdown_parser.py  # Parse crew output to JSON
 │
@@ -358,6 +357,40 @@ Should return:
   "version": "0.1.0",
   "database": "skipped"
 }
+```
+
+## Versioning And Releases
+
+ScholarSource uses Semantic Versioning. The canonical app version lives in `pyproject.toml`.
+
+- `PATCH` for bug fixes and internal cleanup
+- `MINOR` for backward-compatible features
+- `MAJOR` for breaking changes
+
+Implementation details:
+- The backend reads the app version from package metadata, with a `pyproject.toml` fallback for local development.
+- The frontend gets the same version at build time through Vite as `import.meta.env.VITE_APP_VERSION`.
+- If you want `web/package.json` metadata to match, run `python3 scripts/sync_web_package_version.py` or `cd web && npm run sync-version`.
+
+Release workflow:
+
+1. Update `version` in `pyproject.toml`.
+2. Sync the frontend package metadata:
+   `python3 scripts/sync_web_package_version.py`
+3. Update `CHANGELOG.md` if you are maintaining one.
+4. Run tests and build checks.
+5. Commit the release changes with a release commit.
+6. Create an annotated git tag for the same version.
+7. Push the branch and the tag.
+
+Example:
+
+```bash
+python3 scripts/sync_web_package_version.py
+git commit -am "Release v0.2.0"
+git tag -a v0.2.0 -m "Release v0.2.0"
+git push origin main
+git push origin v0.2.0
 ```
 
 **Check frontend:**
