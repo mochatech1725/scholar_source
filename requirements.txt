@@ -18,3 +18,6 @@ cryptography==42.0.8
 
 # PDF parsing for TOC extraction (must be >=5.0.0 for embedchain compatibility)
 pypdf>=5.0.0,<6.0.0
+
+# File type validation via magic bytes
+python-magic==0.4.27

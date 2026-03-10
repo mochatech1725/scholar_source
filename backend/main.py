@@ -7,6 +7,7 @@ Handles job submission and status polling.
 
 import os
 import uuid
+import magic
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -528,6 +529,14 @@ async def upload_pdf(
         raise HTTPException(
             status_code=413,
             detail={"error": "File too large", "message": "PDF must be 50 MB or smaller"}
+        )
+
+    # Validate true file type via magic bytes (not just extension/content-type)
+    detected_mime = magic.from_buffer(contents[:2048], mime=True)
+    if detected_mime != "application/pdf":
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Invalid file", "message": "File contents do not match a valid PDF"}
         )
 
     # Save to scoped temp directory
