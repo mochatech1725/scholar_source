@@ -26,6 +26,7 @@ from backend.csrf_protection import validate_origin
 from backend.celery_app import app as celery_app
 from backend.error_utils import transform_error_for_user
 from backend.auth import get_current_user, AuthenticationError
+from backend.version import APP_VERSION
 import os
 from slowapi.errors import RateLimitExceeded
 from backend.env_loader import load_environment
@@ -50,7 +51,7 @@ logger.info("Starting ScholarSource API...")
 app = FastAPI(
     title="ScholarSource API",
     description="Backend API for discovering educational resources aligned with course textbooks",
-    version="0.1.0"
+    version=APP_VERSION
 )
 
 # Register rate limiter with app
@@ -90,7 +91,7 @@ async def root():
     """Root endpoint - API information"""
     return {
         "message": "ScholarSource API",
-        "version": "0.1.0",
+        "version": APP_VERSION,
         "docs": "/docs",
         "health": "/api/health"
     }
@@ -164,7 +165,7 @@ async def health_check():
     # Database check can cause timeout during container startup
     return {
         "status": "healthy",
-        "version": "0.1.0",
+        "version": APP_VERSION,
         "database": "skipped"
     }
 

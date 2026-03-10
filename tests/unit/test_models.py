@@ -6,6 +6,7 @@ Tests Pydantic model validation and data transformation.
 
 import pytest
 from pydantic import ValidationError
+from backend.version import APP_VERSION
 from backend.models import (
     CourseInputRequest,
     JobSubmitResponse,
@@ -309,13 +310,13 @@ class TestHealthResponse:
         """Should create valid health response."""
         data = {
             "status": "healthy",
-            "version": "0.1.0",
+            "version": APP_VERSION,
             "database": "connected"
         }
         health = HealthResponse(**data)
 
         assert health.status == "healthy"
-        assert health.version == "0.1.0"
+        assert health.version == APP_VERSION
         assert health.database == "connected"
 
 

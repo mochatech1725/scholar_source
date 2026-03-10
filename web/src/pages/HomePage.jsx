@@ -243,6 +243,7 @@ export default function HomePage() {
               <h1 className="home-page-header-title">Student Study Resource Finder</h1>
               <p className="split-header-tagline">
                 AI-powered resource discovery for your courses and textbooks
+                <span className="ml-2 text-xs text-slate-400 font-normal">v{import.meta.env.VITE_APP_VERSION}</span>
               </p>
             </div>
           </div>
