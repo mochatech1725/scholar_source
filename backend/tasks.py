@@ -285,8 +285,7 @@ def run_crew_task(
             status_message="Job failed due to an error",
             metadata={
                 "error_type": error_type,
-                "technical_error": technical_error,  # Store technical details in metadata
-                "stack_trace": stack_trace,
+                "technical_error": technical_error,
                 "celery_task_id": self.request.id
             },
             use_service_role=True
@@ -551,8 +550,7 @@ def run_crew_task_sync(
             status_message="Job failed due to an error",
             metadata={
                 "error_type": error_type,
-                "technical_error": technical_error,  # Store technical details in metadata
-                "stack_trace": stack_trace,
+                "technical_error": technical_error,
                 "sync_mode": True
             },
             use_service_role=True
