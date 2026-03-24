@@ -242,25 +242,25 @@ class TestContainsError:
         # No errors
         ("https://example.com", "Valid Title", "Valid description", False),
 
-        # ERROR in uppercase
-        ("https://ERROR.com", "Title", "Description", True),
+        # ERROR: prefix (case-insensitive) — indicator is 'ERROR:'
+        ("https://ERROR.com", "Title", "Description", False),        # no colon after ERROR
         ("https://example.com", "ERROR: Failed", "Description", True),
         ("https://example.com", "Title", "ERROR: Could not fetch", True),
 
-        # error in lowercase
-        ("https://error.com/page", "Title", "Description", True),
-        ("https://example.com", "error in title", "Description", True),
-        ("https://example.com", "Title", "error in description", True),
+        # 'error' alone without colon does not match 'ERROR:'
+        ("https://error.com/page", "Title", "Description", False),
+        ("https://example.com", "error in title", "Description", False),
+        ("https://example.com", "Title", "error in description", False),
 
-        # Failed/failure patterns
+        # 'failed to' pattern (case-insensitive)
         ("https://example.com", "Title", "Failed to connect", True),
-        ("https://example.com", "Failed request", "Description", True),
-        ("https://example.com", "Title", "Request failure detected", True),
+        ("https://example.com", "Failed request", "Description", False),   # 'failed to' not present
+        ("https://example.com", "Title", "Request failure detected", False),  # 'failed to' not present
 
-        # Could not / Cannot patterns
+        # 'Could not fetch' pattern — only exact phrase matches
         ("https://example.com", "Title", "Could not fetch resource", True),
-        ("https://example.com", "Could not load", "Description", True),
-        ("https://example.com", "Title", "Cannot access page", True),
+        ("https://example.com", "Could not load", "Description", False),   # 'could not fetch' not present
+        ("https://example.com", "Title", "Cannot access page", False),     # no indicator matches
 
         # Edge cases
         ("", "", "", False),

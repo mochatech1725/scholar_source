@@ -70,7 +70,7 @@ class TestURLValidation:
 
     def test_malformed_url(self):
         """Malformed URLs should be rejected"""
-        assert validate_url("not a url") is True  # No scheme is okay for relative URLs
+        assert validate_url("not a url") is False  # Schemeless strings are rejected (fix #4)
         assert validate_url("http://") is False  # Scheme without netloc
 
 
