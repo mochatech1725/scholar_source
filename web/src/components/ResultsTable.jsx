@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getSiteName } from '../lib/resourceUtils';
 
 // ── helpers shared between table rows ──────────────────────────────────────
 
@@ -30,26 +31,6 @@ function getTypeMeta(type = '') {
   return { label: type || '—', cls: 'rt-badge-default' };
 }
 
-function getSiteName(url) {
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, '');
-    const lower = hostname.toLowerCase();
-    if (lower.includes('mit.edu'))        return 'MIT OCW';
-    if (lower.includes('stanford.edu'))   return 'Stanford';
-    if (lower.includes('berkeley.edu'))   return 'UC Berkeley';
-    if (lower.includes('youtube.com') || lower.includes('youtu.be')) return 'YouTube';
-    if (lower.includes('khanacademy.org')) return 'Khan Academy';
-    if (lower.includes('openstax.org'))   return 'OpenStax';
-    if (lower.includes('libretexts.org')) return 'LibreTexts';
-    if (lower.includes('coursera.org'))   return 'Coursera';
-    if (lower.includes('edx.org'))        return 'edX';
-    const parts = hostname.split('.');
-    const name  = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
-    return name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  } catch {
-    return url;
-  }
-}
 
 // ── Row ────────────────────────────────────────────────────────────────────
 
