@@ -104,6 +104,41 @@ describe('ResultCard', () => {
     expect(screen.getByText(/6/)).toBeInTheDocument();
   });
 
+  describe('URL protocol validation (fix #3)', () => {
+    it('renders title as a link for https:// URLs', () => {
+      render(<ResultCard resource={mockResource} index={0} />);
+
+      const titleLink = screen.getByRole('link', { name: /Introduction to Algorithms/i });
+      expect(titleLink).toBeInTheDocument();
+      expect(titleLink).toHaveAttribute('href', mockResource.url);
+      expect(titleLink).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+
+    it('renders title as a link for http:// URLs', () => {
+      const httpResource = { ...mockResource, url: 'http://example.com/book' };
+      render(<ResultCard resource={httpResource} index={0} />);
+
+      const titleLink = screen.getByRole('link', { name: /Introduction to Algorithms/i });
+      expect(titleLink).toHaveAttribute('href', 'http://example.com/book');
+    });
+
+    it('renders title as plain text for non-http(s) URLs', () => {
+      const badResource = { ...mockResource, url: 'javascript:alert(1)' };
+      render(<ResultCard resource={badResource} index={0} />);
+
+      expect(screen.queryByRole('link', { name: /Introduction to Algorithms/i })).not.toBeInTheDocument();
+      expect(screen.getByText('Introduction to Algorithms')).toBeInTheDocument();
+    });
+
+    it('renders title as plain text when url is null', () => {
+      const badResource = { ...mockResource, url: null };
+      render(<ResultCard resource={badResource} index={0} />);
+
+      expect(screen.queryByRole('link', { name: /Introduction to Algorithms/i })).not.toBeInTheDocument();
+      expect(screen.getByText('Introduction to Algorithms')).toBeInTheDocument();
+    });
+  });
+
   it('handles clipboard write failure gracefully', async () => {
     navigator.clipboard.writeText = vi.fn().mockRejectedValue(new Error('Clipboard error'));
 

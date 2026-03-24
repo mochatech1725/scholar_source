@@ -31,6 +31,7 @@ export default function ResultCard({ resource, index, onCopy, isSelected, onTogg
   };
 
   const getHostname = (url) => {
+    if (!url) return '';
     try {
       return new URL(url).hostname.replace(/^www\./, '');
     } catch {
@@ -143,14 +144,18 @@ export default function ResultCard({ resource, index, onCopy, isSelected, onTogg
 
       {/* Title */}
       <h3 className="result-card-title-wrapper">
-        <a
-          href={resource.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="result-card-title-link"
-        >
-          {getDisplayTitle()}
-        </a>
+        {/^https?:\/\//i.test(resource.url ?? '') ? (
+          <a
+            href={resource.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="result-card-title-link"
+          >
+            {getDisplayTitle()}
+          </a>
+        ) : (
+          <span className="result-card-title-link">{getDisplayTitle()}</span>
+        )}
       </h3>
 
       {/* Description */}
