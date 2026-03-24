@@ -90,7 +90,7 @@ def run_crew_task(
     start_time = time.time()
 
     logger.info(f"Starting Celery task for job {job_id} (task_id: {self.request.id})")
-    logger.info(f"Job {job_id} parameters: {inputs}")
+    logger.info(f"Job {job_id} fields: {[k for k in inputs if inputs[k]]}")
 
     # Check if job was cancelled before starting
     job = get_job(job_id, use_service_role=True)
@@ -250,7 +250,6 @@ def run_crew_task(
 
         elapsed = time.time() - start_time
         logger.info(f"✅ Job {job_id} completed successfully with {len(resources)} resources (elapsed: {elapsed:.2f}s)")
-        logger.info(f"Job {job_id} final parameters: {inputs}")
 
         return {
             "status": "completed",
@@ -266,9 +265,8 @@ def run_crew_task(
         technical_error = str(e)
         stack_trace = traceback.format_exc()
 
-        # Log the technical details for debugging
+        # Log the technical details for debugging (no user input values)
         logger.error(f"❌ Job {job_id} failed with {error_type}: {technical_error} (elapsed: {elapsed:.2f}s)")
-        logger.error(f"Job {job_id} failed parameters: {inputs}")
         logger.error(stack_trace)
 
         # Clean up uploaded PDF on failure too
@@ -349,7 +347,7 @@ def run_crew_task_sync(
     start_time = time.time()
 
     logger.info(f"Starting synchronous task for job {job_id} (SYNC_MODE)")
-    logger.info(f"Job {job_id} parameters: {inputs}")
+    logger.info(f"Job {job_id} fields: {[k for k in inputs if inputs[k]]}")
 
     # Check if job was cancelled before starting
     job = get_job(job_id, use_service_role=True)
@@ -518,7 +516,6 @@ def run_crew_task_sync(
 
         elapsed = time.time() - start_time
         logger.info(f"✅ Job {job_id} completed successfully with {len(resources)} resources (elapsed: {elapsed:.2f}s)")
-        logger.info(f"Job {job_id} final parameters: {inputs}")
 
         return {
             "status": "completed",
@@ -534,9 +531,8 @@ def run_crew_task_sync(
         technical_error = str(e)
         stack_trace = traceback.format_exc()
 
-        # Log the technical details for debugging
+        # Log the technical details for debugging (no user input values)
         logger.error(f"❌ Job {job_id} failed with {error_type}: {technical_error} (elapsed: {elapsed:.2f}s)")
-        logger.error(f"Job {job_id} failed parameters: {inputs}")
         logger.error(stack_trace)
 
         # Clean up uploaded PDF on failure too
