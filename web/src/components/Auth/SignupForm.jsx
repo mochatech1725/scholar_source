@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import AuthInput from './AuthInput';
 
 export default function SignupForm({ onSwitchToLogin }) {
   const [email, setEmail] = useState('');
@@ -67,42 +68,29 @@ export default function SignupForm({ onSwitchToLogin }) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="email" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-            Email Address
-          </label>
-          <div className="relative">
-            <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">✉️</span>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              disabled={loading}
-              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60 transition"
-            />
-          </div>
-        </div>
+        <AuthInput
+          id="email"
+          label="Email Address"
+          type="email"
+          icon="✉️"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          disabled={loading}
+        />
 
-        <div>
-          <label htmlFor="password" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-            Password
-          </label>
-          <div className="relative">
-            <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">🔒</span>
-            <input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••••"
-              disabled={loading}
-              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60 transition"
-            />
-          </div>
+        <AuthInput
+          id="password"
+          label="Password"
+          type="password"
+          icon="🔒"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="••••••••••"
+          disabled={loading}
+        >
           {password && (
             <div className="mt-2 flex items-center gap-2">
               <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
@@ -124,26 +112,19 @@ export default function SignupForm({ onSwitchToLogin }) {
             </div>
           )}
           <p className="mt-1 text-xs text-slate-400">8+ characters with uppercase, lowercase, and numbers</p>
-        </div>
+        </AuthInput>
 
-        <div>
-          <label htmlFor="confirmPassword" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-            Confirm Password
-          </label>
-          <div className="relative">
-            <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">🔒</span>
-            <input
-              id="confirmPassword"
-              type="password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••••"
-              disabled={loading}
-              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60 transition"
-            />
-          </div>
-        </div>
+        <AuthInput
+          id="confirmPassword"
+          label="Confirm Password"
+          type="password"
+          icon="🔒"
+          required
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          placeholder="••••••••••"
+          disabled={loading}
+        />
 
         <div className="pt-2">
           <button

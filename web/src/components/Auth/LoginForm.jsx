@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import AuthInput from './AuthInput';
 
 export default function LoginForm({ onSwitchToSignup }) {
   const [email, setEmail] = useState('');
@@ -44,55 +45,37 @@ export default function LoginForm({ onSwitchToSignup }) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="email" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-            Email Address
-          </label>
-          <div className="relative">
-            <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
-              ✉️
-            </span>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              disabled={loading}
-              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60 transition"
-            />
-          </div>
-        </div>
+        <AuthInput
+          id="email"
+          label="Email Address"
+          type="email"
+          icon="✉️"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          disabled={loading}
+        />
 
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label htmlFor="password" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Password
-            </label>
+        <AuthInput
+          id="password"
+          label="Password"
+          type="password"
+          icon="🔒"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="••••••••••"
+          disabled={loading}
+          labelExtra={
             <button
               type="button"
               className="text-xs text-blue-600 hover:text-blue-700 font-medium focus:outline-none focus:underline"
             >
               Forgot password?
             </button>
-          </div>
-          <div className="relative">
-            <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
-              🔒
-            </span>
-            <input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••••"
-              disabled={loading}
-              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60 transition"
-            />
-          </div>
-        </div>
+          }
+        />
 
         <div className="pt-2">
           <button
