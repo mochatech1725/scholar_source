@@ -4,21 +4,15 @@
  * Compact search result card with title-first design
  */
 
-import { useState } from 'react';
 import { getHostname, getSiteName, getTypeMeta } from '../lib/resourceUtils';
+import useCopyToClipboard from '../hooks/useCopyToClipboard';
 
 export default function ResultCard({ resource, index, onCopy, isSelected, onToggleSelect }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, copy] = useCopyToClipboard();
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(resource.url);
-      setCopied(true);
-      if (onCopy) onCopy(resource.url, index);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy:', error);
-    }
+    await copy(resource.url);
+    if (onCopy) onCopy(resource.url, index);
   };
 
 

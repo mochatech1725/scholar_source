@@ -7,22 +7,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSiteName, getTypeMeta } from '../lib/resourceUtils';
+import useCopyToClipboard from '../hooks/useCopyToClipboard';
 
 
 // ── Row ────────────────────────────────────────────────────────────────────
 
 function ResourceRow({ resource, isSelected, onToggle }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, copy] = useCopyToClipboard();
 
   const handleCopyUrl = async (e) => {
     e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(resource.url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error(err);
-    }
+    await copy(resource.url);
   };
 
   const { label, typeKey } = getTypeMeta(resource.type);
