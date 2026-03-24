@@ -6,30 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getSiteName } from '../lib/resourceUtils';
-
-// ── helpers shared between table rows ──────────────────────────────────────
-
-const TYPE_META = {
-  VIDEO:    { label: 'Video',    cls: 'rt-badge-video' },
-  YOUTUBE:  { label: 'Video',    cls: 'rt-badge-video' },
-  PDF:      { label: 'PDF',      cls: 'rt-badge-pdf' },
-  TEXTBOOK: { label: 'Textbook', cls: 'rt-badge-pdf' },
-  COURSE:   { label: 'Course',   cls: 'rt-badge-course' },
-  PRACTICE: { label: 'Practice', cls: 'rt-badge-practice' },
-  PROBLEM:  { label: 'Practice', cls: 'rt-badge-practice' },
-  NOTES:    { label: 'Notes',    cls: 'rt-badge-notes' },
-  WEBSITE:  { label: 'Web',      cls: 'rt-badge-website' },
-  WEB:      { label: 'Web',      cls: 'rt-badge-website' },
-};
-
-function getTypeMeta(type = '') {
-  const up = type.toUpperCase();
-  for (const [key, meta] of Object.entries(TYPE_META)) {
-    if (up.includes(key)) return meta;
-  }
-  return { label: type || '—', cls: 'rt-badge-default' };
-}
+import { getSiteName, getTypeMeta } from '../lib/resourceUtils';
 
 
 // ── Row ────────────────────────────────────────────────────────────────────
@@ -48,7 +25,7 @@ function ResourceRow({ resource, isSelected, onToggle }) {
     }
   };
 
-  const { label, cls } = getTypeMeta(resource.type);
+  const { label, typeKey } = getTypeMeta(resource.type);
   const displayTitle = resource.title && resource.title !== resource.url
     ? resource.title
     : getSiteName(resource.url);
@@ -79,7 +56,7 @@ function ResourceRow({ resource, isSelected, onToggle }) {
 
       {/* Type badge */}
       <td className="rt-cell-type">
-        <span className={`rt-badge ${cls}`}>{label}</span>
+        <span className={`rt-badge rt-badge-${typeKey}`}>{label}</span>
       </td>
 
       {/* Title + description */}

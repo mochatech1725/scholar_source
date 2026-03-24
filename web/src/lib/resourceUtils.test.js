@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getHostname, getSiteName } from './resourceUtils';
+import { getHostname, getSiteName, getTypeMeta } from './resourceUtils';
 
 describe('getHostname', () => {
   it('strips www. prefix', () => {
@@ -16,6 +16,28 @@ describe('getHostname', () => {
 
   it('returns raw value for unparseable input', () => {
     expect(getHostname('not-a-url')).toBe('not-a-url');
+  });
+});
+
+describe('getTypeMeta', () => {
+  it('returns correct label and typeKey for a known type', () => {
+    expect(getTypeMeta('Video')).toEqual({ label: 'Video', typeKey: 'video' });
+  });
+
+  it('normalises Textbook to the PDF entry', () => {
+    expect(getTypeMeta('Textbook')).toEqual({ label: 'PDF', typeKey: 'pdf' });
+  });
+
+  it('matches a substring (e.g. Lecture Notes -> Notes)', () => {
+    expect(getTypeMeta('Lecture Notes')).toEqual({ label: 'Notes', typeKey: 'notes' });
+  });
+
+  it('returns raw type and default typeKey for unknown types', () => {
+    expect(getTypeMeta('Interactive Tool')).toEqual({ label: 'Interactive Tool', typeKey: 'default' });
+  });
+
+  it('returns fallback label and default typeKey for empty string', () => {
+    expect(getTypeMeta('')).toEqual({ label: '—', typeKey: 'default' });
   });
 });
 

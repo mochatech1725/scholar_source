@@ -3,6 +3,39 @@
  */
 
 /**
+ * Maps resource type strings to a display label and a neutral typeKey.
+ * typeKey is a lowercase string (e.g. 'pdf', 'video') that each component
+ * can use to construct its own CSS class (e.g. `badge badge-${typeKey}`
+ * or `rt-badge-${typeKey}`).
+ */
+const TYPE_MAP = [
+  { keys: ['VIDEO', 'YOUTUBE'],         label: 'Video',    typeKey: 'video' },
+  { keys: ['PDF', 'TEXTBOOK'],          label: 'PDF',      typeKey: 'pdf' },
+  { keys: ['COURSE'],                   label: 'Course',   typeKey: 'course' },
+  { keys: ['PRACTICE', 'PROBLEM'],      label: 'Practice', typeKey: 'practice' },
+  { keys: ['NOTES'],                    label: 'Notes',    typeKey: 'notes' },
+  { keys: ['WEBSITE', 'WEB'],           label: 'Web',      typeKey: 'website' },
+];
+
+/**
+ * Returns the display label and typeKey for a resource type string.
+ * Falls back to the raw type string and 'default' typeKey for unknown types.
+ *
+ * @param {string} type - Resource type from the API (e.g. "Video", "PDF")
+ * @returns {{ label: string, typeKey: string }}
+ */
+export function getTypeMeta(type = '') {
+  const upper = type.toUpperCase();
+  for (const entry of TYPE_MAP) {
+    if (entry.keys.some(k => upper.includes(k))) {
+      return { label: entry.label, typeKey: entry.typeKey };
+    }
+  }
+  return { label: type || '—', typeKey: 'default' };
+}
+
+
+/**
  * Returns the hostname of a URL with the leading "www." stripped.
  * Returns an empty string for null/undefined input and the raw value
  * for unparseable strings.

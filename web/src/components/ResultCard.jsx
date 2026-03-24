@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { getHostname, getSiteName } from '../lib/resourceUtils';
+import { getHostname, getSiteName, getTypeMeta } from '../lib/resourceUtils';
 
 export default function ResultCard({ resource, index, onCopy, isSelected, onToggleSelect }) {
   const [copied, setCopied] = useState(false);
@@ -21,15 +21,6 @@ export default function ResultCard({ resource, index, onCopy, isSelected, onTogg
     }
   };
 
-  const getBadgeClass = (type) => {
-    const upperType = type?.toUpperCase() || '';
-    if (upperType.includes('PDF') || upperType.includes('TEXTBOOK')) return 'badge badge-pdf';
-    if (upperType.includes('VIDEO') || upperType.includes('YOUTUBE')) return 'badge badge-video';
-    if (upperType.includes('COURSE')) return 'badge badge-course';
-    if (upperType.includes('WEBSITE') || upperType.includes('WEB')) return 'badge badge-website';
-    if (upperType.includes('PRACTICE') || upperType.includes('PROBLEM')) return 'badge badge-practice';
-    return 'badge badge-default';
-  };
 
 
   const getDisplayTitle = () => {
@@ -79,8 +70,8 @@ export default function ResultCard({ resource, index, onCopy, isSelected, onTogg
 
       {/* Header row */}
       <div className="result-card-header">
-        <span className={getBadgeClass(resource.type)}>
-          {resource.type}
+        <span className={`badge badge-${getTypeMeta(resource.type).typeKey}`}>
+          {getTypeMeta(resource.type).label}
         </span>
 
         <span className="result-card-site-name">{getSiteName(resource.url)}</span>

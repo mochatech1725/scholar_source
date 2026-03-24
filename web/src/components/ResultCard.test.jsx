@@ -31,7 +31,8 @@ describe('ResultCard', () => {
   it('displays resource type badge', () => {
     render(<ResultCard resource={mockResource} index={0} />);
 
-    const badge = screen.getByText('Textbook');
+    // 'Textbook' type normalises to the 'PDF' label via getTypeMeta
+    const badge = screen.getByText('PDF');
     expect(badge).toBeInTheDocument();
   });
 
@@ -84,7 +85,8 @@ describe('ResultCard', () => {
     const notesResource = { ...mockResource, type: 'Lecture Notes' };
     rerender(<ResultCard resource={notesResource} index={0} />);
 
-    expect(screen.getByText('Lecture Notes')).toBeInTheDocument();
+    // 'Lecture Notes' matches the NOTES key and normalises to 'Notes'
+    expect(screen.getByText('Notes')).toBeInTheDocument();
   });
 
   it('handles resource without description', () => {
