@@ -96,9 +96,9 @@ def validate_url(url: str) -> bool:
         logger.warning(f"Dangerous URL scheme detected: {parsed.scheme}")
         return False
 
-    # Require scheme for external URLs (http or https)
-    if parsed.scheme and parsed.scheme.lower() not in ['http', 'https', '']:
-        logger.warning(f"Invalid URL scheme: {parsed.scheme}")
+    # Require http or https scheme — reject protocol-relative and unknown schemes
+    if not parsed.scheme or parsed.scheme.lower() not in ['http', 'https']:
+        logger.warning(f"Invalid URL scheme: '{parsed.scheme}'")
         return False
 
     # Check for netloc if scheme is present
