@@ -303,6 +303,24 @@ async def submit_job(
         )
 
 
+def verify_job_ownership(job: dict | None, job_id: UUID, user_id: str, action: str = "access") -> None:
+    """
+    Verify the job exists and belongs to the requesting user.
+    Raises HTTPException 404 if the job is absent, 403 if it belongs to another user.
+    `action` is used in the 403 message (e.g. "access", "cancel").
+    """
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "Job not found", "message": f"No job found with ID: {job_id}"}
+        )
+    if job.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "Forbidden", "message": f"You do not have permission to {action} this job"}
+        )
+
+
 @app.get("/api/status/{job_id}", response_model=JobStatusResponse, tags=["Jobs"])
 @limiter.limit("100/minute")
 async def get_job_status(
@@ -331,24 +349,8 @@ async def get_job_status(
     access_token = current_user.get("access_token")
     job = get_job(str(job_id), access_token=access_token)
 
-    if not job:
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "error": "Job not found",
-                "message": f"No job found with ID: {job_id}"
-            }
-        )
-
-    # Verify job belongs to the authenticated user (RLS will enforce this, but double-check)
-    if job.get("user_id") != user_id:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "error": "Forbidden",
-                "message": "You do not have permission to access this job"
-            }
-        )
+    # Verify job exists and belongs to this user (RLS enforces this too, but double-check)
+    verify_job_ownership(job, job_id, user_id, action="access")
 
     # Extract relevant input fields for display
     inputs = job.get("inputs", {})
@@ -420,24 +422,7 @@ async def cancel_job(
     access_token = current_user.get("access_token")
     job = get_job(str(job_id), access_token=access_token)
 
-    if not job:
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "error": "Job not found",
-                "message": f"No job found with ID: {job_id}"
-            }
-        )
-
-    # Verify job belongs to the authenticated user
-    if job.get("user_id") != user_id:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "error": "Forbidden",
-                "message": "You do not have permission to cancel this job"
-            }
-        )
+    verify_job_ownership(job, job_id, user_id, action="cancel")
 
     current_status = job.get("status")
 

@@ -493,11 +493,10 @@ def run_crew_task_sync(
 # ── Maintenance tasks ─────────────────────────────────────────────────────────
 
 @task_decorator(
-    bind=True,
     name="backend.tasks.cleanup_old_results",
     queue="default",
 )
-def cleanup_old_results(self: Task) -> Dict[str, any]:
+def cleanup_old_results() -> Dict[str, any]:
     """
     Periodic task to clean up old job results.
 
