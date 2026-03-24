@@ -10,6 +10,7 @@ import uuid
 import filetype
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, UploadFile, File
+from uuid import UUID
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from backend.models import (
@@ -68,17 +69,29 @@ async def auth_exception_handler(request: Request, exc: AuthenticationError):
     )
 
 # CORS configuration - allow frontend origins
+_production_origins = [
+    "https://scholar-source.pages.dev",  # Cloudflare Pages
+]
+_dev_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+_extra_origins = [
+    o.strip()
+    for o in os.getenv("EXTRA_ALLOWED_ORIGINS", "").split(",")
+    if o.strip()
+]
+_allowed_origins = (
+    _production_origins + _extra_origins
+    if os.getenv("ENVIRONMENT", "local") == "production"
+    else _production_origins + _dev_origins + _extra_origins
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # Vite dev server (legacy port)
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",  # Standard Vite port
-        "http://127.0.0.1:5173",
-        "https://scholar-source.pages.dev",  # Cloudflare Pages
-        # Add custom domain when configured:
-        # "https://yourdomain.com",
-    ],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],  # OPTIONS required for CORS preflight
     allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
@@ -294,7 +307,7 @@ async def submit_job(
 @limiter.limit("100/minute")
 async def get_job_status(
     request: Request,
-    job_id: str,
+    job_id: UUID,
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -316,7 +329,7 @@ async def get_job_status(
     """
     user_id = current_user["id"]
     access_token = current_user.get("access_token")
-    job = get_job(job_id, access_token=access_token)
+    job = get_job(str(job_id), access_token=access_token)
 
     if not job:
         raise HTTPException(
@@ -378,7 +391,7 @@ async def get_job_status(
 @limiter.limit("20/hour")
 async def cancel_job(
     request: Request,
-    job_id: str,
+    job_id: UUID,
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -405,7 +418,7 @@ async def cancel_job(
 
     user_id = current_user["id"]
     access_token = current_user.get("access_token")
-    job = get_job(job_id, access_token=access_token)
+    job = get_job(str(job_id), access_token=access_token)
 
     if not job:
         raise HTTPException(

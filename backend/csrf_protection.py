@@ -32,61 +32,55 @@ if env_origins:
 def validate_origin(request: Request) -> None:
     """
     Validate Origin header for state-changing requests.
-    
+
     This prevents cross-origin POST requests by checking that the Origin
     header matches one of the allowed origins. This is a defense-in-depth
     measure that works even without authentication.
-    
+
+    Why Origin only (not Referer):
+      - The Origin header is set by browsers on every cross-origin request and
+        cannot be overridden by page-level JavaScript, making it trustworthy.
+      - The Referer header can be suppressed by browser privacy settings,
+        Referrer-Policy headers, or HTTPS→HTTP transitions, creating false
+        negatives. It can also be spoofed by non-browser clients, so it adds
+        no real security benefit over Origin alone.
+
+    Why GET/OPTIONS/HEAD are skipped:
+      - These methods are defined as "safe" by RFC 7231 — they must not cause
+        side effects. CSRF attacks require a state-changing request (POST, PUT,
+        DELETE, PATCH), so checking read-only methods would only cause friction
+        for legitimate clients (e.g. curl health checks, browser preflight).
+
+    Why trailing slashes are stripped:
+      - Some clients send "https://example.com/" with a trailing slash.
+        Normalizing both sides avoids a mismatch against "https://example.com"
+        in ALLOWED_ORIGINS.
+
     Args:
         request: FastAPI request object
-        
+
     Raises:
-        HTTPException: If Origin header is missing or invalid
+        HTTPException 403: If Origin header is absent or not in ALLOWED_ORIGINS
     """
-    # Skip validation for read-only requests
+    # Safe methods cannot cause state changes — no CSRF risk, skip check.
     if request.method in ["GET", "OPTIONS", "HEAD"]:
         return
-    
+
     origin = request.headers.get("Origin")
-    referer = request.headers.get("Referer")
-    
-    # Check Origin header first (most reliable)
+
+    # Origin is set automatically by browsers on cross-origin requests and
+    # cannot be forged by page scripts. An absent Origin on a POST indicates
+    # a non-browser client; we reject it as a conservative default.
     if origin:
-        # Normalize origin (remove trailing slash, handle http/https)
         normalized_origin = origin.rstrip("/")
         for allowed in ALLOWED_ORIGINS:
-            normalized_allowed = allowed.rstrip("/")
-            if normalized_origin == normalized_allowed:
+            if normalized_origin == allowed.rstrip("/"):
                 logger.debug(f"Origin validation passed: {origin}")
                 return
-    
-    # Fallback to Referer header if Origin is missing
-    # (Some browsers/requests may not send Origin)
-    if referer:
-        try:
-            # Extract origin from referer URL
-            # Format: http://domain:port/path -> http://domain:port
-            if "://" in referer:
-                # Parse URL more robustly
-                parts = referer.split("://", 1)
-                if len(parts) == 2:
-                    scheme = parts[0]  # http or https
-                    rest = parts[1]  # domain:port/path
-                    # Get domain:port (everything before first /)
-                    domain_port = rest.split("/")[0]
-                    referer_origin = f"{scheme}://{domain_port}"
-                    normalized_referer = referer_origin.rstrip("/")
-                    for allowed in ALLOWED_ORIGINS:
-                        normalized_allowed = allowed.rstrip("/")
-                        if normalized_referer == normalized_allowed:
-                            logger.debug(f"Referer validation passed: {referer_origin}")
-                            return
-        except (IndexError, ValueError) as e:
-            logger.warning(f"Failed to parse Referer header: {referer}, error: {e}")
-    
-    # Reject request if no valid origin found
+
+    # Origin missing or not in allowlist — reject the request.
     logger.warning(
-        f"Origin validation failed - Origin: {origin}, Referer: {referer}, "
+        f"Origin validation failed - Origin: {origin}, "
         f"Method: {request.method}, Path: {request.url.path}"
     )
     raise HTTPException(
