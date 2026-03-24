@@ -6,7 +6,11 @@
 
 import { supabase } from '../lib/supabase';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (
+  import.meta.env.PROD
+    ? (() => { throw new Error('VITE_API_URL is required in production'); })()
+    : 'http://localhost:8000'
+);
 
 /**
  * Get the current user's JWT token
