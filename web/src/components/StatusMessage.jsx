@@ -12,6 +12,8 @@ export default function StatusMessage({
   icon,
   actions
 }) {
+  if (!message && message !== 0) return null;
+
   const typeClass = `status-message-${type}`;
 
   // Default icons based on type
