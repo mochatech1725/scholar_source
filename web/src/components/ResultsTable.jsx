@@ -9,6 +9,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSiteName, getTypeMeta } from '../lib/resourceUtils';
 import useCopyToClipboard from '../hooks/useCopyToClipboard';
 
+/** Deterministic key for rows that have no URL. Avoids unstable index-based keys. */
+function stableKey(...parts) {
+  const str = parts.filter(Boolean).join('|');
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  }
+  return `row-${h >>> 0}`;
+}
 
 // ── Row ────────────────────────────────────────────────────────────────────
 
@@ -271,8 +280,11 @@ export default function ResultsTable({ resources, searchTitle, textbookInfo, sec
             </tr>
           </thead>
           <tbody>
-            {filteredResources.map((resource, index) => {
-              const key = resource.url || `resource-${index}`;
+            {filteredResources.map((resource) => {
+              // Stable key: prefer URL, fall back to a hash of title+url so
+              // React reconciliation stays correct when the list is filtered or
+              // reordered and some rows lack a URL.
+              const key = resource.url || stableKey(resource.title, resource.url);
               return (
                 <ResourceRow
                   key={key}
