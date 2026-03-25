@@ -136,7 +136,7 @@ def _cleanup_pdf(normalized_inputs: Dict) -> None:
     if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
         try:
             os.unlink(pdf_path)
-        except Exception:
+        except OSError:
             pass
 
 
@@ -339,6 +339,9 @@ def run_crew_task(
         return {"status": "completed", "job_id": job_id, "resource_count": len(resources)}
 
     except Exception as e:
+        # Intentionally broad: CrewAI, Supabase, asyncio, and network layers can
+        # all raise different exception types.  Fatal signals (KeyboardInterrupt,
+        # SystemExit) are BaseException and are not caught here.
         elapsed = time.time() - start_time
         _handle_task_failure(
             job_id, e, elapsed, normalized_inputs,
@@ -482,6 +485,7 @@ def run_crew_task_sync(
         return {"status": "completed", "job_id": job_id, "resource_count": len(resources)}
 
     except Exception as e:
+        # Intentionally broad: same reasoning as run_crew_task above.
         elapsed = time.time() - start_time
         user_message, _ = _handle_task_failure(
             job_id, e, elapsed, normalized_inputs,

@@ -155,8 +155,8 @@ def check_celery_workers() -> dict:
                 "count": 0,
                 "workers": []
             }
-    except Exception as e:
-        # Log technical details but return generic error
+    except (ConnectionError, TimeoutError, OSError) as e:
+        # Covers broker-unreachable, ping timeout, and low-level socket errors
         logger.warning(f"Failed to check Celery workers: {e}")
         user_message, _ = transform_error_for_user(e)
         return {
@@ -287,11 +287,10 @@ async def submit_job(
         
         return response
 
-    except Exception as e:
-        # Log technical details for debugging
+    except (ConnectionError, TimeoutError, ValueError, RuntimeError, OSError) as e:
+        # Covers DB connection failures, timeouts, validation errors, and I/O
         logger.error(f"Job creation failed: {str(e)}", exc_info=True)
 
-        # Transform error for user-friendly display
         user_message, _ = transform_error_for_user(e)
 
         raise HTTPException(
@@ -368,7 +367,9 @@ async def get_job_status(
                 if not worker_status["available"]:
                     status_message = "⚠️ Job is queued but no workers are available. Workers may be starting up or offline."
                     logger.warning(f"Job {job_id} stuck in queue - no workers available")
-        except Exception as e:
+        except (ValueError, AttributeError) as e:
+            # ValueError from fromisoformat on unexpected timestamp format;
+            # AttributeError if created_at is None or not a string
             logger.debug(f"Could not check queue age for job {job_id}: {e}")
     
     return {
@@ -464,11 +465,10 @@ async def cancel_job(
             "status": "cancelled",
             "message": message
         }
-    except Exception as e:
-        # Log technical details for debugging
+    except (ConnectionError, TimeoutError, ValueError, RuntimeError, OSError) as e:
+        # Covers DB connection failures, timeouts, Celery revoke errors, and I/O
         logger.error(f"Job cancellation failed: {str(e)}", exc_info=True)
 
-        # Transform error for user-friendly display
         user_message, _ = transform_error_for_user(e)
 
         raise HTTPException(
@@ -547,7 +547,7 @@ async def upload_pdf(
     try:
         with open(pdf_path, "wb") as f:
             f.write(contents)
-    except Exception as e:
+    except OSError as e:
         logger.error(f"PDF upload failed for user {user_id}: {e}")
         raise HTTPException(
             status_code=500,
