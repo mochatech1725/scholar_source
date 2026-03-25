@@ -63,17 +63,35 @@ _REQUIRED_KEYS: List[str] = [
     'targeted_sites', 'chapter', 'sections', 'preferred_creators',
 ]
 
+# Allowlist for desired_resource_types — unrecognised values are discarded.
+_ALLOWED_RESOURCE_TYPES: set = {
+    'textbooks',
+    'practice_problem_sets',
+    'practice_exams_tests',
+    'lecture_videos',
+    'lecture_notes',
+    'online_courses',
+    'reference_materials',
+}
+
 
 def _normalize_inputs(inputs: Dict) -> Dict:
     """
     Normalize raw task inputs for crew consumption:
     - Convert None values to empty strings (preserving lists for desired_resource_types).
+    - Strip unrecognised values from desired_resource_types.
     - Fill in any missing required keys with safe defaults.
     """
     normalized: Dict = {}
     for key, value in inputs.items():
         if key == 'desired_resource_types':
-            normalized[key] = value if isinstance(value, list) else ([] if value is None else [])
+            raw = value if isinstance(value, list) else ([] if value is None else [])
+            # Discard any items not in the allowlist
+            filtered = [v for v in raw if isinstance(v, str) and v in _ALLOWED_RESOURCE_TYPES]
+            if len(filtered) < len(raw):
+                discarded = [v for v in raw if v not in _ALLOWED_RESOURCE_TYPES]
+                logger.warning(f"Discarding unrecognised resource types: {discarded}")
+            normalized[key] = filtered
         else:
             normalized[key] = value if value is not None else ""
     for key in _REQUIRED_KEYS:
@@ -136,8 +154,8 @@ def _cleanup_pdf(normalized_inputs: Dict) -> None:
     if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
         try:
             os.unlink(pdf_path)
-        except OSError:
-            pass
+        except OSError as e:
+            logger.warning(f"Failed to remove temp PDF {pdf_path}: {e}")
 
 
 def _handle_task_failure(
