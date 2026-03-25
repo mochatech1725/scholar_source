@@ -30,21 +30,23 @@ export default function InlineSearchStatus({ jobId, onComplete, onError }) {
   const [statusMessage, setStatusMessage] = useState('Initializing...');
   const [isCancelling, setIsCancelling] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [isTimedOut, setIsTimedOut] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
-  
+
   // Track if job is still active (not completed/failed/cancelled)
   const isActiveRef = useRef(true);
   const timeoutIdRef = useRef(null);
   const startTimeRef = useRef(Date.now());
   const elapsedIntervalRef = useRef(null);
+  // Timeout flag kept in a ref so the polling effect doesn't need it as a
+  // dependency — flipping it must not tear down and restart the interval.
+  const isTimedOutRef = useRef(false);
 
   // Auto-cancel function for timeout
   const handleTimeoutCancel = useCallback(async () => {
     if (!isActiveRef.current) return; // Job already finished
     
     console.log(`Search timeout after ${SEARCH_TIMEOUT_MINUTES} minutes, cancelling job ${jobId}`);
-    setIsTimedOut(true);
+    isTimedOutRef.current = true;
     setIsCancelling(true);
     
     try {
@@ -113,7 +115,7 @@ export default function InlineSearchStatus({ jobId, onComplete, onError }) {
           clearInterval(elapsedIntervalRef.current);
           
           // Check if this was a timeout cancellation
-          const errorMsg = isTimedOut
+          const errorMsg = isTimedOutRef.current
             ? `Search timed out after ${SEARCH_TIMEOUT_MINUTES} minutes`
             : data.status === 'cancelled'
               ? 'Job was cancelled'
@@ -148,7 +150,7 @@ export default function InlineSearchStatus({ jobId, onComplete, onError }) {
         clearInterval(elapsedIntervalRef.current);
       }
     };
-  }, [jobId, onComplete, onError, handleTimeoutCancel, isTimedOut]);
+  }, [jobId, onComplete, onError, handleTimeoutCancel]);
 
   const handleCancelClick = () => {
     setShowCancelDialog(true);
