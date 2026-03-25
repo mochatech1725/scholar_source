@@ -23,12 +23,10 @@ class TestCourseInputRequest:
         """Should accept valid course URL."""
         data = {
             "course_url": "https://ocw.mit.edu/courses/math",
-            "course_name": "Mathematics"
         }
         request = CourseInputRequest(**data)
 
         assert request.course_url == "https://ocw.mit.edu/courses/math"
-        assert request.course_name == "Mathematics"
         assert request.book_title is None
 
     def test_valid_book_title_input(self):
@@ -327,12 +325,10 @@ class TestModelSerialization:
         """Should serialize CourseInputRequest to dict."""
         request = CourseInputRequest(
             course_url="https://example.com",
-            course_name="Test Course",
         )
         data = request.model_dump()
 
         assert data['course_url'] == "https://example.com"
-        assert data['course_name'] == "Test Course"
 
     def test_resource_to_dict(self):
         """Should serialize Resource to dict."""
@@ -372,7 +368,6 @@ class TestSecurityValidation:
         """Should accept valid course URLs."""
         data = {
             "course_url": "https://ocw.mit.edu/courses/mathematics",
-            "course_name": "Mathematics"
         }
         request = CourseInputRequest(**data)
         assert request.course_url == "https://ocw.mit.edu/courses/mathematics"
@@ -381,7 +376,6 @@ class TestSecurityValidation:
         """Should reject JavaScript URLs in course_url."""
         data = {
             "course_url": "javascript:alert('XSS')",
-            "course_name": "Test"
         }
         with pytest.raises(ValidationError) as exc_info:
             CourseInputRequest(**data)
@@ -391,7 +385,6 @@ class TestSecurityValidation:
         """Should reject data URLs in course_url."""
         data = {
             "course_url": "data:text/html,<script>alert('XSS')</script>",
-            "course_name": "Test"
         }
         with pytest.raises(ValidationError) as exc_info:
             CourseInputRequest(**data)

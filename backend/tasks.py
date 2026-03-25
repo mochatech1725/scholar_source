@@ -19,10 +19,9 @@ os.environ["OTEL_SDK_DISABLED"] = "true"
 import re
 import asyncio
 import traceback
-import time
 import concurrent.futures
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Optional, Tuple
 from celery import Task
 
 # Add src to path to import ScholarSource
@@ -55,6 +54,170 @@ def task_decorator(*args, **kwargs):
         return noop_decorator
 
 
+# ── Private helpers ───────────────────────────────────────────────────────────
+
+_REQUIRED_KEYS: List[str] = [
+    'university_name', 'course_name', 'course_url', 'textbook',
+    'topics_list', 'book_title', 'book_author', 'isbn',
+    'book_pdf_path', 'book_url', 'desired_resource_types', 'excluded_sites',
+    'targeted_sites', 'chapter', 'sections', 'preferred_creators',
+]
+
+# Allowlist for desired_resource_types — unrecognised values are discarded.
+_ALLOWED_RESOURCE_TYPES: set = {
+    'textbooks',
+    'practice_problem_sets',
+    'practice_exams_tests',
+    'lecture_videos',
+    'lecture_notes',
+    'online_courses',
+    'reference_materials',
+}
+
+
+def _normalize_inputs(inputs: Dict) -> Dict:
+    """
+    Normalize raw task inputs for crew consumption:
+    - Convert None values to empty strings (preserving lists for desired_resource_types).
+    - Strip unrecognised values from desired_resource_types.
+    - Fill in any missing required keys with safe defaults.
+    """
+    normalized: Dict = {}
+    for key, value in inputs.items():
+        if key == 'desired_resource_types':
+            raw = value if isinstance(value, list) else ([] if value is None else [])
+            # Discard any items not in the allowlist
+            filtered = [v for v in raw if isinstance(v, str) and v in _ALLOWED_RESOURCE_TYPES]
+            if len(filtered) < len(raw):
+                discarded = [v for v in raw if v not in _ALLOWED_RESOURCE_TYPES]
+                logger.warning(f"Discarding unrecognised resource types: {discarded}")
+            normalized[key] = filtered
+        else:
+            normalized[key] = value if value is not None else ""
+    for key in _REQUIRED_KEYS:
+        if key not in normalized:
+            normalized[key] = [] if key == 'desired_resource_types' else ""
+    return normalized
+
+
+def _validate_injection(normalized_inputs: Dict, job_id: str) -> Optional[str]:
+    """
+    Secondary defense-in-depth check for prompt injection in all string inputs.
+    Returns an error message string if any field is suspicious, otherwise None.
+    Caller is responsible for updating job status on failure.
+    """
+    for key, value in normalized_inputs.items():
+        if isinstance(value, str) and value:
+            is_suspicious, reason = detect_prompt_injection(value)
+            if is_suspicious:
+                msg = f"Input validation failed for '{key}': {reason}"
+                logger.error(f"🚨 Prompt injection attempt blocked in job {job_id}: {msg}")
+                return msg
+    return None
+
+
+def _read_crew_output(result) -> Tuple[str, str]:
+    """
+    Extract (raw_output, markdown_content) from a crew result.
+    Prefers the on-disk report file; falls back to the result's raw string.
+    """
+    raw_output = str(result.raw) if hasattr(result, 'raw') else str(result)
+    report_path = get_crew_output_path()
+    if report_path.exists():
+        with open(report_path, "r") as f:
+            markdown_content = f.read()
+    else:
+        markdown_content = raw_output
+    return raw_output, markdown_content
+
+
+def _parse_crew_results(
+    markdown_content: str,
+    normalized_inputs: Dict,
+) -> Tuple[list, Optional[dict], Optional[dict]]:
+    """
+    Parse markdown output into structured resources.
+    Returns (resources, textbook_info, section_groups).
+    """
+    excluded_sites = normalized_inputs.get('excluded_sites', '')
+    parsed_data = parse_markdown_to_resources(markdown_content, excluded_sites=excluded_sites)
+    return (
+        parsed_data.get("resources", []),
+        parsed_data.get("textbook_info"),
+        parsed_data.get("section_groups"),
+    )
+
+
+def _cleanup_pdf(normalized_inputs: Dict) -> None:
+    """Remove the temporary PDF upload file if it came from /tmp/scholar_uploads/."""
+    pdf_path = normalized_inputs.get('book_pdf_path', '')
+    if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
+        try:
+            os.unlink(pdf_path)
+        except OSError as e:
+            logger.warning(f"Failed to remove temp PDF {pdf_path}: {e}")
+
+
+def _handle_task_failure(
+    job_id: str,
+    e: Exception,
+    elapsed: float,
+    normalized_inputs: Dict,
+    extra_metadata: Dict,
+) -> Tuple[str, str]:
+    """
+    Shared failure handler used by both task variants.
+    - Logs the exception with elapsed time.
+    - Cleans up any uploaded PDF.
+    - Updates the job to 'failed' in the DB.
+    Returns (user_message, error_type) so the caller can take its final action
+    (Celery retry vs. sync return).
+    """
+    user_message, error_type = transform_error_for_user(e)
+    technical_error = str(e)
+    stack_trace = traceback.format_exc()
+
+    logger.error(
+        f"❌ Job {job_id} failed with {error_type}: {technical_error} (elapsed: {elapsed:.2f}s)"
+    )
+    logger.error(stack_trace)
+
+    _cleanup_pdf(normalized_inputs)
+
+    update_job_status(
+        job_id,
+        status="failed",
+        error=user_message,
+        status_message="Job failed due to an error",
+        metadata={"error_type": error_type, "technical_error": technical_error, **extra_metadata},
+        use_service_role=True,
+    )
+    return user_message, error_type
+
+
+# ── Crew runner (async helper) ────────────────────────────────────────────────
+
+async def _run_crew_async(crew, inputs: Dict, job_id: str):
+    """Run crew.kickoff_async, flushing stdout/stderr around it for Railway log visibility."""
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+    logger.info(f"[CrewAI] Starting crew.kickoff_async for job {job_id}")
+    print(f"[CrewAI] === CREW EXECUTION START === job_id={job_id}", flush=True)
+
+    result = await crew.kickoff_async(inputs=inputs)
+
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+    print(f"[CrewAI] === CREW EXECUTION END === job_id={job_id}", flush=True)
+    logger.info(f"[CrewAI] Completed crew.kickoff_async for job {job_id}")
+
+    return result
+
+
+# ── Celery task ───────────────────────────────────────────────────────────────
+
 @task_decorator(
     bind=True,
     name="backend.tasks.run_crew_task",
@@ -72,9 +235,8 @@ def run_crew_task(
     """
     Celery task to run the ScholarSource crew.
 
-    This task:
     1. Updates job status to 'running'
-    2. Executes the crew with provided inputs using kickoff_async()
+    2. Executes the crew with provided inputs via kickoff_async()
     3. Parses the markdown output into structured resources
     4. Updates job with results or error
     5. Supports cancellation via Celery's revoke mechanism
@@ -83,14 +245,10 @@ def run_crew_task(
         self: Celery task instance (auto-injected when bind=True)
         job_id: UUID of the job to run
         inputs: Dictionary of course input parameters
-
-    Returns:
-        Dict with status and results/error information
     """
     start_time = time.time()
-
     logger.info(f"Starting Celery task for job {job_id} (task_id: {self.request.id})")
-    logger.info(f"Job {job_id} parameters: {inputs}")
+    logger.info(f"Job {job_id} fields: {[k for k in inputs if inputs[k]]}")
 
     # Check if job was cancelled before starting
     job = get_job(job_id, use_service_role=True)
@@ -99,137 +257,81 @@ def run_crew_task(
         logger.info(f"Job {job_id} was cancelled before execution started (elapsed: {elapsed:.2f}s)")
         return {"status": "cancelled", "message": "Job was cancelled before execution"}
 
+    normalized_inputs: Dict = {}
     try:
-        # Update status to running
         update_job_status(
             job_id,
             status="running",
             status_message="Initializing CrewAI agents...",
             metadata={"celery_task_id": self.request.id},
-            use_service_role=True
+            use_service_role=True,
         )
 
-        # Normalize inputs - convert None to empty string, but preserve lists for desired_resource_types
-        normalized_inputs = {}
-        for key, value in inputs.items():
-            if key == 'desired_resource_types':
-                # Keep as list (empty list if None or empty)
-                normalized_inputs[key] = value if isinstance(value, list) else ([] if value is None else [])
-            else:
-                normalized_inputs[key] = (value if value is not None else "")
+        normalized_inputs = _normalize_inputs(inputs)
 
-        # Ensure all required keys exist
-        required_keys = [
-            'university_name', 'course_name', 'course_url', 'textbook',
-            'topics_list', 'book_title', 'book_author', 'isbn',
-            'book_pdf_path', 'book_url', 'desired_resource_types', 'excluded_sites', 'targeted_sites',
-            'chapter', 'sections', 'preferred_creators'
-        ]
-
-        for key in required_keys:
-            if key not in normalized_inputs:
-                if key == 'desired_resource_types':
-                    normalized_inputs[key] = []
-                else:
-                    normalized_inputs[key] = ""
-
-        # Secondary validation - defense-in-depth against prompt injection
-        for key, value in normalized_inputs.items():
-            if isinstance(value, str) and value:
-                is_suspicious, reason = detect_prompt_injection(value)
-                if is_suspicious:
-                    error_msg = f"Input validation failed for '{key}': {reason}"
-                    logger.error(f"🚨 Prompt injection attempt blocked in job {job_id}: {error_msg}")
-                    update_job_status(
-                        job_id=job_id,
-                        status="failed",
-                        error=error_msg,
-                        status_message="Input validation failed",
-                        use_service_role=True
-                    )
-                    return {"error": error_msg}
+        # Secondary defense-in-depth: prompt injection check
+        injection_error = _validate_injection(normalized_inputs, job_id)
+        if injection_error:
+            update_job_status(
+                job_id,
+                status="failed",
+                error=injection_error,
+                status_message="Input validation failed",
+                use_service_role=True,
+            )
+            return {"error": injection_error}
 
         update_job_status(
             job_id,
             status="running",
             status_message="Analyzing course and book structure...",
-            use_service_role=True
+            use_service_role=True,
         )
 
-        # Initialize crew
         crew_instance = ScholarSource()
         crew = crew_instance.crew()
-
         logger.info(f"🚀 Starting CrewAI execution for job {job_id}")
 
-        # Run crew asynchronously
-        # Note: We need to run the async crew in an event loop
         result = asyncio.run(_run_crew_async(crew, normalized_inputs, job_id))
 
-        # Update status
         update_job_status(
             job_id,
             status="running",
             status_message="Parsing results...",
-            use_service_role=True
+            use_service_role=True,
         )
 
-        # Extract raw output
-        raw_output = str(result.raw) if hasattr(result, 'raw') else str(result)
+        raw_output, markdown_content = _read_crew_output(result)
 
-        # Try to read the report file if it exists
-        report_path = get_crew_output_path()
-        if report_path.exists():
-            with open(report_path, "r") as f:
-                markdown_content = f.read()
-        else:
-            # Use raw output as fallback
-            markdown_content = raw_output
-
-        # Check if the crew returned an error
+        # Check if the crew itself returned an error marker
         if "ERROR:" in markdown_content[:500]:
             error_match = re.search(r'ERROR:\s*(.+?)(?:\n|$)', markdown_content)
             error_msg = error_match.group(1) if error_match else "Cannot access provided resources"
-
             update_job_status(
                 job_id,
                 status="failed",
                 error=error_msg,
                 status_message="Failed to access course or book resources",
                 raw_output=markdown_content[:1000],
-                use_service_role=True
+                use_service_role=True,
             )
-            return {
-                "status": "failed",
-                "error": error_msg,
-                "job_id": job_id
-            }
+            return {"status": "failed", "error": error_msg, "job_id": job_id}
 
-        # Parse markdown into structured resources and metadata
-        excluded_sites = normalized_inputs.get('excluded_sites', '')
-        parsed_data = parse_markdown_to_resources(markdown_content, excluded_sites=excluded_sites)
-        resources = parsed_data.get("resources", [])
-        textbook_info = parsed_data.get("textbook_info")
-        section_groups = parsed_data.get("section_groups")
+        resources, textbook_info, section_groups = _parse_crew_results(
+            markdown_content, normalized_inputs
+        )
 
-        # Prepare metadata
-        metadata = {
+        metadata: Dict = {
             "resource_count": len(resources),
             "crew_output_length": len(raw_output),
-            "celery_task_id": self.request.id
+            "celery_task_id": self.request.id,
         }
         if textbook_info:
             metadata["textbook_info"] = textbook_info
         if section_groups:
             metadata["section_groups"] = section_groups
 
-        # Clean up uploaded PDF temp file if present
-        pdf_path = normalized_inputs.get('book_pdf_path', '')
-        if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
-            try:
-                os.unlink(pdf_path)
-            except Exception:
-                pass
+        _cleanup_pdf(normalized_inputs)
 
         # Check if job was cancelled during execution
         job = get_job(job_id, use_service_role=True)
@@ -237,7 +339,6 @@ def run_crew_task(
             logger.info(f"Job {job_id} was cancelled during execution, discarding results")
             return {"status": "cancelled", "message": "Job was cancelled during execution"}
 
-        # Update job with results
         update_job_status(
             job_id,
             status="completed",
@@ -245,111 +346,45 @@ def run_crew_task(
             results=resources,
             raw_output=markdown_content,
             metadata=metadata,
-            use_service_role=True
+            use_service_role=True,
         )
 
         elapsed = time.time() - start_time
-        logger.info(f"✅ Job {job_id} completed successfully with {len(resources)} resources (elapsed: {elapsed:.2f}s)")
-        logger.info(f"Job {job_id} final parameters: {inputs}")
-
-        return {
-            "status": "completed",
-            "job_id": job_id,
-            "resource_count": len(resources)
-        }
+        logger.info(
+            f"✅ Job {job_id} completed successfully with {len(resources)} resources "
+            f"(elapsed: {elapsed:.2f}s)"
+        )
+        return {"status": "completed", "job_id": job_id, "resource_count": len(resources)}
 
     except Exception as e:
+        # Intentionally broad: CrewAI, Supabase, asyncio, and network layers can
+        # all raise different exception types.  Fatal signals (KeyboardInterrupt,
+        # SystemExit) are BaseException and are not caught here.
         elapsed = time.time() - start_time
-
-        # Transform error for user-friendly display
-        user_message, error_type = transform_error_for_user(e)
-        technical_error = str(e)
-        stack_trace = traceback.format_exc()
-
-        # Log the technical details for debugging
-        logger.error(f"❌ Job {job_id} failed with {error_type}: {technical_error} (elapsed: {elapsed:.2f}s)")
-        logger.error(f"Job {job_id} failed parameters: {inputs}")
-        logger.error(stack_trace)
-
-        # Clean up uploaded PDF on failure too
-        try:
-            pdf_path = normalized_inputs.get('book_pdf_path', '')
-            if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
-                os.unlink(pdf_path)
-        except Exception:
-            pass
-
-        # Update job with user-friendly error message
-        update_job_status(
-            job_id,
-            status="failed",
-            error=user_message,  # User-friendly message
-            status_message="Job failed due to an error",
-            metadata={
-                "error_type": error_type,
-                "technical_error": technical_error,  # Store technical details in metadata
-                "stack_trace": stack_trace,
-                "celery_task_id": self.request.id
-            },
-            use_service_role=True
+        _handle_task_failure(
+            job_id, e, elapsed, normalized_inputs,
+            extra_metadata={"celery_task_id": self.request.id},
         )
-
-        # Re-raise exception to trigger Celery retry mechanism
         raise self.retry(exc=e, countdown=60)
 
 
-async def _run_crew_async(crew, inputs: Dict[str, str], job_id: str):
-    """
-    Helper function to run crew asynchronously.
-
-    Args:
-        crew: CrewAI crew instance
-        inputs: Normalized input parameters
-        job_id: Job ID for logging
-
-    Returns:
-        Crew execution result
-    """
-    # Flush before crew execution
-    sys.stdout.flush()
-    sys.stderr.flush()
-    
-    logger.info(f"[CrewAI] Starting crew.kickoff_async for job {job_id}")
-    print(f"[CrewAI] === CREW EXECUTION START === job_id={job_id}", flush=True)
-    
-    result = await crew.kickoff_async(inputs=inputs)
-    
-    # Flush after crew execution
-    sys.stdout.flush()
-    sys.stderr.flush()
-    
-    print(f"[CrewAI] === CREW EXECUTION END === job_id={job_id}", flush=True)
-    logger.info(f"[CrewAI] Completed crew.kickoff_async for job {job_id}")
-    
-    return result
-
+# ── Sync task (no Celery / no Redis) ─────────────────────────────────────────
 
 def run_crew_task_sync(
     job_id: str,
     inputs: Dict[str, str],
 ) -> Dict[str, any]:
     """
-    Synchronous version of run_crew_task that runs in-process without Celery.
-
-    This function is used when SYNC_MODE=true (no Redis/Celery required).
-    It performs the same operations as the Celery task but runs synchronously.
+    Synchronous version of run_crew_task used when SYNC_MODE=true.
+    Performs the same steps without Celery / Redis.
 
     Args:
         job_id: UUID of the job to run
         inputs: Dictionary of course input parameters
-
-    Returns:
-        Dict with status and results/error information
     """
     start_time = time.time()
-
     logger.info(f"Starting synchronous task for job {job_id} (SYNC_MODE)")
-    logger.info(f"Job {job_id} parameters: {inputs}")
+    logger.info(f"Job {job_id} fields: {[k for k in inputs if inputs[k]]}")
 
     # Check if job was cancelled before starting
     job = get_job(job_id, use_service_role=True)
@@ -357,147 +392,92 @@ def run_crew_task_sync(
         logger.info(f"Job {job_id} was cancelled before execution started")
         return {"status": "cancelled", "message": "Job was cancelled before execution"}
 
+    normalized_inputs: Dict = {}
     try:
-        # Update status to running
         update_job_status(
             job_id,
             status="running",
             status_message="Initializing CrewAI agents...",
             metadata={"sync_mode": True},
-            use_service_role=True
+            use_service_role=True,
         )
 
-        # Normalize inputs - convert None to empty string, but preserve lists for desired_resource_types
-        normalized_inputs = {}
-        for key, value in inputs.items():
-            if key == 'desired_resource_types':
-                # Keep as list (empty list if None or empty)
-                normalized_inputs[key] = value if isinstance(value, list) else ([] if value is None else [])
-            else:
-                normalized_inputs[key] = (value if value is not None else "")
+        normalized_inputs = _normalize_inputs(inputs)
 
-        # Ensure all required keys exist
-        required_keys = [
-            'university_name', 'course_name', 'course_url', 'textbook',
-            'topics_list', 'book_title', 'book_author', 'isbn',
-            'book_pdf_path', 'book_url', 'desired_resource_types', 'excluded_sites', 'targeted_sites',
-            'chapter', 'sections', 'preferred_creators'
-        ]
-
-        for key in required_keys:
-            if key not in normalized_inputs:
-                if key == 'desired_resource_types':
-                    normalized_inputs[key] = []
-                else:
-                    normalized_inputs[key] = ""
-
-        # Secondary validation - defense-in-depth against prompt injection
-        for key, value in normalized_inputs.items():
-            if isinstance(value, str) and value:
-                is_suspicious, reason = detect_prompt_injection(value)
-                if is_suspicious:
-                    error_msg = f"Input validation failed for '{key}': {reason}"
-                    logger.error(f"🚨 Prompt injection attempt blocked in job {job_id}: {error_msg}")
-                    update_job_status(
-                        job_id=job_id,
-                        status="failed",
-                        error=error_msg,
-                        status_message="Input validation failed",
-                        use_service_role=True
-                    )
-                    return {"error": error_msg}
+        # Secondary defense-in-depth: prompt injection check
+        injection_error = _validate_injection(normalized_inputs, job_id)
+        if injection_error:
+            update_job_status(
+                job_id,
+                status="failed",
+                error=injection_error,
+                status_message="Input validation failed",
+                use_service_role=True,
+            )
+            return {"error": injection_error}
 
         update_job_status(
             job_id,
             status="running",
             status_message="Analyzing course and book structure...",
-            use_service_role=True
+            use_service_role=True,
         )
 
-        # Initialize crew
         crew_instance = ScholarSource()
         crew = crew_instance.crew()
-
         logger.info(f"🚀 Starting CrewAI execution for job {job_id} (sync mode)")
 
-        # Run crew asynchronously
-        # Handle case where we're already in an event loop (e.g., called from async FastAPI endpoint)
+        # Handle the case where FastAPI's event loop is already running
         try:
-            # Try to get the current event loop
-            loop = asyncio.get_running_loop()
-            # If we're in a running loop, we need to run in a new thread
-            # Create a new event loop in a thread to avoid the "cannot be called from a running event loop" error
+            asyncio.get_running_loop()
+            # Already inside a running loop — spin up a thread with its own loop
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, _run_crew_async(crew, normalized_inputs, job_id))
+                future = executor.submit(
+                    asyncio.run, _run_crew_async(crew, normalized_inputs, job_id)
+                )
                 result = future.result()
         except RuntimeError:
-            # No running event loop, safe to use asyncio.run()
+            # No running loop, safe to call asyncio.run() directly
             result = asyncio.run(_run_crew_async(crew, normalized_inputs, job_id))
 
-        # Update status
         update_job_status(
             job_id,
             status="running",
             status_message="Parsing results...",
-            use_service_role=True
+            use_service_role=True,
         )
 
-        # Extract raw output
-        raw_output = str(result.raw) if hasattr(result, 'raw') else str(result)
+        raw_output, markdown_content = _read_crew_output(result)
 
-        # Try to read the report file if it exists
-        report_path = get_crew_output_path()
-        if report_path.exists():
-            with open(report_path, "r") as f:
-                markdown_content = f.read()
-        else:
-            # Use raw output as fallback
-            markdown_content = raw_output
-
-        # Check if the crew returned an error
+        # Check if the crew itself returned an error marker
         if "ERROR:" in markdown_content[:500]:
             error_match = re.search(r'ERROR:\s*(.+?)(?:\n|$)', markdown_content)
             error_msg = error_match.group(1) if error_match else "Cannot access provided resources"
-
             update_job_status(
                 job_id,
                 status="failed",
                 error=error_msg,
                 status_message="Failed to access course or book resources",
                 raw_output=markdown_content[:1000],
-                use_service_role=True
+                use_service_role=True,
             )
-            return {
-                "status": "failed",
-                "error": error_msg,
-                "job_id": job_id
-            }
+            return {"status": "failed", "error": error_msg, "job_id": job_id}
 
-        # Parse markdown into structured resources and metadata
-        excluded_sites = normalized_inputs.get('excluded_sites', '')
-        parsed_data = parse_markdown_to_resources(markdown_content, excluded_sites=excluded_sites)
-        resources = parsed_data.get("resources", [])
-        textbook_info = parsed_data.get("textbook_info")
-        section_groups = parsed_data.get("section_groups")
+        resources, textbook_info, section_groups = _parse_crew_results(
+            markdown_content, normalized_inputs
+        )
 
-        # Prepare metadata
-        metadata = {
+        metadata: Dict = {
             "resource_count": len(resources),
             "crew_output_length": len(raw_output),
-            "sync_mode": True
+            "sync_mode": True,
         }
         if textbook_info:
             metadata["textbook_info"] = textbook_info
         if section_groups:
             metadata["section_groups"] = section_groups
 
-        # Clean up uploaded PDF temp file if present
-        pdf_path = normalized_inputs.get('book_pdf_path', '')
-        if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
-            try:
-                os.unlink(pdf_path)
-            except Exception:
-                pass
+        _cleanup_pdf(normalized_inputs)
 
         # Check if job was cancelled during execution
         job = get_job(job_id, use_service_role=True)
@@ -505,7 +485,6 @@ def run_crew_task_sync(
             logger.info(f"Job {job_id} was cancelled during execution, discarding results")
             return {"status": "cancelled", "message": "Job was cancelled during execution"}
 
-        # Update job with results
         update_job_status(
             job_id,
             status="completed",
@@ -513,68 +492,33 @@ def run_crew_task_sync(
             results=resources,
             raw_output=markdown_content,
             metadata=metadata,
-            use_service_role=True
+            use_service_role=True,
         )
 
         elapsed = time.time() - start_time
-        logger.info(f"✅ Job {job_id} completed successfully with {len(resources)} resources (elapsed: {elapsed:.2f}s)")
-        logger.info(f"Job {job_id} final parameters: {inputs}")
-
-        return {
-            "status": "completed",
-            "job_id": job_id,
-            "resource_count": len(resources)
-        }
+        logger.info(
+            f"✅ Job {job_id} completed successfully with {len(resources)} resources "
+            f"(elapsed: {elapsed:.2f}s)"
+        )
+        return {"status": "completed", "job_id": job_id, "resource_count": len(resources)}
 
     except Exception as e:
+        # Intentionally broad: same reasoning as run_crew_task above.
         elapsed = time.time() - start_time
-
-        # Transform error for user-friendly display
-        user_message, error_type = transform_error_for_user(e)
-        technical_error = str(e)
-        stack_trace = traceback.format_exc()
-
-        # Log the technical details for debugging
-        logger.error(f"❌ Job {job_id} failed with {error_type}: {technical_error} (elapsed: {elapsed:.2f}s)")
-        logger.error(f"Job {job_id} failed parameters: {inputs}")
-        logger.error(stack_trace)
-
-        # Clean up uploaded PDF on failure too
-        try:
-            pdf_path = normalized_inputs.get('book_pdf_path', '')
-            if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
-                os.unlink(pdf_path)
-        except Exception:
-            pass
-
-        # Update job with user-friendly error message
-        update_job_status(
-            job_id,
-            status="failed",
-            error=user_message,  # User-friendly message
-            status_message="Job failed due to an error",
-            metadata={
-                "error_type": error_type,
-                "technical_error": technical_error,  # Store technical details in metadata
-                "stack_trace": stack_trace,
-                "sync_mode": True
-            },
-            use_service_role=True
+        user_message, _ = _handle_task_failure(
+            job_id, e, elapsed, normalized_inputs,
+            extra_metadata={"sync_mode": True},
         )
+        return {"status": "failed", "error": user_message, "job_id": job_id}
 
-        return {
-            "status": "failed",
-            "error": user_message,
-            "job_id": job_id
-        }
 
+# ── Maintenance tasks ─────────────────────────────────────────────────────────
 
 @task_decorator(
-    bind=True,
     name="backend.tasks.cleanup_old_results",
     queue="default",
 )
-def cleanup_old_results(self: Task) -> Dict[str, any]:
+def cleanup_old_results() -> Dict[str, any]:
     """
     Periodic task to clean up old job results.
 

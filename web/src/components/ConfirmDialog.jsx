@@ -19,8 +19,8 @@ export default function ConfirmDialog({
 
   return (
     <div className="confirm-dialog-backdrop">
-      <div className="confirm-dialog-content">
-        <h3 className="confirm-dialog-title">
+      <div role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" className="confirm-dialog-content">
+        <h3 id="confirm-dialog-title" className="confirm-dialog-title">
           {title}
         </h3>
 

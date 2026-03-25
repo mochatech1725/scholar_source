@@ -1,508 +1,191 @@
+# Shared constants (referenced in agent descriptions, not repeated per task)
+# BLACKLISTED_PLATFORMS: khanacademy.org, coursera.org, udemy.com, edx.org, udacity.com,
+#   brilliant.org, thinkific.com, teachable.com, podia.com
+# BLACKLISTED_URL_PATTERNS: /premium/, /pro/, /subscription/, /members-only/
+# USA_ONLY: MIT, Stanford, Berkeley, OpenStax, .edu domains
+
 course_analysis_task:
   description: >
     Extract topics from the provided source. ONE fetch maximum.
 
-    IF {book_url} EXISTS:
-    **CRITICAL: Use "Table of Contents Extractor" tool (NOT "Webpage Content Fetcher").**
-    Fetch it ONCE. Extract ONLY the Table of Contents. Return chapter/section titles as topics.
-    Do NOT read the book content. Do NOT follow any links. STOP immediately after extracting TOC.
-    The TOC Extractor tool will automatically limit content to just the table of contents section.
+    INPUT ROUTING (check in order, use first match):
 
-    IF {course_url} EXISTS (and no book_url):
-    Fetch it ONCE. Extract topics from syllabus/description. Follow syllabus link if present (1 extra fetch max).
+    {book_url} OR (ISBN search finds a book URL):
+      Use "Table of Contents Extractor" tool ONCE. Extract ONLY chapter/section titles.
+      Do NOT read full content or follow links. Stop after TOC.
+      Set textbook_source="book_url" (or "isbn_lookup" if found via ISBN search).
 
-    IF {topics_list} PROVIDED:
-    Use as user_specified_topics to narrow the search. Set search_priority="user_topics".
+    {isbn} (no book_url):
+      Search: "ISBN {isbn}" via Serper. Verify ISBN matches exactly.
+      Extract title and author. If a book URL is found, treat as book_url above.
+      Otherwise, infer general topics from title/author.
 
-    IF {isbn} PROVIDED (and no book_url):
-    **Use "Search the internet with Serper" tool to look up the book by ISBN.**
-    Search query format: "ISBN {isbn}" or "book ISBN {isbn}".
-    **CRITICAL: Verify the ISBN matches exactly.** Extract the book title and author from search results.
-    Look for results from reputable sources (publisher sites, Amazon, Goodreads, WorldCat, Open Library).
-    **Only use book information if the ISBN matches exactly** - reject results where ISBN doesn't match.
-    Use the extracted title and author as book_title and book_author.
+    {book_pdf_path} (no book_url):
+      Use "Table of Contents Extractor" with {book_pdf_path} as URL. Extract TOC only.
+      Set textbook_source="uploaded_pdf".
 
-    **IF the search finds a book URL (publisher site, open textbook platform, etc.):**
-    **TREAT IT EXACTLY AS IF USER PROVIDED book_url DIRECTLY.**
-    **CRITICAL: Use "Table of Contents Extractor" tool (NOT "Webpage Content Fetcher").**
-    Fetch the book URL ONCE. Extract ONLY the Table of Contents. Return chapter/section titles as topics.
-    Do NOT read the book content. Do NOT follow any links. STOP immediately after extracting TOC.
-    The TOC Extractor tool will automatically limit content to just the table of contents section.
+    {course_url} (no book inputs):
+      Fetch ONCE. Extract topics from syllabus/description.
+      Follow syllabus link if present (1 extra fetch max).
 
-    If no book URL is found, use the extracted title and author to infer general topics.
-    Set textbook_source="isbn_lookup" in output.
+    {topics_list}:
+      Use as user_specified_topics. Set search_priority="user_topics".
 
-    IF {book_pdf_path} EXISTS (no book_url):
-    **CRITICAL: Use "Table of Contents Extractor" tool with {book_pdf_path} as the URL argument.**
-    Pass book_pdf_path directly to the tool. Extract TOC. Return chapter/section titles as topics.
-    Do NOT read the full book content. STOP immediately after extracting TOC.
-    Set textbook_source="uploaded_pdf" in output.
+    CHAPTER/SECTION HANDLING:
+      If {chapter} is non-empty: set search_mode="chapter_aware".
+        Identify all TOC sections belonging to {chapter} (by number or name).
+        If {sections} non-empty: only include those specific sections (comma-separated).
+        Else: return all matched sections as chapter_sections.
+        If no match: use all top-level topics.
+      Else: set search_mode="standard", chapter_sections=[].
 
-    IF {chapter} IS PROVIDED AND non-empty:
-    Set search_mode="chapter_aware" in output.
-    From the extracted TOC, identify all sections belonging to {chapter}.
-    Match by chapter number (e.g., "Chapter 16" matches entries like "16.1", "16.2", etc.) or
-    by chapter name (e.g., "Vector Calculus" matches sections under that chapter heading).
-    IF {sections} IS PROVIDED AND non-empty:
-      Parse as comma-separated section identifiers (e.g., "16.1, 16.4").
-      ONLY include sections that match these identifiers. This overrides the full chapter list.
-      Set chapter_sections to only the specified sections.
-    ELSE:
-      Return ALL matched sections as chapter_sections: ["Section name 1", "Section name 2", ...].
-    If no match found, use all top-level topics as chapter_sections.
-    ELSE:
-    Set search_mode="standard" in output.
-    Set chapter_sections: [].
-
-    Inputs: {course_url}, {book_url}, {book_pdf_path}, {topics_list}, {isbn}, {textbook}, {chapter}, {sections}
+    Inputs: {course_url}, {book_url}, {book_pdf_path}, {topics_list}, {isbn}, {chapter}, {sections}
 
   expected_output: >
-    {
-      "textbook_title": "Title or null",
-      "textbook_author": "Author or null",
-      "textbook_source": "book_url|course_page|user_provided|isbn_lookup|uploaded_pdf|not_found",
-      "general_course_topics": ["topic1", "topic2", ...],
-      "user_specified_topics": ["topic1", ...] or [],
-      "search_priority": "user_topics|general_topics",
-      "subject_keywords": ["keyword1", "keyword2"],
-      "search_mode": "standard|chapter_aware",
-      "chapter_sections": ["Section name 1", "Section name 2", ...] or []
-    }
+    JSON with keys: textbook_title, textbook_author, textbook_source,
+    general_course_topics, user_specified_topics, search_priority,
+    subject_keywords, search_mode, chapter_sections
 
   agent: course_intelligence_agent
 
 
 resource_search_task:
   description: >
-    Search for 5-7 high-quality resources from USA-based sources matching the course topics and user preferences.
+    Search for high-quality free resources from USA-based sources matching course topics.
 
-    **CHAPTER-AWARE MODE (activate when search_mode == "chapter_aware" from course_analysis_task):**
-    When chapter-aware mode is active, DO NOT do a single broad search. Search SECTION BY SECTION.
-    For each section in chapter_sections (from course_analysis_task output):
-      * Search for 3+ resources specifically for that section.
-      * Each resource MUST include a "section_name" field set to the exact section name.
-      * If {preferred_creators} is provided, parse as comma-separated creator names.
-        Run additional YouTube searches per creator per section:
-        "[section name] [creator name] site:youtube.com"
-        Include creator-specific results alongside general search results.
-      * Well-known educators to prefer when relevant and no preferred_creators specified:
-        Professor Leonard, PatrickJMT, Dr. Trevor Bazett, 3Blue1Brown, blackpenredpen,
-        NancyPi, Michel van Biezen.
-      * Also run general searches: "[section name] lecture video site:youtube.com"
-      * Use YoutubeVideoSearchTool for direct YouTube video searches per section.
-    Total output target: 3+ resources × N sections (may be 15-30+ resources total).
-    desired_resource_types still applies: if set, only return those types per section.
-    USA-only and platform blacklist still apply.
+    RESOURCE TYPE FILTER (check first — highest priority):
+    If {desired_resource_types} is non-empty, ONLY return those types. No exceptions.
+    Type mapping: "practice_problem_sets"→practice_problem/problem_set,
+    "practice_exams_tests"→practice_exam/test, "lecture_videos"→video_lecture/lecture_series/educational_video.
+    If empty: use default priority: practice_exams_tests > practice_problem_sets > lecture_videos.
 
-    **RESOURCE TYPE ENFORCEMENT (HIGHEST PRIORITY):**
-    Check {desired_resource_types} FIRST before doing anything else.
-    - If {desired_resource_types} is non-empty (e.g., ["lecture_videos"] or ["practice_exams_tests", "practice_problem_sets"]):
-      * ONLY search for and return resources of those exact types.
-      * Do NOT include ANY other resource types, no matter what.
-      * Do NOT add textbooks if only videos were requested. Do NOT add videos if only practice problems were requested.
-      * Every single resource in your output MUST be one of the requested types.
-    - If {desired_resource_types} is empty or not provided:
-      * Use the default priority order defined below.
+    If {book_url} or {isbn} provided: do NOT include textbooks/open_textbooks.
 
-    **WORKFLOW:**
-    1. Check {desired_resource_types} — if set, this overrides all other type decisions
-    2. Parse remaining user filters from inputs
-    3. Determine search focus from course_analysis_task output
-    4. Execute targeted searches (USA sources only, restricted to requested types if set)
-    5. Filter and validate results (reject non-USA sources and wrong resource types)
-    6. Return curated list
+    USA-ONLY: Accept MIT, Stanford, Berkeley, OpenStax, .edu domains.
+    Reject non-US institutions (e.g., cambridge.ac.uk, oxford.ac.uk).
+    Reject blacklisted platforms (see agent config).
 
-    **USA-ONLY REQUIREMENT:**
-    ALL resources must be from USA-based institutions, universities, or platforms.
-    - Accept: MIT, Stanford, Berkeley, OpenStax, US university sites
-    - REJECT: Cambridge.ac.uk, Oxford.ac.uk, any non-US institution
-    - When searching, include USA university names or add "USA" to queries
-    - Verify domain and institution location before including any resource
+    TOPIC MATCHING:
+    search_priority="user_topics" → search only user_specified_topics.
+    search_priority="general_topics" → search general_course_topics.
+    Verify subject_keywords match to prevent cross-discipline results.
 
-    **PLATFORM RESTRICTIONS (DO NOT SEARCH OR INCLUDE):**
-    NEVER include resources from these platforms (require login/payment):
-    - Khan Academy (khanacademy.org) - requires login
-    - Coursera (coursera.org) - requires account
-    - Udemy (udemy.com) - paid courses
-    - edX (edx.org) - requires account
-    - Udacity (udacity.com) - requires account
-    - Brilliant.org - paid subscription
-    - Course platforms: *.thinkific.com, *.teachable.com, *.podia.com
-    
-    REJECT any URL containing: /premium/, /pro/, /subscription/, /members-only/
-    
-    Only recommend publicly accessible resources with NO login or payment required.
+    SEARCH EXECUTION (Serper — pass plain string only):
+    Run 5-7 targeted searches. Include USA university names.
+    For practice resources, prefer:
+      "[topic] problem set PDF site:ocw.mit.edu"
+      "[topic] exam problems PDF site:edu"
+      "[topic] pset PDF Harvard Stanford Berkeley"
+    Prioritize .pdf URLs from .edu domains.
 
-    **USER FILTERS (APPLY AFTER USA AND PLATFORM CHECKS):**
-    
-    Targeted Sites (if {targeted_sites} provided):
-    - Parse as comma-separated domains (e.g., "stanford.edu, berkeley.edu")
-    - Prioritize resources from these sites using "site:[domain]" in searches
-    - Aim for 2-3 resources from targeted sites if quality matches
-    
-    Excluded Sites (if {excluded_sites} provided):
-    - Parse as comma-separated domains (e.g., "mit, khanacademy.org")
-    - REJECT any URL containing these strings (substring match)
-    - This overrides all other filtering
-    
-    **RESOURCE PRIORITY (CRITICAL - FOLLOW THIS ORDER):**
-    Search priority: practice_exams_tests > practice_problem_sets > lecture_videos
-    
-    **IF user supplied {book_url} OR {isbn} (NOT course_url):**
-    **DO NOT search for or include any textbooks/open_textbooks.**
-    Focus ONLY on practice materials and lectures:
-    - First: Search for practice tests/exams (practice_exam, test)
-    - Second: Search for practice problem sets (practice_problem, problem_set)
-    - Third: Search for lecture videos (video_lecture, lecture_series)
-    - NEVER include open_textbook resources - user already has the book!
-    
-    **IF user supplied {course_url}:**
-    - First: Search for practice tests/exams (practice_exam, test)
-    - Second: Search for practice problem sets (practice_problem, problem_set)
-    - Third: Search for lecture videos (video_lecture, lecture_series)
-    
-    Resource Types (if {desired_resource_types} provided):
-    - ONLY search for specified types:
-      * "practice_problem_sets" → practice_problem, problem_set
-      * "practice_exams_tests" → practice_exam, test
-      * "lecture_videos" → video_lecture, lecture_series, educational_video
-    - If empty: use the priority order above based on input type
+    PRACTICE RESOURCE QUALITY:
+    Only include multi-problem packets (5+ problems). Prefer PDFs with "exam", "homework",
+    "pset", "worksheet" in title/URL. Reject single-problem worked examples.
 
-    **TOPIC MATCHING:**
-    From course_analysis_task output, check search_priority:
-    - "user_topics" → Search ONLY user_specified_topics (e.g., "line integrals" not "vector calculus")
-    - "general_topics" → Search general_course_topics
-    - Always verify subject_keywords match to prevent cross-discipline results
-    - REJECT resources from different academic fields
+    CHAPTER-AWARE MODE (when search_mode=="chapter_aware"):
+    Search SECTION BY SECTION (not a broad search).
+    Per section: 3+ resources, set section_name field to exact section name.
+    If {preferred_creators}: run "[section] [creator] site:youtube.com" per creator per section.
+    Default educators (if no preferred_creators): Professor Leonard, PatrickJMT, 3Blue1Brown,
+    Dr. Trevor Bazett, blackpenredpen, NancyPi, Michel van Biezen.
+    Also search: "[section] lecture video site:youtube.com" and use YoutubeVideoSearchTool.
+    Target: 3+ resources × N sections.
 
-    **SEARCH EXECUTION:**
-    Use "Search the internet with Serper" tool:
-    - Pass ONLY a string to search_query parameter (e.g., "statics practice problems MIT")
-    - DO NOT pass dictionaries or complex objects
-    - Perform 5-7 targeted searches with simple string queries
-    - Add "site:[domain]" for targeted sites
-    - Include USA university names (e.g., "MIT", "Stanford", "Berkeley")
+    If {targeted_sites}: prioritize those domains (2-3 resources target).
+    If {excluded_sites}: reject any URL containing those strings.
 
-    **QUALITY CRITERIA:**
-    - USA-based institutions and platforms ONLY (non-negotiable)
-    - Free and legal access (no login required)
-    - NotebookLM compatible (PDF/web/YouTube)
-    - Match course level (from course_analysis_task)
-    - Prioritize text-based content
-
-    Inputs: {targeted_sites}, {excluded_sites}, {desired_resource_types}, {preferred_creators}, course_analysis_task output
+    Inputs: {targeted_sites}, {excluded_sites}, {desired_resource_types},
+    {preferred_creators}, course_analysis_task output
 
   expected_output: >
-    Standard mode: List of 5-7 resources from USA sources only.
-    Chapter-aware mode: List of 3+ resources per section (15-30+ total).
-    Each resource containing:
-
-    - resource_title: Full title
-    - resource_type: open_textbook | video_lecture | lecture_series | practice_problem |
-      course_notes | educational_video | problem_set | practice_exam
-    - url: Direct link (accessible without login)
-    - section_name: Section name this resource belongs to (chapter-aware mode only, else omit)
-    - coverage_topics: List of topics this resource addresses
-    - source_credibility: USA-based origin (e.g., "MIT OpenCourseWare", "OpenStax")
-    - content_scope: comprehensive | supplementary | topic-specific
-    - access_notes: Confirmation of free, legal, open access
-    - estimated_depth: introductory | intermediate | advanced
-    - alignment_with_book: How resource complements the course material
-    - selection_rationale: Brief explanation of why included
-
-    Format as structured JSON or clear text for downstream parsing.
+    JSON list. Each resource: resource_title, resource_type, url, coverage_topics,
+    source_credibility, access_notes, estimated_depth, alignment_with_book,
+    selection_rationale, section_name (chapter-aware mode only).
+    Standard mode: 5-7 resources. Chapter-aware: 3+ per section.
 
   agent: resource_discovery_agent
 
 
 resource_validation_task:
   description: >
-    Validate resources from resource_discovery_agent for quality, accessibility, and relevance.
+    Validate resources for quality, accessibility, and relevance. Process checks in order —
+    stop and reject as soon as any check fails. Minimize API/web calls.
 
-    **VALIDATION WORKFLOW (IN ORDER):**
+    VALIDATION ORDER (fail-fast):
 
-    0. SECTION NAME PRESERVATION
-       - Preserve the "section_name" field on each resource unchanged through all validation steps.
-       - Do not modify or remove section_name.
+    0. Preserve section_name field unchanged on all resources.
 
-    1. RESOURCE TYPE FILTER (First - before anything else)
-       - If {desired_resource_types} is non-empty:
-         * REJECT any resource whose resource_type does not match the requested types.
-         * Type mapping for matching:
-           - "practice_problem_sets" matches: practice_problem, problem_set
-           - "practice_exams_tests" matches: practice_exam, test
-           - "lecture_videos" matches: video_lecture, lecture_series, educational_video
-         * Set rejection_reason="Resource type '[type]' not in requested types: {desired_resource_types}"
-         * Skip all other checks for rejected resources
-       - If {desired_resource_types} is empty: skip this check.
+    1. TYPE FILTER: If {desired_resource_types} non-empty, reject any resource whose
+       resource_type doesn't match. rejection_reason="Type not in requested types."
 
-    2. USER EXCLUSIONS (fastest check after type filter)
-       - If {excluded_sites} provided, parse as comma-separated domains
-       - REJECT any URL containing excluded strings (substring match)
-       - Set rejection_reason="User excluded domain: [domain]"
-       - Skip all other checks for excluded resources
+    2. EXCLUDED SITES: If {excluded_sites}, reject URL containing any excluded string.
 
-    3. KNOWN PLATFORM AUTO-REJECT (no API calls needed)
-       REJECT these platforms immediately:
-       - Khan Academy (khanacademy.org) - requires login
-       - Coursera (coursera.org) - requires account
-       - Udemy (udemy.com) - paid
-       - edX (edx.org) - requires account
-       - Udacity (udacity.com) - requires account
-       - Brilliant.org - paid subscription
-       - Course platforms: *.thinkific.com, *.teachable.com, *.podia.com
-       
-       REJECT URLs containing: "/premium/", "/pro/", "/subscription/", "/members-only/"
-    
-    4. METADATA-BASED VALIDATION (no API calls)
-       Use resource_title, coverage_topics, source_credibility from resource_search_task:
-       
-       a) Topic Relevance:
-          - Verify coverage_topics match course subject_keywords
-          - REJECT if clearly different discipline (stats for calculus, art history for Renaissance history)
-          - Set relevance_score=0 for wrong subject
-       
-       b) URL Format Check:
-          - PDFs must end in .pdf
-          - YouTube must contain youtube.com or youtu.be
-          - Verify URL structure is complete (no truncation)
-          - LibreTexts: Must have full path like "math.libretexts.org/Bookshelves/Calculus/[book]/[chapter]/[section]"
-          - MIT OCW: Must follow "ocw.mit.edu/courses/[dept]/[number]-[name]-[term]-[year]/"
-          - OpenStax: Use "openstax.org/books/[book-name]" not "/details/books/"
-          - REJECT incomplete or truncated URLs
-       
-       c) NotebookLM Compatibility:
-          - Check file extension and resource_type
-          - Compatible: PDF, YouTube, standard web pages
-          - Incompatible: Interactive sites, login-required, proprietary formats
-       
-       d) Source Credibility:
-          - Verify from URL domain and source_credibility field
-          - Trusted: MIT OCW, OpenStax, US university domains (.edu)
-    
-    5. WEB VERIFICATION (Last - only if needed, minimize API calls)
-       Only use web search for:
-       - Suspicious/uncommon URL patterns
-       - Personal faculty pages (e.g., "utsa.edu/kalra/...")
-       - Unknown platforms (search "site:[domain] requires login")
-       - Ambiguous titles (use 1-2 calls maximum)
-       
-       DO NOT use web search for:
-       - Well-known platforms (MIT OCW, OpenStax, YouTube)
-       - Resources already validated by metadata
-       - PDFs from trusted sources
-       
-       Web search queries:
-       - "[exact URL]" to verify existence
-       - "site:[domain] [title]" to verify page
-       - "site:[domain] requires login" for unknown platforms
+    3. PLATFORM AUTO-REJECT (no API calls — string match on URL):
+       Reject: khanacademy.org, coursera.org, udemy.com, edx.org, udacity.com,
+       brilliant.org, thinkific.com, teachable.com, podia.com
+       Reject URLs with: /premium/, /pro/, /subscription/, /members-only/
 
-    **SCORING (1-10):**
-    - Relevance (40%): Matches course topics and level
-    - Comprehensiveness (30%): Coverage scope
-    - Credibility (20%): Source reputation
-    - Usability (10%): Accessibility and format
-    - MUST set score=0 if wrong subject area
+    4. METADATA CHECKS (no API calls):
+       a) Topic relevance: coverage_topics must match subject_keywords. Score=0 if wrong discipline.
+       b) URL format:
+          - PDFs end in .pdf; YouTube contains youtube.com or youtu.be
+          - LibreTexts: full path required (e.g., math.libretexts.org/Bookshelves/...)
+          - MIT OCW: ocw.mit.edu/courses/[dept]/[number]-[name]-[term]-[year]/
+          - OpenStax: openstax.org/books/[book-name] (not /details/books/)
+          - Reject incomplete/truncated URLs
+       c) NotebookLM compatibility: PDF, YouTube, standard web = compatible. Reject interactive/login.
+       d) Source credibility: Trusted if .edu domain or known open platform (MIT OCW, OpenStax).
+       e) Practice depth: Reject if "worked_example" or "we_" in URL/title. Prefer "pset/homework/exam".
 
-    **EFFICIENCY RULES:**
-    - Check exclusions and known platforms FIRST (no API calls)
-    - Validate from metadata whenever possible
-    - Use web search sparingly (1-2 calls per resource maximum)
-    - Batch reject resources that fail early checks
+    5. WEB VERIFICATION (last resort — 1-2 calls max per resource):
+       Only for: suspicious/uncommon URLs, personal faculty pages, unknown platforms.
+       Skip for: MIT OCW, OpenStax, YouTube, already-validated metadata.
 
-    Inputs: {excluded_sites}, resources from resource_search_task
+    SCORING (1-10): Relevance 40%, Comprehensiveness 30%, Credibility 20%, Usability 10%.
+    Set score=0 for wrong subject area.
+
+    Inputs: {excluded_sites}, {desired_resource_types}, resources from resource_search_task
 
   expected_output: >
-    **Approved Resources (5-7 target):**
-    For each approved resource:
-    - All original fields from resource_search_task
-    - validation_status: "approved"
-    - notebooklm_compatible: true | false
-    - notebooklm_format: pdf | youtube | webpage | not_compatible
-    - license_info: Copyright/license status if found
-    - usefulness_score: 1-10
-    - validation_notes: Important notes or warnings
-    
-    **Rejected Resources (summary only):**
-    - resource_title
-    - url
-    - rejection_reason: Specific reason for rejection
-    
-    **Summary:**
-    - Total validated: X
-    - Approved: X
-    - Rejected: X
-    - Average usefulness score: X.X
-    - Note if fewer than 5 resources approved
-
-    Format as structured JSON. Only include full details for APPROVED resources.
+    Approved resources (5-7 target): all original fields plus validation_status="approved",
+    notebooklm_compatible, notebooklm_format, usefulness_score, validation_notes.
+    Rejected resources (summary only): resource_title, url, rejection_reason.
+    Summary: total validated, approved, rejected, average score, note if <5 approved.
 
   agent: resource_validator_agent
 
+
 final_output_task:
   description: >
-    Create a student-friendly resource guide formatted for NotebookLM use.
+    Create a student-friendly markdown resource guide for NotebookLM.
 
-    **WORKFLOW:**
-    1. Extract course and textbook information from course_analysis_task
-    2. Remove any invalid resources (final safety check)
-    3. Organize approved resources by type or topic
-    4. Format as clear, encouraging markdown document
-    5. Include NotebookLM usage instructions
+    FINAL SAFETY CHECK: Before formatting, remove any resources from blacklisted platforms
+    (khanacademy.org, coursera.org, udemy.com, edx.org, udacity.com, brilliant.org).
 
-    **FINAL SAFETY CHECK:**
-    Before formatting, REMOVE any resources containing these domains:
-    - khanacademy.org, coursera.org, udemy.com, edx.org, udacity.com, brilliant.org
-    - Any URL containing these strings (substring match)
-    - Do NOT include these in final output
+    DOCUMENT STRUCTURE:
 
-    **DOCUMENT STRUCTURE:**
+    1. Textbook Info (from course_analysis_task): title + author if found, else omit section.
 
-    1. Textbook Information (from course_analysis_task):
-       - If textbook_title and textbook_author exist: display both with textbook_source
-       - If missing: state "No textbook information was found for this course"
+    2. Course Overview: 2-3 sentences on scope, key topics, note if user_specified_topics used.
 
-    2. Course Overview:
-       - Brief 2-3 sentence description of course scope
-       - Key topics from general_course_topics
-       - If user_specified_topics exist: add note like "Resources focus on your specified topics: [list]"
+    3. Resources:
+       Standard mode: organize by topic/type. Include title, link, description, best-for, score.
+       Chapter-aware mode: group by section using EXACTLY "### Section: [Name]" headers (required for parsing).
+       Per resource: **Title** (Type), Link, What it covers, Best for, Usefulness Score ⭐️ X/10.
 
-    3. Recommended Resources:
-       IF search_mode == "chapter_aware" (from course_analysis_task):
-         Structure output as section groups. Use EXACTLY this format for each section header:
-         ### Section: [Section Name]
-         (The "### Section:" prefix is REQUIRED and must not be changed — it is used for parsing.)
-         Under each section header, list 3+ resources for that section:
-         **1. [Title]** ([Type])
-         - **Link:** [URL]
-         - **What it covers:** [Description]
-         - **Best for:** [Usage guidance]
-         - **Usefulness Score:** ⭐️ [X/10]
-         Repeat for all sections in chapter_sections order.
-       ELSE (search_mode == "standard"):
-         - Organize by topic area or resource type
-         - Include all fields from validated resources
-         - Use clear formatting with clickable URLs
-         - Show usefulness scores
+    4. NotebookLM Instructions (PDFs / YouTube / Web Pages — 3 steps each).
 
-    4. NotebookLM Instructions:
-       - Step-by-step for PDFs, YouTube videos, web pages
-       - Clear, beginner-friendly language
+    5. Study Tips: using multiple sources, maximizing NotebookLM features.
 
-    5. Study Tips:
-       - How to use multiple sources effectively
-       - NotebookLM feature recommendations
-       - Workflow suggestions
-
-    **FORMATTING REQUIREMENTS:**
-    - Use markdown with clear headers (##, ###)
-    - Clickable URLs in standard markdown format
-    - Bullet points for lists
-    - Emoji for visual appeal (📚, 🎯, 📥, 💡)
-    - Target length: 2-4 pages
-    - Tone: Encouraging, clear, action-oriented
+    FORMATTING: Markdown, ##/### headers, emoji (📚🎯📥💡), clickable URLs, 2-4 pages,
+    encouraging tone.
 
     Inputs: course_analysis_task output, validated resources from resource_validator_agent
 
   expected_output: >
-    Formatted markdown document:
-
-    # Study Resources for [Course Name]
-
-    ## Textbook Information
-    **Textbook:** [Title]
-    **Author:** [Author(s)]
-    **Source:** [course_page | user_provided]
-
-    *(Omit section if no textbook found)*
-
-    ---
-
-    ## 📚 Course Overview
-    [2-3 sentence description]
-
-    **Key Topics:**
-    - [Topic 1]
-    - [Topic 2]
-    - [Topic 3]
-
-    *(If user_specified_topics exist, add note about focused search)*
-
-    ---
-
-    ## 🎯 Recommended Resources
-
-    I've found [X] high-quality, free resources to supplement your learning:
-
-    *(Standard mode: organize by topic/type)*
-    ### [Topic Area or Resource Type]
-
-    **1. [Resource Title]** ([Type])
-    - **Link:** [URL]
-    - **What it covers:** [Description]
-    - **Best for:** [Usage guidance]
-    - **Usefulness Score:** ⭐️ [X/10]
-
-    *(Chapter-aware mode: use Section headers)*
-    ## 📚 Chapter Resources: [Chapter Name]
-
-    ### Section: [Section 1 Name]
-
-    **1. [Resource Title]** ([Type])
-    - **Link:** [URL]
-    - **What it covers:** [Description]
-    - **Best for:** [Usage guidance]
-    - **Usefulness Score:** ⭐️ [X/10]
-
-    ### Section: [Section 2 Name]
-
-    **1. [Resource Title]** ([Type])
-    ...
-
-    *(Continue for all sections)*
-
-    ---
-
-    ## 📥 How to Add These to NotebookLM
-
-    **For PDFs:**
-    1. Click the link to open the PDF
-    2. In NotebookLM, click "+ New Source"
-    3. Select "Upload" and choose the PDF file
-
-    **For YouTube Videos:**
-    1. Copy the YouTube URL
-    2. In NotebookLM, click "+ New Source"
-    3. Select "YouTube URL" and paste the link
-
-    **For Web Pages:**
-    1. Copy the webpage URL
-    2. In NotebookLM, click "+ New Source"
-    3. Select "Website URL" and paste the link
-
-    ---
-
-    ## 💡 Study Tips
-
-    **Using Multiple Sources:**
-    - Compare explanations from different resources
-    - Use textbook for theory, practice problems for application
-    - Watch videos for visual explanations of complex topics
-
-    **Maximizing NotebookLM:**
-    - Use chat to ask questions across all sources
-    - Generate study guides from multiple perspectives
-    - Create flashcards from combined knowledge base
-    - Use audio overview to hear key concepts explained
-
-    ---
-
-    **Total Resources:** [X] carefully vetted, free, and legal educational materials
-
-    **Need More Help?** Try searching your university's course website or library for additional materials.
-
-    ---
-
-    *All resources are freely and legally accessible. No pirated content included.*
+    Formatted markdown document with sections: Study Resources title, Textbook Info,
+    Course Overview, Recommended Resources (section-grouped if chapter-aware),
+    How to Add to NotebookLM, Study Tips, total resource count footer.
+    All resources free, legal, and openly accessible.
 
   agent: output_formatter_agent

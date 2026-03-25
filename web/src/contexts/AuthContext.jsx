@@ -25,17 +25,11 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Check active session on mount
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.error('Error getting session:', error);
-        setError(error.message);
-      }
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    // Listen for auth state changes
+    // onAuthStateChange is the single source of truth for auth state.
+    // It fires INITIAL_SESSION on mount (resolving the startup loading state),
+    // then SIGNED_IN / SIGNED_OUT / TOKEN_REFRESHED as those events occur.
+    // A separate getSession() call would race with INITIAL_SESSION and could
+    // set conflicting state depending on which promise resolves first.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -49,24 +43,9 @@ export const AuthProvider = ({ children }) => {
   const signUp = async (email, password) => {
     try {
       setError(null);
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
+      const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
-
-      // Explicitly fetch and update session after successful signup
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session?.user) {
-        setUser(sessionData.session.user);
-        setLoading(false);
-      } else if (data?.user) {
-        // Fallback to data.user if session not immediately available
-        setUser(data.user);
-        setLoading(false);
-      }
-
+      // onAuthStateChange fires SIGNED_IN and updates user/loading automatically.
       return data;
     } catch (error) {
       setError(error.message);
@@ -77,24 +56,9 @@ export const AuthProvider = ({ children }) => {
   const signIn = async (email, password) => {
     try {
       setError(null);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-
-      // Explicitly fetch and update session after successful signin
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session?.user) {
-        setUser(sessionData.session.user);
-        setLoading(false);
-      } else if (data?.user) {
-        // Fallback to data.user if session not immediately available
-        setUser(data.user);
-        setLoading(false);
-      }
-
+      // onAuthStateChange fires SIGNED_IN and updates user/loading automatically.
       return data;
     } catch (error) {
       setError(error.message);

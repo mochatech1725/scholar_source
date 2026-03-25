@@ -7,9 +7,11 @@ Handles job submission and status polling.
 
 import os
 import uuid
+
 import filetype
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, UploadFile, File
+from uuid import UUID
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from backend.models import (
@@ -27,7 +29,6 @@ from backend.celery_app import app as celery_app
 from backend.error_utils import transform_error_for_user
 from backend.auth import get_current_user, AuthenticationError
 from backend.version import APP_VERSION
-import os
 from slowapi.errors import RateLimitExceeded
 from backend.env_loader import load_environment
 
@@ -68,21 +69,33 @@ async def auth_exception_handler(request: Request, exc: AuthenticationError):
     )
 
 # CORS configuration - allow frontend origins
+_production_origins = [
+    "https://scholar-source.pages.dev",  # Cloudflare Pages
+]
+_dev_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+_extra_origins = [
+    o.strip()
+    for o in os.getenv("EXTRA_ALLOWED_ORIGINS", "").split(",")
+    if o.strip()
+]
+_allowed_origins = (
+    _production_origins + _extra_origins
+    if os.getenv("ENVIRONMENT", "local") == "production"
+    else _production_origins + _dev_origins + _extra_origins
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # Vite dev server (legacy port)
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",  # Standard Vite port
-        "http://127.0.0.1:5173",
-        "https://scholar-source.pages.dev",  # Cloudflare Pages
-        # Add custom domain when configured:
-        # "https://yourdomain.com",
-    ],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],  # OPTIONS required for CORS preflight
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
+    expose_headers=[],
 )
 
 
@@ -142,8 +155,8 @@ def check_celery_workers() -> dict:
                 "count": 0,
                 "workers": []
             }
-    except Exception as e:
-        # Log technical details but return generic error
+    except (ConnectionError, TimeoutError, OSError) as e:
+        # Covers broker-unreachable, ping timeout, and low-level socket errors
         logger.warning(f"Failed to check Celery workers: {e}")
         user_message, _ = transform_error_for_user(e)
         return {
@@ -274,11 +287,10 @@ async def submit_job(
         
         return response
 
-    except Exception as e:
-        # Log technical details for debugging
+    except (ConnectionError, TimeoutError, ValueError, RuntimeError, OSError) as e:
+        # Covers DB connection failures, timeouts, validation errors, and I/O
         logger.error(f"Job creation failed: {str(e)}", exc_info=True)
 
-        # Transform error for user-friendly display
         user_message, _ = transform_error_for_user(e)
 
         raise HTTPException(
@@ -290,11 +302,29 @@ async def submit_job(
         )
 
 
+def verify_job_ownership(job: dict | None, job_id: UUID, user_id: str, action: str = "access") -> None:
+    """
+    Verify the job exists and belongs to the requesting user.
+    Raises HTTPException 404 if the job is absent, 403 if it belongs to another user.
+    `action` is used in the 403 message (e.g. "access", "cancel").
+    """
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "Job not found", "message": f"No job found with ID: {job_id}"}
+        )
+    if job.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "Forbidden", "message": f"You do not have permission to {action} this job"}
+        )
+
+
 @app.get("/api/status/{job_id}", response_model=JobStatusResponse, tags=["Jobs"])
 @limiter.limit("100/minute")
 async def get_job_status(
     request: Request,
-    job_id: str,
+    job_id: UUID,
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -316,26 +346,10 @@ async def get_job_status(
     """
     user_id = current_user["id"]
     access_token = current_user.get("access_token")
-    job = get_job(job_id, access_token=access_token)
+    job = get_job(str(job_id), access_token=access_token)
 
-    if not job:
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "error": "Job not found",
-                "message": f"No job found with ID: {job_id}"
-            }
-        )
-
-    # Verify job belongs to the authenticated user (RLS will enforce this, but double-check)
-    if job.get("user_id") != user_id:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "error": "Forbidden",
-                "message": "You do not have permission to access this job"
-            }
-        )
+    # Verify job exists and belongs to this user (RLS enforces this too, but double-check)
+    verify_job_ownership(job, job_id, user_id, action="access")
 
     # Extract relevant input fields for display
     inputs = job.get("inputs", {})
@@ -353,7 +367,9 @@ async def get_job_status(
                 if not worker_status["available"]:
                     status_message = "⚠️ Job is queued but no workers are available. Workers may be starting up or offline."
                     logger.warning(f"Job {job_id} stuck in queue - no workers available")
-        except Exception as e:
+        except (ValueError, AttributeError) as e:
+            # ValueError from fromisoformat on unexpected timestamp format;
+            # AttributeError if created_at is None or not a string
             logger.debug(f"Could not check queue age for job {job_id}: {e}")
     
     return {
@@ -378,7 +394,7 @@ async def get_job_status(
 @limiter.limit("20/hour")
 async def cancel_job(
     request: Request,
-    job_id: str,
+    job_id: UUID,
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -405,26 +421,9 @@ async def cancel_job(
 
     user_id = current_user["id"]
     access_token = current_user.get("access_token")
-    job = get_job(job_id, access_token=access_token)
+    job = get_job(str(job_id), access_token=access_token)
 
-    if not job:
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "error": "Job not found",
-                "message": f"No job found with ID: {job_id}"
-            }
-        )
-
-    # Verify job belongs to the authenticated user
-    if job.get("user_id") != user_id:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "error": "Forbidden",
-                "message": "You do not have permission to cancel this job"
-            }
-        )
+    verify_job_ownership(job, job_id, user_id, action="cancel")
 
     current_status = job.get("status")
 
@@ -466,11 +465,10 @@ async def cancel_job(
             "status": "cancelled",
             "message": message
         }
-    except Exception as e:
-        # Log technical details for debugging
+    except (ConnectionError, TimeoutError, ValueError, RuntimeError, OSError) as e:
+        # Covers DB connection failures, timeouts, Celery revoke errors, and I/O
         logger.error(f"Job cancellation failed: {str(e)}", exc_info=True)
 
-        # Transform error for user-friendly display
         user_message, _ = transform_error_for_user(e)
 
         raise HTTPException(
@@ -549,7 +547,7 @@ async def upload_pdf(
     try:
         with open(pdf_path, "wb") as f:
             f.write(contents)
-    except Exception as e:
+    except OSError as e:
         logger.error(f"PDF upload failed for user {user_id}: {e}")
         raise HTTPException(
             status_code=500,

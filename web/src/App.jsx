@@ -7,6 +7,7 @@
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import HomePage from './pages/HomePage';
 import AuthPage from './components/Auth/AuthPage';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function ProtectedApp() {
   const { user, loading } = useAuth();
@@ -34,9 +35,11 @@ function ProtectedApp() {
 
 function App() {
   return (
-    <AuthProvider>
-      <ProtectedApp />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ProtectedApp />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

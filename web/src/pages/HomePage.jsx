@@ -136,6 +136,7 @@ export default function HomePage() {
     setIsFocusTopicsExpanded(false);
     setIsExcludeSitesExpanded(false);
     setIsTargetSitesExpanded(false);
+    setSelectionState({ selectedCount: 0, totalCount: 0, onCopy: null, onCopyAndOpen: null });
   }, []);
 
   const handleSubmit = async (e) => {
@@ -410,7 +411,24 @@ export default function HomePage() {
                           id="book_pdf_file"
                           accept=".pdf"
                           disabled={isLoading}
-                          onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            if (file) {
+                              if (file.type !== 'application/pdf') {
+                                e.target.value = '';
+                                setPdfFile(null);
+                                alert('Only PDF files are accepted.');
+                                return;
+                              }
+                              if (file.size > 50 * 1024 * 1024) {
+                                e.target.value = '';
+                                setPdfFile(null);
+                                alert('File exceeds the 50 MB limit.');
+                                return;
+                              }
+                            }
+                            setPdfFile(file);
+                          }}
                           className="block w-full text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                         />
                         <p className="mt-1 text-xs text-slate-500">Max 50 MB. PDF will be uploaded securely.</p>

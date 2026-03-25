@@ -39,9 +39,10 @@ class TestRateLimitHandler:
         request = Mock()
 
         # Mock RateLimitExceeded exception
-        exc = RateLimitExceeded(detail="10 per hour")
-        exc.limit = Mock()
-        exc.limit.limit = "10 per hour"
+        _limit = Mock()
+        _limit.limit = "10 per hour"
+        _limit.error_message.return_value = "10 per hour"
+        exc = RateLimitExceeded(_limit)
 
         response = rate_limit_handler(request, exc)
 
@@ -51,9 +52,10 @@ class TestRateLimitHandler:
     def test_rate_limit_response_includes_retry_after(self):
         """Should include Retry-After header."""
         request = Mock()
-        exc = RateLimitExceeded(detail="2 per minute")
-        exc.limit = Mock()
-        exc.limit.limit = "2 per minute"
+        _limit = Mock()
+        _limit.limit = "2 per minute"
+        _limit.error_message.return_value = "2 per minute"
+        exc = RateLimitExceeded(_limit)
 
         response = rate_limit_handler(request, exc)
 
@@ -63,9 +65,10 @@ class TestRateLimitHandler:
     def test_rate_limit_response_parses_minute_limit(self):
         """Should calculate retry_after for minute-based limits."""
         request = Mock()
-        exc = RateLimitExceeded(detail="2 per minute")
-        exc.limit = Mock()
-        exc.limit.limit = "2 per minute"
+        _limit = Mock()
+        _limit.limit = "2 per minute"
+        _limit.error_message.return_value = "2 per minute"
+        exc = RateLimitExceeded(_limit)
 
         response = rate_limit_handler(request, exc)
 
@@ -76,9 +79,10 @@ class TestRateLimitHandler:
     def test_rate_limit_response_parses_hour_limit(self):
         """Should calculate retry_after for hour-based limits."""
         request = Mock()
-        exc = RateLimitExceeded(detail="10 per hour")
-        exc.limit = Mock()
-        exc.limit.limit = "10 per hour"
+        _limit = Mock()
+        _limit.limit = "10 per hour"
+        _limit.error_message.return_value = "10 per hour"
+        exc = RateLimitExceeded(_limit)
 
         response = rate_limit_handler(request, exc)
 
@@ -89,9 +93,10 @@ class TestRateLimitHandler:
     def test_rate_limit_response_parses_second_limit(self):
         """Should calculate retry_after for second-based limits."""
         request = Mock()
-        exc = RateLimitExceeded(detail="5 per second")
-        exc.limit = Mock()
-        exc.limit.limit = "5 per second"
+        _limit = Mock()
+        _limit.limit = "5 per second"
+        _limit.error_message.return_value = "5 per second"
+        exc = RateLimitExceeded(_limit)
 
         response = rate_limit_handler(request, exc)
 
@@ -102,7 +107,10 @@ class TestRateLimitHandler:
     def test_rate_limit_response_default_retry(self):
         """Should use default retry_after if pattern not recognized."""
         request = Mock()
-        exc = RateLimitExceeded(detail="Unknown limit format")
+        _limit = Mock()
+        _limit.limit = "Unknown limit format"
+        _limit.error_message.return_value = "Unknown limit format"
+        exc = RateLimitExceeded(_limit)
         exc.limit = None
 
         response = rate_limit_handler(request, exc)
@@ -116,9 +124,10 @@ class TestRateLimitHandler:
         import json
 
         request = Mock()
-        exc = RateLimitExceeded(detail="10 per hour")
-        exc.limit = Mock()
-        exc.limit.limit = "10 per hour"
+        _limit = Mock()
+        _limit.limit = "10 per hour"
+        _limit.error_message.return_value = "10 per hour"
+        exc = RateLimitExceeded(_limit)
 
         response = rate_limit_handler(request, exc)
 
@@ -160,7 +169,10 @@ class TestRateLimitEdgeCases:
     def test_rate_limit_handler_with_no_limit_object(self):
         """Should handle exception with no limit object."""
         request = Mock()
-        exc = RateLimitExceeded(detail="Rate limit exceeded")
+        _limit = Mock()
+        _limit.limit = "Rate limit exceeded"
+        _limit.error_message.return_value = "Rate limit exceeded"
+        exc = RateLimitExceeded(_limit)
         exc.limit = None
 
         # Should not raise exception
@@ -171,9 +183,10 @@ class TestRateLimitEdgeCases:
     def test_rate_limit_handler_with_empty_detail(self):
         """Should handle exception with empty detail."""
         request = Mock()
-        exc = RateLimitExceeded(detail="")
-        exc.limit = Mock()
-        exc.limit.limit = ""
+        _limit = Mock()
+        _limit.limit = ""
+        _limit.error_message.return_value = ""
+        exc = RateLimitExceeded(_limit)
 
         # Should not raise exception
         response = rate_limit_handler(request, exc)

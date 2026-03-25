@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { TextLabel, TextInput, Button } from '../ui';
+import AuthInput from './AuthInput';
 
 export default function LoginForm({ onSwitchToSignup }) {
   const [email, setEmail] = useState('');
@@ -20,10 +20,8 @@ export default function LoginForm({ onSwitchToSignup }) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
       await signIn(email, password);
-      // Redirect handled by AuthContext state change
     } catch (err) {
       setError(err.message || 'Failed to sign in');
     } finally {
@@ -32,76 +30,76 @@ export default function LoginForm({ onSwitchToSignup }) {
   };
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md border border-slate-200">
-      <h2 className="text-2xl font-semibold mb-6 text-center text-slate-900">
-        Sign In to ScholarSource
-      </h2>
+    <>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold" style={{ fontFamily: "'Fraunces', serif", color: '#1e3a5f' }}>
+          Welcome back
+        </h2>
+        <p className="text-sm text-slate-500 mt-1">Sign in to continue finding resources</p>
+      </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <TextLabel htmlFor="email">
-            Email Address
-          </TextLabel>
-          <div className="mt-1">
-            <TextInput
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              disabled={loading}
-            />
-          </div>
-        </div>
+        <AuthInput
+          id="email"
+          label="Email Address"
+          type="email"
+          icon="✉️"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          disabled={loading}
+        />
 
-        <div>
-          <TextLabel htmlFor="password">
-            Password
-          </TextLabel>
-          <div className="mt-1">
-            <TextInput
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              disabled={loading}
-            />
-          </div>
-        </div>
+        <AuthInput
+          id="password"
+          label="Password"
+          type="password"
+          icon="🔒"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="••••••••••"
+          disabled={loading}
+          labelExtra={
+            <button
+              type="button"
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium focus:outline-none focus:underline"
+            >
+              Forgot password?
+            </button>
+          }
+        />
 
         <div className="pt-2">
-          <Button
+          <button
             type="submit"
-            variant="primary"
             disabled={loading}
-            className="w-full min-h-[44px] text-sm"
+            className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-slate-700 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </Button>
+            {loading ? 'Signing in...' : 'Sign In →'}
+          </button>
         </div>
       </form>
 
-      <div className="mt-6 text-center border-t border-slate-200 pt-4">
-        <p className="text-sm text-slate-600">
+      <div className="mt-6 text-center border-t border-slate-100 pt-5">
+        <p className="text-sm text-slate-500">
           Don't have an account?{' '}
           <button
             type="button"
             onClick={onSwitchToSignup}
-            className="text-blue-600 hover:text-blue-700 font-medium focus:outline-none focus:underline"
+            className="text-blue-600 hover:text-blue-700 font-semibold focus:outline-none focus:underline"
           >
-            Sign up
+            Sign up free
           </button>
         </p>
       </div>
-    </div>
+    </>
   );
 }

@@ -6,68 +6,30 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getSiteName, getTypeMeta } from '../lib/resourceUtils';
+import useCopyToClipboard from '../hooks/useCopyToClipboard';
 
-// ── helpers shared between table rows ──────────────────────────────────────
-
-const TYPE_META = {
-  VIDEO:    { label: 'Video',    cls: 'rt-badge-video' },
-  YOUTUBE:  { label: 'Video',    cls: 'rt-badge-video' },
-  PDF:      { label: 'PDF',      cls: 'rt-badge-pdf' },
-  TEXTBOOK: { label: 'Textbook', cls: 'rt-badge-pdf' },
-  COURSE:   { label: 'Course',   cls: 'rt-badge-course' },
-  PRACTICE: { label: 'Practice', cls: 'rt-badge-practice' },
-  PROBLEM:  { label: 'Practice', cls: 'rt-badge-practice' },
-  NOTES:    { label: 'Notes',    cls: 'rt-badge-notes' },
-  WEBSITE:  { label: 'Web',      cls: 'rt-badge-website' },
-  WEB:      { label: 'Web',      cls: 'rt-badge-website' },
-};
-
-function getTypeMeta(type = '') {
-  const up = type.toUpperCase();
-  for (const [key, meta] of Object.entries(TYPE_META)) {
-    if (up.includes(key)) return meta;
+/** Deterministic key for rows that have no URL. Avoids unstable index-based keys. */
+function stableKey(...parts) {
+  const str = parts.filter(Boolean).join('|');
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
   }
-  return { label: type || '—', cls: 'rt-badge-default' };
-}
-
-function getSiteName(url) {
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, '');
-    const lower = hostname.toLowerCase();
-    if (lower.includes('mit.edu'))        return 'MIT OCW';
-    if (lower.includes('stanford.edu'))   return 'Stanford';
-    if (lower.includes('berkeley.edu'))   return 'UC Berkeley';
-    if (lower.includes('youtube.com') || lower.includes('youtu.be')) return 'YouTube';
-    if (lower.includes('khanacademy.org')) return 'Khan Academy';
-    if (lower.includes('openstax.org'))   return 'OpenStax';
-    if (lower.includes('libretexts.org')) return 'LibreTexts';
-    if (lower.includes('coursera.org'))   return 'Coursera';
-    if (lower.includes('edx.org'))        return 'edX';
-    const parts = hostname.split('.');
-    const name  = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
-    return name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  } catch {
-    return url;
-  }
+  return `row-${h >>> 0}`;
 }
 
 // ── Row ────────────────────────────────────────────────────────────────────
 
 function ResourceRow({ resource, isSelected, onToggle }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, copy] = useCopyToClipboard();
 
   const handleCopyUrl = async (e) => {
     e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(resource.url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error(err);
-    }
+    await copy(resource.url);
   };
 
-  const { label, cls } = getTypeMeta(resource.type);
+  const { label, typeKey } = getTypeMeta(resource.type);
   const displayTitle = resource.title && resource.title !== resource.url
     ? resource.title
     : getSiteName(resource.url);
@@ -98,7 +60,7 @@ function ResourceRow({ resource, isSelected, onToggle }) {
 
       {/* Type badge */}
       <td className="rt-cell-type">
-        <span className={`rt-badge ${cls}`}>{label}</span>
+        <span className={`rt-badge rt-badge-${typeKey}`}>{label}</span>
       </td>
 
       {/* Title + description */}
@@ -318,8 +280,11 @@ export default function ResultsTable({ resources, searchTitle, textbookInfo, sec
             </tr>
           </thead>
           <tbody>
-            {filteredResources.map((resource, index) => {
-              const key = resource.url || `resource-${index}`;
+            {filteredResources.map((resource) => {
+              // Stable key: prefer URL, fall back to a hash of title+url so
+              // React reconciliation stays correct when the list is filtered or
+              // reordered and some rows lack a URL.
+              const key = resource.url || stableKey(resource.title, resource.url);
               return (
                 <ResourceRow
                   key={key}

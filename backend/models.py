@@ -181,6 +181,7 @@ class JobSubmitResponse(BaseModel):
     job_id: str = Field(..., description="UUID of created job")
     status: str = Field(..., description="Job status (always 'pending' on creation)")
     message: str = Field(..., description="Human-readable status message")
+    warning: Optional[str] = Field(None, description="Optional warning (e.g. no workers available)")
 
     class Config:
         json_schema_extra = {
