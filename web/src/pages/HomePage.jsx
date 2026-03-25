@@ -136,6 +136,7 @@ export default function HomePage() {
     setIsFocusTopicsExpanded(false);
     setIsExcludeSitesExpanded(false);
     setIsTargetSitesExpanded(false);
+    setSelectionState({ selectedCount: 0, totalCount: 0, onCopy: null, onCopyAndOpen: null });
   }, []);
 
   const handleSubmit = async (e) => {
