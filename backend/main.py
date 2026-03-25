@@ -7,6 +7,7 @@ Handles job submission and status polling.
 
 import os
 import uuid
+
 import filetype
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, UploadFile, File
@@ -28,7 +29,6 @@ from backend.celery_app import app as celery_app
 from backend.error_utils import transform_error_for_user
 from backend.auth import get_current_user, AuthenticationError
 from backend.version import APP_VERSION
-import os
 from slowapi.errors import RateLimitExceeded
 from backend.env_loader import load_environment
 
