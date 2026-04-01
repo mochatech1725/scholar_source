@@ -71,8 +71,10 @@ async def auth_exception_handler(request: Request, exc: AuthenticationError):
 # CORS configuration - allow frontend origins
 _production_origins = [
     "https://scholar-source.pages.dev",  # Cloudflare Pages
+    "https://scholar-source.com",  # Cloudflare Pages
 ]
 _dev_origins = [
+    "https://dev.scholar-source.pages.dev",  # Cloudflare Pages
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5173",
