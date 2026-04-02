@@ -28,6 +28,7 @@ from backend.csrf_protection import validate_origin
 from backend.celery_app import app as celery_app
 from backend.error_utils import transform_error_for_user
 from backend.auth import get_current_user, AuthenticationError
+from backend.origins import allowed_origins
 from backend.version import APP_VERSION
 from slowapi.errors import RateLimitExceeded
 from backend.env_loader import load_environment
@@ -68,32 +69,9 @@ async def auth_exception_handler(request: Request, exc: AuthenticationError):
         content={"error": exc.detail}
     )
 
-# CORS configuration - allow frontend origins
-_production_origins = [
-    "https://scholar-source.pages.dev",  # Cloudflare Pages
-    "https://scholar-source.com",  # Cloudflare Pages
-]
-_dev_origins = [
-    "https://dev.scholar-source.pages.dev",  # Cloudflare Pages
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-_extra_origins = [
-    o.strip()
-    for o in os.getenv("EXTRA_ALLOWED_ORIGINS", "").split(",")
-    if o.strip()
-]
-_allowed_origins = (
-    _production_origins + _extra_origins
-    if os.getenv("ENVIRONMENT", "local") == "production"
-    else _production_origins + _dev_origins + _extra_origins
-)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],  # OPTIONS required for CORS preflight
     allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
