@@ -164,6 +164,9 @@ NOTE: You can go to the project root and add shared variables. BUT you
 must remember to go to the actual service->variables->shared, and add any specific ones you need.
 
 ```bash
+# Environment
+ENVIRONMENT=production  # Controls CORS/CSRF origin lists; excludes dev origins in production
+
 # API Keys
 OPENAI_API_KEY=sk-proj-...your_key_here
 SERPER_API_KEY=...your_serper_key_here
@@ -171,15 +174,14 @@ SERPER_API_KEY=...your_serper_key_here
 # Database & Authentication
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=eyJhbGc...your_anon_key_here
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here  # WARNING: never prefix with VITE_
 SUPABASE_JWT_SECRET=your_jwt_secret_here  # CRITICAL: Required for JWT verification
 
 # Redis (Required for task queue and rate limiting)
 REDIS_URL=redis://default:PASSWORD@HOST:PORT
 
+# Email notifications (optional)
 RESEND_API_KEY=re_your_resend_api_key_here
-
-# From Email Address (optional - for email notifications)
 RESEND_FROM_EMAIL=noreply@scholarshipmanage.com
 
 MAX_CREW_ITERATIONS=10
@@ -189,14 +191,13 @@ RESOURCE_DISCOVERY_AGENT_MODEL=openai/gpt-4o-mini
 RESOURCE_VALIDATOR_AGENT_MODEL=openai/gpt-4o-mini
 OUTPUT_FORMATTER_AGENT_MODEL=openai/gpt-4o-mini
 
-# For caching
+# Caching
 COURSE_ANALYSIS_TTL_DAYS=30
 RESOURCE_RESULTS_TTL_DAYS=7
 
-REDIS_URL=redis://localhost:6379/0
-
-#How to time out if job hasn't completed by
-VITE_SEARCH_TIMEOUT_MINUTES=20
+# Extra allowed origins for CORS + CSRF (comma-separated, optional)
+# Use for staging or custom domains not in the built-in list
+EXTRA_ALLOWED_ORIGINS=
 
 LOG_LEVEL=INFO
 ```
@@ -529,6 +530,9 @@ VITE_API_URL=https://scholarsource-dev-app.up.railway.app
 # Supabase Configuration (for frontend authentication)
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGc...your_anon_key_here
+
+# Job timeout (minutes)
+VITE_SEARCH_TIMEOUT_MINUTES=20
 ```
 
 **Important:** Use the same Supabase URL and anon key from Part 1.3
