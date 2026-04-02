@@ -148,8 +148,9 @@ ScholarSource implements enterprise-grade security measures:
    # Optional: Redis for multi-instance rate limiting
    REDIS_URL=redis://...  # Only needed if scaling to 2+ instances
 
-   # Optional: CORS allowed origins (comma-separated)
-   ALLOWED_ORIGINS=http://localhost:5173,https://your-frontend-domain.com
+   # Optional: extra allowed origins for CORS + CSRF (comma-separated)
+   # Appended to the built-in production/dev lists — use for staging or tunnel URLs
+   EXTRA_ALLOWED_ORIGINS=https://staging.example.com
    ```
 
    **Getting your Supabase credentials:**
@@ -439,7 +440,7 @@ Open http://localhost:5173 in your browser - you should see the course input for
 | `ALLOW_IN_MEMORY_RATE_LIMIT` | No | Set to `true` for in-memory rate limiting (no Redis needed) | `false` |
 | `COURSE_ANALYSIS_TTL_DAYS` | No | Cache TTL for course analysis (days) | 30 |
 | `RESOURCE_RESULTS_TTL_DAYS` | No | Cache TTL for full results (days) | 7 |
-| `ALLOWED_ORIGINS` | No | CORS allowed origins (comma-separated) | - |
+| `EXTRA_ALLOWED_ORIGINS` | No | Extra origins appended to the built-in CORS + CSRF allowlist (comma-separated). Use for staging or tunnel URLs not in the defaults. | - |
 | `RESEND_API_KEY` | No | Email notification service API key | - |
 | `RESEND_FROM_EMAIL` | No | From email address for notifications | - |
 
@@ -530,7 +531,7 @@ pip freeze > requirements.txt
    - `SERPER_API_KEY`
    - `SUPABASE_URL`
    - `SUPABASE_KEY` (or `SUPABASE_ANON_KEY`)
-   - `ALLOWED_ORIGINS` (your frontend URL)
+   - `EXTRA_ALLOWED_ORIGINS` (staging or custom domains beyond the built-in list, if any)
 
 4. **Railway auto-detects** Python and installs from `requirements.txt`
 

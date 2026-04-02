@@ -6,27 +6,11 @@ This is a defense-in-depth measure to prevent cross-origin POST requests
 even without authentication/session management.
 """
 
-import os
 from fastapi import Request, HTTPException
 from backend.logging_config import get_logger
+from backend.origins import allowed_origins
 
 logger = get_logger(__name__)
-
-# Get allowed origins from environment or use defaults
-# Should match CORS configuration in main.py
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Vite dev server (legacy port)
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",  # Standard Vite port
-    "http://127.0.0.1:5173",
-    "https://scholar-source.pages.dev",  # Cloudflare Pages
-    # Add custom domain when configured via environment variable
-]
-
-# Allow additional origins from environment variable (comma-separated)
-env_origins = os.getenv("ALLOWED_ORIGINS", "")
-if env_origins:
-    ALLOWED_ORIGINS.extend([origin.strip() for origin in env_origins.split(",") if origin.strip()])
 
 
 def validate_origin(request: Request) -> None:
@@ -54,13 +38,13 @@ def validate_origin(request: Request) -> None:
     Why trailing slashes are stripped:
       - Some clients send "https://example.com/" with a trailing slash.
         Normalizing both sides avoids a mismatch against "https://example.com"
-        in ALLOWED_ORIGINS.
+        in allowed_origins.
 
     Args:
         request: FastAPI request object
 
     Raises:
-        HTTPException 403: If Origin header is absent or not in ALLOWED_ORIGINS
+        HTTPException 403: If Origin header is absent or not in allowed_origins
     """
     # Safe methods cannot cause state changes — no CSRF risk, skip check.
     if request.method in ["GET", "OPTIONS", "HEAD"]:
@@ -73,7 +57,7 @@ def validate_origin(request: Request) -> None:
     # a non-browser client; we reject it as a conservative default.
     if origin:
         normalized_origin = origin.rstrip("/")
-        for allowed in ALLOWED_ORIGINS:
+        for allowed in allowed_origins:
             if normalized_origin == allowed.rstrip("/"):
                 logger.debug(f"Origin validation passed: {origin}")
                 return
