@@ -7,6 +7,7 @@ All protected endpoints must include a valid JWT token in the Authorization head
 
 import os
 import jwt
+from jwt import PyJWKClient
 from typing import Optional, Dict
 from fastapi import Request, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -15,14 +16,27 @@ from backend.env_loader import load_environment
 # Load environment variables
 load_environment()
 
-# Supabase JWT secret from environment
+# Supabase JWT secret from environment (used for legacy HS256 tokens)
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 
 if not SUPABASE_JWT_SECRET:
     raise ValueError("SUPABASE_JWT_SECRET environment variable is required")
 
 # JWT bearer scheme
 security = HTTPBearer()
+
+# Lazily-initialised JWKS client for ES256/RS256 tokens (new Supabase projects).
+# Cached at module level so keys are not re-fetched on every request.
+_jwks_client: PyJWKClient | None = None
+
+
+def _get_jwks_client() -> PyJWKClient:
+    global _jwks_client
+    if _jwks_client is None:
+        jwks_url = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
+        _jwks_client = PyJWKClient(jwks_url, cache_keys=True)
+    return _jwks_client
 
 
 class AuthenticationError(HTTPException):
@@ -50,14 +64,26 @@ def verify_jwt_token(token: str) -> Dict:
         AuthenticationError: If token is invalid, expired, or malformed
     """
     try:
-        # Decode and verify the JWT token
-        # Supabase uses HS256 algorithm by default
-        payload = jwt.decode(
-            token,
-            SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
+        alg = jwt.get_unverified_header(token).get("alg", "HS256")
+
+        if alg == "HS256":
+            # Legacy Supabase projects — symmetric secret
+            payload = jwt.decode(
+                token,
+                SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        else:
+            # New Supabase projects — asymmetric signing key (ES256 / RS256)
+            signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
+            payload = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["ES256", "RS256"],
+                audience="authenticated",
+            )
+
         return payload
     except jwt.ExpiredSignatureError:
         raise AuthenticationError("Token has expired")
