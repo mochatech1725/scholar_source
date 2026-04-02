@@ -7,6 +7,7 @@ It handles job execution, worker management, and task routing.
 
 import os
 import ssl
+from urllib.parse import urlparse
 from backend.env_loader import load_environment
 from celery import Celery
 from celery.signals import worker_ready
@@ -26,6 +27,16 @@ SYNC_MODE = os.getenv("SYNC_MODE", "false").lower() in ("true", "1", "yes")
 # Get Redis URL from environment
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
+
+def _mask_redis_url(url: str) -> str:
+    """Return the Redis URL with the password replaced by ***."""
+    parsed = urlparse(url)
+    if parsed.password:
+        host = parsed.hostname or ""
+        port = f":{parsed.port}" if parsed.port else ""
+        return f"{parsed.scheme}://{parsed.username}:***@{host}{port}"
+    return url
+
 # In sync mode, we don't need Redis/Celery
 if SYNC_MODE:
     print("⚠️  SYNC MODE ENABLED - Running without Celery/Redis", flush=True)
@@ -44,9 +55,9 @@ else:
 
     # Log startup message with Redis URL (masked)
     print(f"🚀 CELERY APP MODULE LOADED", flush=True)
-    print(f"📡 Broker URL: {REDIS_URL[:40]}...", flush=True)
+    print(f"📡 Broker URL: {_mask_redis_url(REDIS_URL)}", flush=True)
     logger.info("🚀 CELERY APP MODULE LOADED")
-    logger.info(f"Broker URL: {REDIS_URL[:40]}...")
+    logger.info(f"Broker URL: {_mask_redis_url(REDIS_URL)}")
 
     # Initialize Celery app
     # Note: result_backend=None because we store results in database, not Redis
@@ -194,7 +205,7 @@ if app is not None:
         # Log a single concise message instead of multiple lines
         # This reduces log noise in Railway
         worker_name = getattr(sender, 'hostname', str(sender))
-        logger.info(f"🚀 Celery worker ready: {worker_name} (Redis: {REDIS_URL[:20]}...)")
+        logger.info(f"🚀 Celery worker ready: {worker_name} (Redis: {_mask_redis_url(REDIS_URL)})")
 
 
 if __name__ == "__main__":
