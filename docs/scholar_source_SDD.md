@@ -229,7 +229,6 @@ The system is decomposed into seven major domains:
 4. **Worker Domain** - Celery service creates separate processes that execute CrewAI jobs asynchronously (can scale independently of API)
 5. **CrewAI Domain** - Multi-agent orchestration framework (runs within workers)
 6. **Database Domain** - Supabase PostgreSQL persistence layer
-7. **Caching Domain** - Two-tier caching system
 
 See Section 4 for detailed domain descriptions.
 
@@ -308,6 +307,7 @@ Frontend Domain
 **Architectural Decision:** Multi-agent sequential workflow chosen over single-agent or parallel execution.
 
 **Rationale:**
+
 - ✅ **Specialization** - Each agent has focused responsibility (analysis, discovery, validation, formatting)
 - ✅ **Quality** - Validation step ensures resource quality before final output
 - ✅ **Modularity** - Agents can be independently improved/configured
@@ -315,6 +315,7 @@ Frontend Domain
 - ❌ **Trade-off:** Sequential execution is slower than parallel, but ensures data quality
 
 **Agent Architecture:**
+
 1. **course_intelligence_agent** - Extracts textbook info and topics
 2. **resource_discovery_agent** - Searches for aligned resources
 3. **resource_validator_agent** - Validates quality and legality
