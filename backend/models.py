@@ -20,6 +20,8 @@ from backend.security_utils import (
 class CourseInputRequest(BaseModel):
     """Request model for course input form submission"""
 
+    course_name: Optional[str] = Field(None, description="Course name")
+    university_name: Optional[str] = Field(None, description="University or institution name")
     course_url: Optional[str] = Field(None, description="Course webpage URL (required if no book info)")
     textbook: Optional[str] = Field(None, description="Textbook information (legacy)")
     topics_list: Optional[str] = Field(None, description="Comma-separated topics")
@@ -83,7 +85,7 @@ class CourseInputRequest(BaseModel):
 
         return v
 
-    @field_validator('book_title', 'book_author', 'textbook', mode='after')
+    @field_validator('course_name', 'university_name', 'book_title', 'book_author', 'textbook', mode='after')
     @classmethod
     def validate_text_fields(cls, v):
         """Validate text fields for length and security"""
@@ -168,6 +170,8 @@ class CourseInputRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
+                "course_name": "Introduction to Algorithms",
+                "university_name": "MIT",
                 "course_url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/",
                 "book_title": "Introduction to Algorithms",
                 "book_author": "Cormen, Leiserson, Rivest, Stein"
