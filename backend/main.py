@@ -233,8 +233,8 @@ async def submit_job(
             detail={
                 "error": "Invalid inputs",
                 "message": "You must provide at least one of the following: "
-                          "course URL (course_url), "
-                          "book ISBN (isbn), "
+                          "course info (course_name, university_name, course_url, or topics_list), "
+                          "book info (textbook, book_title, book_author, or isbn), "
                           "book file (book_pdf_path), or book URL (book_url)"
             }
         )
