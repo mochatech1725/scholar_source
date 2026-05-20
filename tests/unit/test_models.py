@@ -12,6 +12,8 @@ from backend.models import (
     CourseInputRequest,
     JobSubmitResponse,
     PdfUploadResponse,
+    WorkerHealthResponse,
+    CancelJobResponse,
     Resource,
     JobStatusResponse,
     HealthResponse
@@ -234,6 +236,39 @@ class TestPdfUploadResponse:
         )
 
         assert response.upload_id == "123e4567-e89b-12d3-a456-426614174000"
+
+
+class TestWorkerHealthResponse:
+    """Test WorkerHealthResponse model."""
+
+    def test_valid_worker_health_response(self):
+        """Should create valid worker health response."""
+        response = WorkerHealthResponse(
+            status="degraded",
+            workers_available=False,
+            worker_count=0,
+            workers=[],
+            message="No Celery workers are currently running.",
+        )
+
+        assert response.status == "degraded"
+        assert response.workers_available is False
+        assert response.worker_count == 0
+
+
+class TestCancelJobResponse:
+    """Test CancelJobResponse model."""
+
+    def test_valid_cancel_job_response(self):
+        """Should create valid cancel job response."""
+        response = CancelJobResponse(
+            job_id="123e4567-e89b-12d3-a456-426614174000",
+            status="cancelled",
+            message="Job marked as cancelled.",
+        )
+
+        assert response.status == "cancelled"
+        assert response.job_id == "123e4567-e89b-12d3-a456-426614174000"
 
 
 class TestResource:

@@ -229,6 +229,43 @@ class PdfUploadResponse(BaseModel):
         }
 
 
+class WorkerHealthResponse(BaseModel):
+    """Response model for worker health checks."""
+
+    status: str = Field(..., description="Worker health status")
+    workers_available: bool = Field(..., description="Whether any workers are available")
+    worker_count: int = Field(..., description="Number of available workers")
+    workers: List[str] = Field(..., description="Available worker names")
+    message: Optional[str] = Field(None, description="Optional worker health message")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "status": "healthy",
+                "workers_available": True,
+                "worker_count": 1,
+                "workers": ["celery@worker-1"]
+            }
+        }
+
+
+class CancelJobResponse(BaseModel):
+    """Response model for job cancellation."""
+
+    job_id: str = Field(..., description="UUID of the cancelled job")
+    status: str = Field(..., description="Job status after cancellation")
+    message: str = Field(..., description="Cancellation result message")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "job_id": "123e4567-e89b-12d3-a456-426614174000",
+                "status": "cancelled",
+                "message": "Job cancelled successfully. The crew execution has been stopped."
+            }
+        }
+
+
 class Resource(BaseModel):
     """Model for a single educational resource"""
 

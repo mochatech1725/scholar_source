@@ -19,6 +19,8 @@ from backend.models import (
     JobStatusResponse,
     HealthResponse,
     PdfUploadResponse,
+    WorkerHealthResponse,
+    CancelJobResponse,
 )
 from backend.jobs import create_job, get_job
 from backend.crew_runner import run_crew_async, validate_crew_inputs
@@ -164,7 +166,7 @@ async def health_check():
     }
 
 
-@app.get("/api/health/workers", tags=["Health"])
+@app.get("/api/health/workers", response_model=WorkerHealthResponse, tags=["Health"])
 async def worker_health_check():
     """
     Check if Celery workers are available to process jobs.
@@ -388,7 +390,7 @@ async def get_job_status(
     }
 
 
-@app.post("/api/cancel/{job_id}", tags=["Jobs"])
+@app.post("/api/cancel/{job_id}", response_model=CancelJobResponse, tags=["Jobs"])
 @limiter.limit("20/hour")
 async def cancel_job(
     request: Request,
