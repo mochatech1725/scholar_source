@@ -257,6 +257,21 @@ class TestJobStatusResponse:
         assert response.status == "pending"
         assert response.results == []
 
+    def test_job_status_includes_course_identity_fields(self):
+        """Should preserve course identity fields returned by the status route."""
+        data = {
+            "job_id": "123",
+            "status": "pending",
+            "course_name": "Introduction to Algorithms",
+            "university_name": "MIT",
+            "created_at": "2024-01-01T00:00:00Z",
+        }
+        response = JobStatusResponse(**data)
+        serialized = response.model_dump()
+
+        assert serialized["course_name"] == "Introduction to Algorithms"
+        assert serialized["university_name"] == "MIT"
+
     def test_completed_job_status_with_results(self):
         """Should create completed job status with results."""
         data = {

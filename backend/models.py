@@ -231,6 +231,7 @@ class JobStatusResponse(BaseModel):
     error: Optional[str] = Field(None, description="Error message (if failed)")
     metadata: Optional[dict] = Field(None, description="Additional job metadata")
     course_name: Optional[str] = Field(None, description="Course name from inputs")
+    university_name: Optional[str] = Field(None, description="University or institution name from inputs")
     book_title: Optional[str] = Field(None, description="Book title from inputs")
     book_author: Optional[str] = Field(None, description="Book author from inputs")
     created_at: str = Field(..., description="ISO timestamp of job creation")
@@ -243,6 +244,8 @@ class JobStatusResponse(BaseModel):
                 "status": "completed",
                 "status_message": "Resource discovery completed successfully",
                 "search_title": "MIT Introduction to Algorithms",
+                "course_name": "Introduction to Algorithms",
+                "university_name": "MIT",
                 "results": [
                     {
                         "type": "PDF",
