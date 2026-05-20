@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List
 from datetime import datetime
 import re
+import uuid
 from backend.resource_types import ALLOWED_RESOURCE_TYPES, ResourceType
 from backend.security_utils import (
     validate_url,
@@ -29,7 +30,8 @@ class CourseInputRequest(BaseModel):
     book_title: Optional[str] = Field(None, description="Book title")
     book_author: Optional[str] = Field(None, description="Book author(s)")
     isbn: Optional[str] = Field(None, description="Book ISBN")
-    book_pdf_path: Optional[str] = Field(None, description="Local PDF path")
+    book_upload_id: Optional[str] = Field(None, description="Opaque ID returned by /api/upload-pdf")
+    book_pdf_path: Optional[str] = Field(None, description="Internal/legacy local PDF path")
     book_url: Optional[str] = Field(None, description="Book URL")
     # Email field - COMMENTED OUT but kept for API compatibility
     email: Optional[str] = Field(None, description="Email address to receive results (optional, currently disabled)")
@@ -155,6 +157,18 @@ class CourseInputRequest(BaseModel):
 
         return v
 
+    @field_validator('book_upload_id', mode='after')
+    @classmethod
+    def validate_book_upload_id(cls, v):
+        """Validate upload IDs without exposing server file paths."""
+        if v is None or v == "":
+            return v
+
+        try:
+            return str(uuid.UUID(v))
+        except ValueError:
+            raise ValueError("Invalid upload ID")
+
     # Email validation - COMMENTED OUT
     # @field_validator('email', mode='after')
     # @classmethod
@@ -178,7 +192,8 @@ class CourseInputRequest(BaseModel):
                 "university_name": "MIT",
                 "course_url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/",
                 "book_title": "Introduction to Algorithms",
-                "book_author": "Cormen, Leiserson, Rivest, Stein"
+                "book_author": "Cormen, Leiserson, Rivest, Stein",
+                "book_upload_id": "123e4567-e89b-12d3-a456-426614174000"
             }
         }
 
@@ -197,6 +212,19 @@ class JobSubmitResponse(BaseModel):
                 "job_id": "123e4567-e89b-12d3-a456-426614174000",
                 "status": "pending",
                 "message": "Job created successfully. Use job_id to poll status."
+            }
+        }
+
+
+class PdfUploadResponse(BaseModel):
+    """Response model for PDF uploads."""
+
+    upload_id: str = Field(..., description="Opaque PDF upload ID for use as book_upload_id")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "upload_id": "123e4567-e89b-12d3-a456-426614174000"
             }
         }
 

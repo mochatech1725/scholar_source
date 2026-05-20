@@ -36,6 +36,7 @@ def crew_runner(monkeypatch):
         ("book_title", "Introduction to Algorithms"),
         ("book_author", "Cormen"),
         ("isbn", "978-0262046305"),
+        ("book_upload_id", "123e4567-e89b-12d3-a456-426614174000"),
         ("book_pdf_path", "/tmp/scholar_uploads/user/book.pdf"),
         ("book_url", "https://example.com/book.pdf"),
     ],
@@ -56,6 +57,7 @@ def test_validate_crew_inputs_rejects_empty_inputs(crew_runner):
         "book_title": " ",
         "book_author": "",
         "isbn": None,
+        "book_upload_id": "",
         "book_pdf_path": "",
         "book_url": " ",
     }

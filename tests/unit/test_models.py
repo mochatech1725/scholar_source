@@ -11,6 +11,7 @@ from backend.resource_types import ALLOWED_RESOURCE_TYPES
 from backend.models import (
     CourseInputRequest,
     JobSubmitResponse,
+    PdfUploadResponse,
     Resource,
     JobStatusResponse,
     HealthResponse
@@ -153,6 +154,28 @@ class TestCourseInputRequest:
 
         assert request.book_pdf_path == "/path/to/book.pdf"
 
+    def test_book_upload_id_field(self):
+        """Should accept and normalize opaque PDF upload IDs."""
+        data = {
+            "book_upload_id": "123E4567-E89B-12D3-A456-426614174000",
+            "book_title": "Algorithms"
+        }
+        request = CourseInputRequest(**data)
+
+        assert request.book_upload_id == "123e4567-e89b-12d3-a456-426614174000"
+
+    def test_invalid_book_upload_id_rejected(self):
+        """Should reject invalid PDF upload IDs."""
+        data = {
+            "book_upload_id": "../secret.pdf",
+            "book_title": "Algorithms"
+        }
+
+        with pytest.raises(ValidationError) as exc_info:
+            CourseInputRequest(**data)
+
+        assert "Invalid upload ID" in str(exc_info.value)
+
     def test_book_url_field(self):
         """Should accept book URL."""
         data = {
@@ -199,6 +222,18 @@ class TestJobSubmitResponse:
 
         with pytest.raises(ValidationError):
             JobSubmitResponse(**data)
+
+
+class TestPdfUploadResponse:
+    """Test PdfUploadResponse model."""
+
+    def test_valid_pdf_upload_response(self):
+        """Should create valid PDF upload response."""
+        response = PdfUploadResponse(
+            upload_id="123e4567-e89b-12d3-a456-426614174000"
+        )
+
+        assert response.upload_id == "123e4567-e89b-12d3-a456-426614174000"
 
 
 class TestResource:

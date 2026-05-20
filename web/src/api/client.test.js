@@ -16,7 +16,7 @@ vi.mock('../lib/supabase', () => ({
 }));
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { submitJob, getJobStatus, cancelJob, checkHealth } from './client';
+import { submitJob, getJobStatus, cancelJob, uploadPdf, checkHealth } from './client';
 import { APP_VERSION } from '../config/appVersion';
 
 const server = setupServer();
@@ -203,6 +203,24 @@ describe('API Client', () => {
       );
 
       await expect(cancelJob('nonexistent')).rejects.toThrow('Job does not exist');
+    });
+  });
+
+  describe('uploadPdf', () => {
+    it('uploads a PDF and returns an opaque upload ID', async () => {
+      server.use(
+        http.post(`${API_URL}/api/upload-pdf`, () => {
+          return HttpResponse.json({
+            upload_id: '123e4567-e89b-12d3-a456-426614174000',
+          });
+        })
+      );
+
+      const file = new File(['%PDF-1.7'], 'textbook.pdf', { type: 'application/pdf' });
+      const result = await uploadPdf(file);
+
+      expect(result.upload_id).toBe('123e4567-e89b-12d3-a456-426614174000');
+      expect(result.pdf_path).toBeUndefined();
     });
   });
 

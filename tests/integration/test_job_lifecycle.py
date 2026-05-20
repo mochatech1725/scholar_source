@@ -274,7 +274,7 @@ class TestJobInputVariations:
             "book_author": "Test Author",
             "isbn": "978-0000000000",
             "topics_list": "topic1, topic2, topic3",
-            "desired_resource_types": ["textbooks", "videos", "practice_problems"],
+            "desired_resource_types": ["textbooks", "lecture_videos", "practice_problem_sets"],
             "excluded_sites": "site1.com, site2.org",
         }
 

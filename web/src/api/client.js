@@ -130,7 +130,7 @@ export async function cancelJob(jobId) {
  * Upload a PDF textbook for chapter-aware resource search
  *
  * @param {File} file - PDF file to upload
- * @returns {Promise<Object>} { pdf_path: string }
+ * @returns {Promise<Object>} { upload_id: string }
  */
 export async function uploadPdf(file) {
   const token = await getAuthToken();

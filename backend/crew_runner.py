@@ -213,6 +213,7 @@ def validate_crew_inputs(inputs: Dict[str, str]) -> bool:
     - book_title
     - book_author
     - isbn
+    - book_upload_id
     - book_pdf_path
     - book_url
 
@@ -240,8 +241,8 @@ def validate_crew_inputs(inputs: Dict[str, str]) -> bool:
         for key in ('textbook', 'book_title', 'book_author', 'isbn')
     )
 
-    # Check for book file or link
-    has_book_file = has_value('book_pdf_path')
+    # Check for uploaded/internal book file or link.
+    has_book_file = any(has_value(key) for key in ('book_upload_id', 'book_pdf_path'))
     has_book_link = has_value('book_url')
 
     # At least one combination must be satisfied

@@ -134,7 +134,7 @@ class TestSubmitEndpoint:
             "book_author": "Author Name",
             "isbn": "978-0262046305",
             "topics_list": "algorithms, data structures",
-            "desired_resource_types": ["textbooks", "videos"],
+            "desired_resource_types": ["textbooks", "lecture_videos"],
             "excluded_sites": "example.com",
         }
         response = client.post("/api/submit", json=payload)
