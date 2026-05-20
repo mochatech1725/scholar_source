@@ -7,6 +7,7 @@ Tests Pydantic model validation and data transformation.
 import pytest
 from pydantic import ValidationError
 from backend.version import APP_VERSION
+from backend.resource_types import ALLOWED_RESOURCE_TYPES
 from backend.models import (
     CourseInputRequest,
     JobSubmitResponse,
@@ -80,6 +81,28 @@ class TestCourseInputRequest:
         assert len(request.desired_resource_types) == 2
         assert "textbooks" in request.desired_resource_types
         assert "practice_problem_sets" in request.desired_resource_types
+
+    def test_all_allowed_desired_resource_types(self):
+        """Should accept every supported resource type."""
+        request = CourseInputRequest(
+            course_url="https://example.com",
+            desired_resource_types=list(ALLOWED_RESOURCE_TYPES),
+        )
+
+        assert request.desired_resource_types == list(ALLOWED_RESOURCE_TYPES)
+
+    def test_invalid_desired_resource_type_rejected(self):
+        """Should reject unsupported resource type values at the API boundary."""
+        data = {
+            "course_url": "https://example.com",
+            "desired_resource_types": ["textbooks", "videos"],
+        }
+
+        with pytest.raises(ValidationError) as exc_info:
+            CourseInputRequest(**data)
+
+        assert "desired_resource_types" in str(exc_info.value)
+        assert "videos" in str(exc_info.value)
 
     def test_excluded_sites_string(self):
         """Should accept excluded_sites as string."""

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List
 from datetime import datetime
 import re
+from backend.resource_types import ALLOWED_RESOURCE_TYPES, ResourceType
 from backend.security_utils import (
     validate_url,
     detect_prompt_injection,
@@ -32,7 +33,10 @@ class CourseInputRequest(BaseModel):
     book_url: Optional[str] = Field(None, description="Book URL")
     # Email field - COMMENTED OUT but kept for API compatibility
     email: Optional[str] = Field(None, description="Email address to receive results (optional, currently disabled)")
-    desired_resource_types: Optional[List[str]] = Field(None, description="List of desired resource types (textbooks, practice_problem_sets, practice_exams_tests, lecture_videos)")
+    desired_resource_types: Optional[List[ResourceType]] = Field(
+        None,
+        description=f"List of desired resource types. Allowed values: {', '.join(ALLOWED_RESOURCE_TYPES)}",
+    )
     excluded_sites: Optional[str] = Field(None, description="Comma-separated list of domains to exclude from results (e.g., 'khanacademy.org, coursera.org')")
     targeted_sites: Optional[str] = Field(None, description="Comma-separated list of domains to prioritize/target in search (e.g., 'stanford.edu, berkeley.edu')")
     chapter: Optional[str] = Field(None, description="Chapter name/number for section-by-section search (e.g., 'Chapter 16' or 'Vector Calculus')")
