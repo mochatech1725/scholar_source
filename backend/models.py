@@ -4,7 +4,7 @@ Pydantic Models
 Request and response models for the FastAPI backend.
 """
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Optional, List
 from datetime import datetime
 import re
@@ -185,8 +185,8 @@ class CourseInputRequest(BaseModel):
     #         return None
     #     return v
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "course_name": "Introduction to Algorithms",
                 "university_name": "MIT",
@@ -196,6 +196,7 @@ class CourseInputRequest(BaseModel):
                 "book_upload_id": "123e4567-e89b-12d3-a456-426614174000"
             }
         }
+    )
 
 
 class JobSubmitResponse(BaseModel):
@@ -206,14 +207,15 @@ class JobSubmitResponse(BaseModel):
     message: str = Field(..., description="Human-readable status message")
     warning: Optional[str] = Field(None, description="Optional warning (e.g. no workers available)")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "job_id": "123e4567-e89b-12d3-a456-426614174000",
                 "status": "pending",
                 "message": "Job created successfully. Use job_id to poll status."
             }
         }
+    )
 
 
 class PdfUploadResponse(BaseModel):
@@ -221,12 +223,13 @@ class PdfUploadResponse(BaseModel):
 
     upload_id: str = Field(..., description="Opaque PDF upload ID for use as book_upload_id")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "upload_id": "123e4567-e89b-12d3-a456-426614174000"
             }
         }
+    )
 
 
 class WorkerHealthResponse(BaseModel):
@@ -238,8 +241,8 @@ class WorkerHealthResponse(BaseModel):
     workers: List[str] = Field(..., description="Available worker names")
     message: Optional[str] = Field(None, description="Optional worker health message")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "status": "healthy",
                 "workers_available": True,
@@ -247,6 +250,7 @@ class WorkerHealthResponse(BaseModel):
                 "workers": ["celery@worker-1"]
             }
         }
+    )
 
 
 class CancelJobResponse(BaseModel):
@@ -256,14 +260,15 @@ class CancelJobResponse(BaseModel):
     status: str = Field(..., description="Job status after cancellation")
     message: str = Field(..., description="Cancellation result message")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "job_id": "123e4567-e89b-12d3-a456-426614174000",
                 "status": "cancelled",
                 "message": "Job cancelled successfully. The crew execution has been stopped."
             }
         }
+    )
 
 
 class Resource(BaseModel):
@@ -276,8 +281,8 @@ class Resource(BaseModel):
     description: Optional[str] = Field(None, description="Brief description")
     section: Optional[str] = Field(None, description="Section name (chapter-aware mode only)")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": "PDF",
                 "title": "Introduction to Algorithms Lecture Notes",
@@ -286,6 +291,7 @@ class Resource(BaseModel):
                 "description": "Comprehensive lecture notes covering algorithm basics"
             }
         }
+    )
 
 
 class JobStatusResponse(BaseModel):
@@ -306,8 +312,8 @@ class JobStatusResponse(BaseModel):
     created_at: str = Field(..., description="ISO timestamp of job creation")
     completed_at: Optional[str] = Field(None, description="ISO timestamp of completion")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "job_id": "123e4567-e89b-12d3-a456-426614174000",
                 "status": "completed",
@@ -328,6 +334,7 @@ class JobStatusResponse(BaseModel):
                 "completed_at": "2025-01-15T10:33:45Z"
             }
         }
+    )
 
 
 class HealthResponse(BaseModel):
@@ -337,11 +344,12 @@ class HealthResponse(BaseModel):
     version: str = Field(..., description="API version")
     database: str = Field(..., description="Database connection status")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "status": "healthy",
                 "version": "0.1.0",
                 "database": "connected"
             }
         }
+    )
