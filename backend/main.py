@@ -9,7 +9,7 @@ import os
 
 import filetype
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, UploadFile, File, Body
 from uuid import UUID
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -196,8 +196,8 @@ async def worker_health_check():
 @limiter.limit("10/hour; 2/minute")
 async def submit_job(
     request: Request,
-    course_input: CourseInputRequest,
     background_tasks: BackgroundTasks,
+    course_input: CourseInputRequest = Body(..., embed=False),
     current_user: dict = Depends(get_current_user)
 ):
     """

@@ -84,9 +84,9 @@ def different_user_token():
 class TestAuthenticationRequired:
     """Test that endpoints require authentication."""
 
-    def test_submit_without_token_returns_401(self, client, sample_course_input, mock_supabase):
+    def test_submit_without_token_returns_401(self, unauthenticated_client, sample_course_input, mock_supabase):
         """POST /api/submit without token should return 401."""
-        response = client.post("/api/submit", json=sample_course_input)
+        response = unauthenticated_client.post("/api/submit", json=sample_course_input)
 
         assert response.status_code == 401
         response_data = response.json()
@@ -94,17 +94,17 @@ class TestAuthenticationRequired:
         error_msg = str(response_data.get("detail", "")) + str(response_data.get("error", ""))
         assert "Authorization" in error_msg or "authorization" in error_msg.lower()
 
-    def test_status_without_token_returns_401(self, client, mock_supabase):
+    def test_status_without_token_returns_401(self, unauthenticated_client, mock_supabase):
         """GET /api/status without token should return 401."""
         job_id = "123e4567-e89b-12d3-a456-426614174000"
-        response = client.get(f"/api/status/{job_id}")
+        response = unauthenticated_client.get(f"/api/status/{job_id}")
 
         assert response.status_code == 401
 
-    def test_cancel_without_token_returns_401(self, client, mock_supabase):
+    def test_cancel_without_token_returns_401(self, unauthenticated_client, mock_supabase):
         """POST /api/cancel without token should return 401."""
         job_id = "123e4567-e89b-12d3-a456-426614174000"
-        response = client.post(f"/api/cancel/{job_id}")
+        response = unauthenticated_client.post(f"/api/cancel/{job_id}")
 
         assert response.status_code == 401
 
@@ -331,10 +331,10 @@ class TestSecurityHeaders:
     """Test security-related headers."""
 
     def test_unauthorized_response_includes_www_authenticate_header(
-        self, client, sample_course_input, mock_supabase
+        self, unauthenticated_client, sample_course_input, mock_supabase
     ):
         """401 responses should include WWW-Authenticate header."""
-        response = client.post("/api/submit", json=sample_course_input)
+        response = unauthenticated_client.post("/api/submit", json=sample_course_input)
 
         assert response.status_code == 401
         # May include WWW-Authenticate header (depending on implementation)

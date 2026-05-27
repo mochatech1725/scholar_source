@@ -7,10 +7,11 @@ used across unit, integration, and E2E tests.
 
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 from unittest.mock import AsyncMock, Mock
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
@@ -18,6 +19,22 @@ from fastapi.testclient import TestClient
 # ==============================================================================
 # Environment Setup
 # ==============================================================================
+
+TEST_USER_ID = "123e4567-e89b-12d3-a456-426614174000"
+TEST_JWT_SECRET = "test-secret-key-for-testing-only"
+
+
+def create_test_jwt(user_id: str = TEST_USER_ID, email: str = "test@example.com") -> str:
+    """Create a valid Supabase-compatible HS256 JWT for integration tests."""
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "aud": "authenticated",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, TEST_JWT_SECRET, algorithm="HS256")
+
 
 @pytest.fixture(scope="session", autouse=True)
 def test_env():
@@ -32,6 +49,7 @@ def test_env():
     # Set test Supabase credentials (mocked, not real)
     os.environ["SUPABASE_URL"] = "https://test.supabase.co"
     os.environ["SUPABASE_ANON_KEY"] = "test-anon-key"
+    os.environ["SUPABASE_JWT_SECRET"] = TEST_JWT_SECRET
 
     # Set test API keys
     os.environ["OPENAI_API_KEY"] = "test-openai-key"
@@ -51,8 +69,26 @@ def test_env():
 
 @pytest.fixture
 def client():
-    """FastAPI test client."""
+    """Authenticated FastAPI test client for endpoint behavior tests."""
     from backend.main import app
+    from backend.rate_limiter import limiter
+
+    limiter._storage.reset()
+    test_client = TestClient(app)
+    test_client.headers.update({
+        "Authorization": f"Bearer {create_test_jwt()}",
+        "Origin": "http://localhost:5173",
+    })
+    return test_client
+
+
+@pytest.fixture
+def unauthenticated_client():
+    """FastAPI test client without default Authorization headers."""
+    from backend.main import app
+    from backend.rate_limiter import limiter
+
+    limiter._storage.reset()
     return TestClient(app)
 
 
@@ -155,12 +191,17 @@ class MockExecute:
         self.data = result.get("data")
         self.error = result.get("error")
 
+    def execute(self):
+        """Support Supabase's chained .insert(...).execute() API."""
+        return self
+
 
 @pytest.fixture
 def mock_supabase(mocker):
     """Mock Supabase client."""
     mock_client = MockSupabaseClient()
     mocker.patch("backend.database.get_supabase_client", return_value=mock_client)
+    mocker.patch("backend.jobs.get_supabase_client", return_value=mock_client)
     return mock_client
 
 
@@ -186,7 +227,7 @@ def mock_crew_success(mocker):
 - **What it covers:** Visual learning of data structures and algorithms
 """
 
-    mock_crew_class = mocker.patch("backend.crew_runner.ScholarSource")
+    mock_crew_class = mocker.patch("backend.tasks.ScholarSource")
     mock_crew_instance = Mock()
     mock_crew_instance.crew().kickoff_async = AsyncMock(return_value=mock_result)
     mock_crew_class.return_value = mock_crew_instance
@@ -197,7 +238,7 @@ def mock_crew_success(mocker):
 @pytest.fixture
 def mock_crew_failure(mocker):
     """Mock failed CrewAI execution."""
-    mock_crew_class = mocker.patch("backend.crew_runner.ScholarSource")
+    mock_crew_class = mocker.patch("backend.tasks.ScholarSource")
     mock_crew_instance = Mock()
     mock_crew_instance.crew().kickoff_async = AsyncMock(
         side_effect=Exception("CrewAI execution failed")
@@ -221,7 +262,7 @@ def mock_crew_with_errors(mocker):
 - **What it covers:** ERROR: Could not fetch https://broken.com/error
 """
 
-    mock_crew_class = mocker.patch("backend.crew_runner.ScholarSource")
+    mock_crew_class = mocker.patch("backend.tasks.ScholarSource")
     mock_crew_instance = Mock()
     mock_crew_instance.crew().kickoff_async = AsyncMock(return_value=mock_result)
     mock_crew_class.return_value = mock_crew_instance
@@ -261,6 +302,7 @@ def sample_job_data():
     job_id = str(uuid.uuid4())
     return {
         "id": job_id,
+        "user_id": TEST_USER_ID,
         "status": "pending",
         "inputs": {
             "course_url": "https://ocw.mit.edu/courses/algorithms",
