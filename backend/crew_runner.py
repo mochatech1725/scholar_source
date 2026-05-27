@@ -205,8 +205,15 @@ def validate_crew_inputs(inputs: Dict[str, str]) -> bool:
     Validate that crew inputs meet minimum requirements.
 
     At least one of the following must be provided:
+    - course_name
+    - university_name
     - course_url
+    - textbook
+    - topics_list
+    - book_title
+    - book_author
     - isbn
+    - book_upload_id
     - book_pdf_path
     - book_url
 
@@ -216,15 +223,27 @@ def validate_crew_inputs(inputs: Dict[str, str]) -> bool:
     Returns:
         bool: True if inputs are valid, False otherwise
     """
-    # Check for course URL
-    has_course_url = bool(inputs.get('course_url'))
+    def has_value(key: str) -> bool:
+        value = inputs.get(key)
+        if isinstance(value, str):
+            return bool(value.strip())
+        return bool(value)
 
-    # Check for book identification
-    has_book_info = bool(inputs.get('isbn'))
+    # Check for course/topic information.
+    has_course_info = any(
+        has_value(key)
+        for key in ('course_name', 'university_name', 'course_url', 'topics_list')
+    )
 
-    # Check for book file or link
-    has_book_file = bool(inputs.get('book_pdf_path'))
-    has_book_link = bool(inputs.get('book_url'))
+    # Check for book identification. `textbook` is a legacy free-text field.
+    has_book_info = any(
+        has_value(key)
+        for key in ('textbook', 'book_title', 'book_author', 'isbn')
+    )
+
+    # Check for uploaded/internal book file or link.
+    has_book_file = any(has_value(key) for key in ('book_upload_id', 'book_pdf_path'))
+    has_book_link = has_value('book_url')
 
     # At least one combination must be satisfied
-    return has_course_url or has_book_info or has_book_file or has_book_link
+    return has_course_info or has_book_info or has_book_file or has_book_link

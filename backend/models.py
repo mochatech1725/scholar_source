@@ -4,10 +4,12 @@ Pydantic Models
 Request and response models for the FastAPI backend.
 """
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Optional, List
 from datetime import datetime
 import re
+import uuid
+from backend.resource_types import ALLOWED_RESOURCE_TYPES, ResourceType
 from backend.security_utils import (
     validate_url,
     detect_prompt_injection,
@@ -20,17 +22,23 @@ from backend.security_utils import (
 class CourseInputRequest(BaseModel):
     """Request model for course input form submission"""
 
+    course_name: Optional[str] = Field(None, description="Course name")
+    university_name: Optional[str] = Field(None, description="University or institution name")
     course_url: Optional[str] = Field(None, description="Course webpage URL (required if no book info)")
     textbook: Optional[str] = Field(None, description="Textbook information (legacy)")
     topics_list: Optional[str] = Field(None, description="Comma-separated topics")
     book_title: Optional[str] = Field(None, description="Book title")
     book_author: Optional[str] = Field(None, description="Book author(s)")
     isbn: Optional[str] = Field(None, description="Book ISBN")
-    book_pdf_path: Optional[str] = Field(None, description="Local PDF path")
+    book_upload_id: Optional[str] = Field(None, description="Opaque ID returned by /api/upload-pdf")
+    book_pdf_path: Optional[str] = Field(None, description="Internal/legacy local PDF path")
     book_url: Optional[str] = Field(None, description="Book URL")
     # Email field - COMMENTED OUT but kept for API compatibility
     email: Optional[str] = Field(None, description="Email address to receive results (optional, currently disabled)")
-    desired_resource_types: Optional[List[str]] = Field(None, description="List of desired resource types (textbooks, practice_problem_sets, practice_exams_tests, lecture_videos)")
+    desired_resource_types: Optional[List[ResourceType]] = Field(
+        None,
+        description=f"List of desired resource types. Allowed values: {', '.join(ALLOWED_RESOURCE_TYPES)}",
+    )
     excluded_sites: Optional[str] = Field(None, description="Comma-separated list of domains to exclude from results (e.g., 'khanacademy.org, coursera.org')")
     targeted_sites: Optional[str] = Field(None, description="Comma-separated list of domains to prioritize/target in search (e.g., 'stanford.edu, berkeley.edu')")
     chapter: Optional[str] = Field(None, description="Chapter name/number for section-by-section search (e.g., 'Chapter 16' or 'Vector Calculus')")
@@ -83,7 +91,7 @@ class CourseInputRequest(BaseModel):
 
         return v
 
-    @field_validator('book_title', 'book_author', 'textbook', mode='after')
+    @field_validator('course_name', 'university_name', 'book_title', 'book_author', 'textbook', mode='after')
     @classmethod
     def validate_text_fields(cls, v):
         """Validate text fields for length and security"""
@@ -149,6 +157,18 @@ class CourseInputRequest(BaseModel):
 
         return v
 
+    @field_validator('book_upload_id', mode='after')
+    @classmethod
+    def validate_book_upload_id(cls, v):
+        """Validate upload IDs without exposing server file paths."""
+        if v is None or v == "":
+            return v
+
+        try:
+            return str(uuid.UUID(v))
+        except ValueError:
+            raise ValueError("Invalid upload ID")
+
     # Email validation - COMMENTED OUT
     # @field_validator('email', mode='after')
     # @classmethod
@@ -165,14 +185,18 @@ class CourseInputRequest(BaseModel):
     #         return None
     #     return v
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
+                "course_name": "Introduction to Algorithms",
+                "university_name": "MIT",
                 "course_url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/",
                 "book_title": "Introduction to Algorithms",
-                "book_author": "Cormen, Leiserson, Rivest, Stein"
+                "book_author": "Cormen, Leiserson, Rivest, Stein",
+                "book_upload_id": "123e4567-e89b-12d3-a456-426614174000"
             }
         }
+    )
 
 
 class JobSubmitResponse(BaseModel):
@@ -183,14 +207,68 @@ class JobSubmitResponse(BaseModel):
     message: str = Field(..., description="Human-readable status message")
     warning: Optional[str] = Field(None, description="Optional warning (e.g. no workers available)")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "job_id": "123e4567-e89b-12d3-a456-426614174000",
                 "status": "pending",
                 "message": "Job created successfully. Use job_id to poll status."
             }
         }
+    )
+
+
+class PdfUploadResponse(BaseModel):
+    """Response model for PDF uploads."""
+
+    upload_id: str = Field(..., description="Opaque PDF upload ID for use as book_upload_id")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "upload_id": "123e4567-e89b-12d3-a456-426614174000"
+            }
+        }
+    )
+
+
+class WorkerHealthResponse(BaseModel):
+    """Response model for worker health checks."""
+
+    status: str = Field(..., description="Worker health status")
+    workers_available: bool = Field(..., description="Whether any workers are available")
+    worker_count: int = Field(..., description="Number of available workers")
+    workers: List[str] = Field(..., description="Available worker names")
+    message: Optional[str] = Field(None, description="Optional worker health message")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "status": "healthy",
+                "workers_available": True,
+                "worker_count": 1,
+                "workers": ["celery@worker-1"]
+            }
+        }
+    )
+
+
+class CancelJobResponse(BaseModel):
+    """Response model for job cancellation."""
+
+    job_id: str = Field(..., description="UUID of the cancelled job")
+    status: str = Field(..., description="Job status after cancellation")
+    message: str = Field(..., description="Cancellation result message")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "job_id": "123e4567-e89b-12d3-a456-426614174000",
+                "status": "cancelled",
+                "message": "Job cancelled successfully. The crew execution has been stopped."
+            }
+        }
+    )
 
 
 class Resource(BaseModel):
@@ -203,8 +281,8 @@ class Resource(BaseModel):
     description: Optional[str] = Field(None, description="Brief description")
     section: Optional[str] = Field(None, description="Section name (chapter-aware mode only)")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": "PDF",
                 "title": "Introduction to Algorithms Lecture Notes",
@@ -213,6 +291,7 @@ class Resource(BaseModel):
                 "description": "Comprehensive lecture notes covering algorithm basics"
             }
         }
+    )
 
 
 class JobStatusResponse(BaseModel):
@@ -227,18 +306,21 @@ class JobStatusResponse(BaseModel):
     error: Optional[str] = Field(None, description="Error message (if failed)")
     metadata: Optional[dict] = Field(None, description="Additional job metadata")
     course_name: Optional[str] = Field(None, description="Course name from inputs")
+    university_name: Optional[str] = Field(None, description="University or institution name from inputs")
     book_title: Optional[str] = Field(None, description="Book title from inputs")
     book_author: Optional[str] = Field(None, description="Book author from inputs")
     created_at: str = Field(..., description="ISO timestamp of job creation")
     completed_at: Optional[str] = Field(None, description="ISO timestamp of completion")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "job_id": "123e4567-e89b-12d3-a456-426614174000",
                 "status": "completed",
                 "status_message": "Resource discovery completed successfully",
                 "search_title": "MIT Introduction to Algorithms",
+                "course_name": "Introduction to Algorithms",
+                "university_name": "MIT",
                 "results": [
                     {
                         "type": "PDF",
@@ -252,6 +334,7 @@ class JobStatusResponse(BaseModel):
                 "completed_at": "2025-01-15T10:33:45Z"
             }
         }
+    )
 
 
 class HealthResponse(BaseModel):
@@ -261,11 +344,12 @@ class HealthResponse(BaseModel):
     version: str = Field(..., description="API version")
     database: str = Field(..., description="Database connection status")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "status": "healthy",
                 "version": "0.1.0",
                 "database": "connected"
             }
         }
+    )

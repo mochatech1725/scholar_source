@@ -6,11 +6,10 @@ Handles job submission and status polling.
 """
 
 import os
-import uuid
 
 import filetype
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, UploadFile, File, Body
 from uuid import UUID
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -18,7 +17,10 @@ from backend.models import (
     CourseInputRequest,
     JobSubmitResponse,
     JobStatusResponse,
-    HealthResponse
+    HealthResponse,
+    PdfUploadResponse,
+    WorkerHealthResponse,
+    CancelJobResponse,
 )
 from backend.jobs import create_job, get_job
 from backend.crew_runner import run_crew_async, validate_crew_inputs
@@ -30,6 +32,7 @@ from backend.error_utils import transform_error_for_user
 from backend.auth import get_current_user, AuthenticationError
 from backend.origins import allowed_origins
 from backend.version import APP_VERSION
+from backend.uploads import resolve_pdf_upload, save_pdf_upload
 from slowapi.errors import RateLimitExceeded
 from backend.env_loader import load_environment
 
@@ -163,7 +166,7 @@ async def health_check():
     }
 
 
-@app.get("/api/health/workers", tags=["Health"])
+@app.get("/api/health/workers", response_model=WorkerHealthResponse, tags=["Health"])
 async def worker_health_check():
     """
     Check if Celery workers are available to process jobs.
@@ -193,8 +196,8 @@ async def worker_health_check():
 @limiter.limit("10/hour; 2/minute")
 async def submit_job(
     request: Request,
-    course_input: CourseInputRequest,
     background_tasks: BackgroundTasks,
+    course_input: CourseInputRequest = Body(..., embed=False),
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -226,6 +229,23 @@ async def submit_job(
     # Convert course_input to dict
     inputs = course_input.model_dump()
 
+    # Resolve public upload IDs to internal, user-scoped file paths.
+    upload_id = inputs.get("book_upload_id")
+    if upload_id:
+        try:
+            pdf_path = resolve_pdf_upload(user_id, upload_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail={"error": "Invalid upload", "message": "Invalid PDF upload ID"}
+            )
+        if pdf_path is None:
+            raise HTTPException(
+                status_code=400,
+                detail={"error": "Invalid upload", "message": "PDF upload not found"}
+            )
+        inputs["book_pdf_path"] = str(pdf_path)
+
     # Validate that at least one input is provided
     if not validate_crew_inputs(inputs):
         raise HTTPException(
@@ -233,9 +253,9 @@ async def submit_job(
             detail={
                 "error": "Invalid inputs",
                 "message": "You must provide at least one of the following: "
-                          "course URL (course_url), "
-                          "book ISBN (isbn), "
-                          "book file (book_pdf_path), or book URL (book_url)"
+                          "course info (course_name, university_name, course_url, or topics_list), "
+                          "book info (textbook, book_title, book_author, or isbn), "
+                          "uploaded book file (book_upload_id), or book URL (book_url)"
             }
         )
 
@@ -370,7 +390,7 @@ async def get_job_status(
     }
 
 
-@app.post("/api/cancel/{job_id}", tags=["Jobs"])
+@app.post("/api/cancel/{job_id}", response_model=CancelJobResponse, tags=["Jobs"])
 @limiter.limit("20/hour")
 async def cancel_job(
     request: Request,
@@ -460,7 +480,7 @@ async def cancel_job(
         )
 
 
-@app.post("/api/upload-pdf", tags=["Jobs"])
+@app.post("/api/upload-pdf", response_model=PdfUploadResponse, tags=["Jobs"])
 @limiter.limit("5/hour")
 async def upload_pdf(
     request: Request,
@@ -470,15 +490,15 @@ async def upload_pdf(
     """
     Upload a PDF textbook for chapter-aware resource search.
 
-    Saves the file to a temporary location and returns the path,
-    which should be passed as book_pdf_path in a subsequent /api/submit call.
+    Saves the file to a temporary location and returns an opaque upload ID,
+    which should be passed as book_upload_id in a subsequent /api/submit call.
 
     Args:
         file: PDF file to upload (max 50 MB)
         current_user: Authenticated user (automatically extracted from JWT)
 
     Returns:
-        dict: {"pdf_path": "/tmp/scholar_uploads/{user_id}/{uuid}.pdf"}
+        PdfUploadResponse: {"upload_id": "<uuid>"}
 
     Raises:
         HTTPException: If file is invalid or upload fails
@@ -519,15 +539,9 @@ async def upload_pdf(
             detail={"error": "Invalid file", "message": "File contents do not match a valid PDF"}
         )
 
-    # Save to scoped temp directory
-    upload_dir = f"/tmp/scholar_uploads/{user_id}"
-    os.makedirs(upload_dir, exist_ok=True)
-    pdf_path = f"{upload_dir}/{uuid.uuid4()}.pdf"
-
     try:
-        with open(pdf_path, "wb") as f:
-            f.write(contents)
-    except OSError as e:
+        upload_id, pdf_path = save_pdf_upload(user_id, contents)
+    except (OSError, ValueError) as e:
         logger.error(f"PDF upload failed for user {user_id}: {e}")
         raise HTTPException(
             status_code=500,
@@ -535,7 +549,7 @@ async def upload_pdf(
         )
 
     logger.info(f"PDF uploaded for user {user_id}: {pdf_path}")
-    return {"pdf_path": pdf_path}
+    return {"upload_id": upload_id}
 
 
 # Development server command:
