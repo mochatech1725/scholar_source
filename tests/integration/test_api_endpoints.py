@@ -64,6 +64,21 @@ class TestSubmitEndpoint:
         assert data["status"] == "pending"
         assert "message" in data
 
+    def test_submit_valid_nested_course_input(self, client, mock_supabase, mock_crew_success):
+        """Should accept the nested payload shape sent by the frontend."""
+        payload = {
+            "course_input": {
+                "course_url": "https://ocw.mit.edu/courses/math",
+                "course_name": "Mathematics"
+            }
+        }
+        response = client.post("/api/submit", json=payload)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "job_id" in data
+        assert data["status"] == "pending"
+
     def test_submit_valid_book_info(self, client, mock_supabase, mock_crew_success):
         """Should accept valid book title and author."""
         payload = {
