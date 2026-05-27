@@ -35,7 +35,7 @@ export default function InlineSearchStatus({ jobId, onComplete, onError }) {
   // Track if job is still active (not completed/failed/cancelled)
   const isActiveRef = useRef(true);
   const timeoutIdRef = useRef(null);
-  const startTimeRef = useRef(Date.now());
+  const startTimeRef = useRef(null);
   const elapsedIntervalRef = useRef(null);
   // Timeout flag kept in a ref so the polling effect doesn't need it as a
   // dependency — flipping it must not tear down and restart the interval.

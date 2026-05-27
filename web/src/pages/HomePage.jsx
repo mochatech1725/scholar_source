@@ -51,7 +51,7 @@ export default function HomePage() {
     chapter: '',
     sections: '',
     preferred_creators: '',
-    book_pdf_path: ''
+    book_upload_id: ''
   });
   const [pdfFile, setPdfFile] = useState(null);
   const [validationError, setValidationError] = useState('');
@@ -99,7 +99,7 @@ export default function HomePage() {
       chapter: prev.chapter,
       sections: prev.sections,
       preferred_creators: prev.preferred_creators,
-      book_pdf_path: ''
+      book_upload_id: ''
     }));
   };
 
@@ -127,7 +127,7 @@ export default function HomePage() {
       chapter: '',
       sections: '',
       preferred_creators: '',
-      book_pdf_path: ''
+      book_upload_id: ''
     });
     setPdfFile(null);
     setSectionGroups(null);
@@ -177,8 +177,8 @@ export default function HomePage() {
       let payload = { ...formData };
 
       if (searchParamType === 'book_pdf' && pdfFile) {
-        const { pdf_path } = await uploadPdf(pdfFile);
-        payload = { ...payload, book_pdf_path: pdf_path };
+        const { upload_id } = await uploadPdf(pdfFile);
+        payload = { ...payload, book_upload_id: upload_id };
       }
 
       const response = await submitJob(payload);

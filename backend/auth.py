@@ -8,9 +8,9 @@ All protected endpoints must include a valid JWT token in the Authorization head
 import os
 import jwt
 from jwt import PyJWKClient
-from typing import Optional, Dict
+from typing import Dict
 from fastapi import Request, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 from backend.env_loader import load_environment
 
 # Load environment variables
@@ -119,7 +119,6 @@ def get_user_id_from_token(token: str) -> str:
 
 async def get_current_user(
     request: Request,
-    credentials: HTTPAuthorizationCredentials = None
 ) -> Dict:
     """
     FastAPI dependency to extract and verify the current user from the request.
@@ -137,8 +136,6 @@ async def get_current_user(
 
     Args:
         request: The FastAPI request object
-        credentials: HTTP bearer credentials (automatically extracted)
-
     Returns:
         Dictionary containing user information:
         - id: User ID (UUID)
