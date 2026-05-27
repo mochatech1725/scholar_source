@@ -50,6 +50,8 @@ class CourseInputRequest(BaseModel):
     def convert_empty_strings_to_none(cls, data):
         """Convert empty strings to None for all optional fields"""
         if isinstance(data, dict):
+            if isinstance(data.get("course_input"), dict):
+                data = data["course_input"]
             return {
                 k: None if (isinstance(v, str) and v.strip() == '') else v
                 for k, v in data.items()
