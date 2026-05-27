@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, act, waitFor, renderHook } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
 
 // ── Supabase mock ────────────────────────────────────────────────────────────
@@ -43,6 +43,16 @@ function renderWithProvider() {
       <TestConsumer />
     </AuthProvider>
   );
+}
+
+function renderAuthHook() {
+  const wrapper = ({ children }) => (
+    <AuthProvider>
+      {children}
+    </AuthProvider>
+  );
+
+  return renderHook(() => useAuth(), { wrapper });
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -120,16 +130,11 @@ describe('AuthContext — signIn / signUp / signOut', () => {
       error: null,
     });
 
-    let ctx;
-    function Capture() {
-      ctx = useAuth();
-      return null;
-    }
-    render(<AuthProvider><Capture /></AuthProvider>);
+    const { result } = renderAuthHook();
     act(() => authStateCallback('INITIAL_SESSION', null));
 
     await act(async () => {
-      await ctx.signIn('a@b.com', 'pass');
+      await result.current.signIn('a@b.com', 'pass');
     });
 
     expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
@@ -145,13 +150,11 @@ describe('AuthContext — signIn / signUp / signOut', () => {
       error: { message: 'Invalid credentials' },
     });
 
-    let ctx;
-    function Capture() { ctx = useAuth(); return null; }
-    render(<AuthProvider><Capture /></AuthProvider>);
+    const { result } = renderAuthHook();
     act(() => authStateCallback('INITIAL_SESSION', null));
 
     await expect(
-      act(async () => { await ctx.signIn('bad@email.com', 'wrong'); })
+      act(async () => { await result.current.signIn('bad@email.com', 'wrong'); })
     ).rejects.toMatchObject({ message: 'Invalid credentials' });
   });
 
@@ -162,12 +165,10 @@ describe('AuthContext — signIn / signUp / signOut', () => {
       error: null,
     });
 
-    let ctx;
-    function Capture() { ctx = useAuth(); return null; }
-    render(<AuthProvider><Capture /></AuthProvider>);
+    const { result } = renderAuthHook();
     act(() => authStateCallback('INITIAL_SESSION', null));
 
-    await act(async () => { await ctx.signUp('new@user.com', 'Pass1234'); });
+    await act(async () => { await result.current.signUp('new@user.com', 'Pass1234'); });
 
     expect(supabase.auth.signUp).toHaveBeenCalledWith({
       email: 'new@user.com',
