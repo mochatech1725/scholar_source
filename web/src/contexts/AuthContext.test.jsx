@@ -24,6 +24,7 @@ vi.mock('../lib/supabase', () => ({
       }),
       signUp: vi.fn(),
       signInWithPassword: vi.fn(),
+      resetPasswordForEmail: vi.fn(),
       signOut: vi.fn(),
     },
   },
@@ -174,5 +175,23 @@ describe('AuthContext — signIn / signUp / signOut', () => {
       email: 'new@user.com',
       password: 'Pass1234',
     });
+  });
+
+  it('resetPassword delegates to supabase.auth.resetPasswordForEmail', async () => {
+    const { supabase } = await import('../lib/supabase');
+    supabase.auth.resetPasswordForEmail.mockResolvedValue({
+      data: {},
+      error: null,
+    });
+
+    const { result } = renderAuthHook();
+    act(() => authStateCallback('INITIAL_SESSION', null));
+
+    await act(async () => { await result.current.resetPassword('reset@user.com'); });
+
+    expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith(
+      'reset@user.com',
+      { redirectTo: window.location.origin }
+    );
   });
 });
