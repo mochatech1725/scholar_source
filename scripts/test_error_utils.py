@@ -35,11 +35,11 @@ def test_pydantic_validation_error():
 
 def test_environment_variable_error():
     """Test that environment variable errors are handled properly."""
-    error = ValueError("The CHROMA_OPENAI_API_KEY environment variable is not set")
+    error = ValueError("The SEARCH_TOOL_API_KEY environment variable is not set")
     user_message, error_type = transform_error_for_user(error)
 
     # Should not expose env var names
-    assert "CHROMA_OPENAI_API_KEY" not in user_message
+    assert "SEARCH_TOOL_API_KEY" not in user_message
     assert "environment variable" not in user_message.lower()
 
     # Should be user-friendly
@@ -125,9 +125,6 @@ def test_sanitize_error_message():
 
 def test_pydantic_error_with_env_var():
     """Test the specific case from the user's error message."""
-    # Simulate the actual error the user reported
-    error_msg = "1 validation error for WebsiteSearchTool\nValue error, The CHROMA_OPENAI_API_KEY environment variable is not set."
-
     # Create a mock validation error
     try:
         # This creates a validation error similar to the one in the issue
@@ -136,8 +133,7 @@ def test_pydantic_error_with_env_var():
 
             @property
             def _run(self):
-                if not "CHROMA_OPENAI_API_KEY":
-                    raise ValueError("The CHROMA_OPENAI_API_KEY environment variable is not set.")
+                raise ValueError("The SEARCH_TOOL_API_KEY environment variable is not set.")
 
         # Trigger validation
         tool = WebsiteSearchTool(config={})
@@ -146,7 +142,7 @@ def test_pydantic_error_with_env_var():
         user_message, error_type = transform_error_for_user(e)
 
         # Should NOT contain any of these technical details
-        assert "CHROMA_OPENAI_API_KEY" not in user_message
+        assert "SEARCH_TOOL_API_KEY" not in user_message
         assert "validation error" not in user_message.lower() or "configuration" in user_message.lower()
         assert "WebsiteSearchTool" not in user_message
         assert "pydantic" not in user_message.lower()
