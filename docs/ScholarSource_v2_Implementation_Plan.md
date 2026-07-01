@@ -47,15 +47,13 @@ The plan intentionally avoids implementation code. Each section describes what t
 
 The main inconsistency appears to come from nondeterministic query generation inside the agentic retrieval harness. The search agent can make different planning decisions for the same input, which changes the search queries it sends, the web results it receives, the sources selected for extraction, and the material passed into validation and LLM synthesis. Source extraction and synthesis may amplify the differences, but they are downstream effects rather than the primary cause. Missing run logs make this harder to prove precisely, but the behavior points to search-planning nondeterminism as the root instability source.
 
-The root cause is nondeterminism in the agentic retrieval harness: for the same input, the resource search agent can make different search-planning decisions, producing different queries, candidate resources, validation inputs, and final outputs.
+### [x] 0.3 Define the Development Contract
 
-### 0.3 Define the Development Contract
-
-- [ ] Confirm the project rules for what you write and what AI can assist with.
-- [ ] Add hard rules for citations, source quality, and hallucinated URLs.
-- [ ] Add hard rules for logging and traceability.
-- [ ] Add hard rules for when a result is too weak to show confidently.
-- [ ] Add a short explanation of the v2 architecture goal.
+- [x] Confirm the project rules for what you write and what AI can assist with.
+- [x] Add hard rules for citations, source quality, and hallucinated URLs.
+- [x] Add hard rules for logging and traceability.
+- [x] Add hard rules for when a result is too weak to show confidently.
+- [x] Add a short explanation of the v2 architecture goal.
 
 ### 0.4 Set Up Observability
 

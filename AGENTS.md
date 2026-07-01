@@ -12,7 +12,7 @@ See `docs/react_tailwind_guidelines.md` for React and Tailwind conventions.
 ## Naming Conventions
 
 Python: `snake_case` functions and variables, `PascalCase` classes, `UPPER_SNAKE_CASE` constants, `_single_underscore` for non-public names.
-React/JS: `PascalCase` components, `camelCase` functions, `kebab-case` filenames, `useFoo` for custom hooks.
+React/TS: `PascalCase` components, `camelCase` functions, `kebab-case` filenames, `useFoo` for custom hooks.
 Database columns: `snake_case`. Boolean fields read as yes/no questions: `is_active`, `has_error`, `can_retry`.
 
 ## Authorship Rules
@@ -33,3 +33,12 @@ AI may not generate the initial production implementation of any module the huma
 6. Never present a low-confidence retrieval result as a confident answer; surface a weak-evidence warning instead.
 7. Never store or log raw user-submitted content beyond what is required for job processing and traceability.
 8. Never call an LLM for synthesis when retrieved evidence is empty; return a transparent limitation message instead.
+9. Never cite a source unless it passed source-quality checks: accessible URL, relevant content, identifiable title, and no obvious copyright or spam risk.
+10. Reject pirated textbooks, answer-key sites, low-quality SEO pages, inaccessible pages, and sources with no extractable educational content.
+11. Every run log must include generated queries, candidate source URLs, accept/reject reasons, extraction status, chunk IDs, retrieval scores, rerank order, model name, and prompt version.
+12. If fewer than three credible sources are retrieved, or the top retrieved chunks are weakly relevant, return a weak-evidence response instead of a normal recommendation list.
+13. Never invent titles, URLs, authors, publication dates, chunk IDs, or citation metadata.
+
+## V2 Architecture Goal
+
+ScholarSource v2 replaces the nondeterministic CrewAI search flow with a controlled RAG pipeline: deterministic query generation, source collection, extraction, chunking, embedding, pgvector retrieval, reranking, cited synthesis, and eval-backed release checks. LangGraph may orchestrate the workflow after the pipeline is stable, but retrieval quality, traceability, and grounded citations are the core system contract.
