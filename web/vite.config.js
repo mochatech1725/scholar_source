@@ -22,7 +22,7 @@ export default defineConfig({
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
   },
   server: {
-    port: 5173,  // Standard Vite port
+    port: 5175,
   },
   build: {
     outDir: 'dist',

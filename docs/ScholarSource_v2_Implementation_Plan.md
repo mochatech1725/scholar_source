@@ -55,13 +55,13 @@ The main inconsistency appears to come from nondeterministic query generation in
 - [x] Add hard rules for when a result is too weak to show confidently.
 - [x] Add a short explanation of the v2 architecture goal.
 
-### 0.4 Set Up Observability
+### [ ] 0.4 Set Up Observability
 
-- [ ] Create tracing accounts or projects needed for LLM and retrieval visibility.
-- [ ] Add local environment values for tracing.
-- [ ] Verify that a simple LLM call appears in the tracing dashboard.
-- [ ] Verify that request timing and token usage are visible.
-- [ ] Document where to inspect traces during debugging.
+- [x] 0.4.1 Create tracing accounts or projects needed for LLM and retrieval visibility.
+- [x] 0.4.2 Add local environment values for tracing.
+- [ ] 0.4.3 Verify that a simple LLM call appears in the tracing dashboard.
+- [ ] 0.4.4 Verify that request timing and token usage are visible.
+- [ ] 0.4.5 Document where to inspect traces during debugging.
 
 ### 0.5 Phase Completion Criteria
 

@@ -77,7 +77,7 @@ def client():
     test_client = TestClient(app)
     test_client.headers.update({
         "Authorization": f"Bearer {create_test_jwt()}",
-        "Origin": "http://localhost:5173",
+        "Origin": "http://localhost:5175",
     })
     return test_client
 

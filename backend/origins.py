@@ -20,8 +20,8 @@ _dev_origins = [
     "https://dev.scholar-source.pages.dev",  # Cloudflare Pages dev branch
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://localhost:5173",  # Standard Vite port
-    "http://127.0.0.1:5173",
+    "http://localhost:5175",  # Standard Vite port
+    "http://127.0.0.1:5175",
 ]
 _extra_origins = [
     o.strip()
