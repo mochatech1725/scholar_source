@@ -12,13 +12,16 @@ export default function LoginForm({ onSwitchToSignup }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
     setLoading(true);
     try {
       await signIn(email, password);
@@ -26,6 +29,27 @@ export default function LoginForm({ onSwitchToSignup }) {
       setError(err.message || 'Failed to sign in');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError(null);
+    setSuccessMessage(null);
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError('Enter your email address first, then request a password reset.');
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      await resetPassword(trimmedEmail);
+      setSuccessMessage('Password reset email sent. Check your inbox for the reset link.');
+    } catch (err) {
+      setError(err.message || 'Failed to send password reset email');
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -41,6 +65,12 @@ export default function LoginForm({ onSwitchToSignup }) {
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm text-green-700">{successMessage}</p>
         </div>
       )}
 
@@ -67,12 +97,15 @@ export default function LoginForm({ onSwitchToSignup }) {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••••"
           disabled={loading}
+          showPasswordToggle
           labelExtra={
             <button
               type="button"
+              onClick={handleForgotPassword}
+              disabled={resetLoading || loading}
               className="text-xs text-blue-600 hover:text-blue-700 font-medium focus:outline-none focus:underline"
             >
-              Forgot password?
+              {resetLoading ? 'Sending...' : 'Forgot password?'}
             </button>
           }
         />

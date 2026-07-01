@@ -66,4 +66,20 @@ describe('AuthInput', () => {
     );
     expect(screen.getByText('Hint text')).toBeInTheDocument();
   });
+
+  it('toggles password visibility when enabled', () => {
+    render(
+      <AuthInput id="pw" label="Password" type="password" icon="🔒"
+        value="secret" onChange={() => {}} showPasswordToggle />
+    );
+
+    const input = screen.getByLabelText('Password');
+    expect(input).toHaveAttribute('type', 'password');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Password' }));
+    expect(input).toHaveAttribute('type', 'text');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Password' }));
+    expect(input).toHaveAttribute('type', 'password');
+  });
 });

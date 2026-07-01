@@ -2,7 +2,7 @@
  * Authentication Context
  *
  * Manages authentication state across the application using Supabase Auth.
- * Provides sign in, sign up, sign out functionality and tracks the current user.
+ * Provides sign in, sign up, password reset, sign out functionality and tracks the current user.
  */
 
 /* eslint-disable react-refresh/only-export-components */
@@ -66,6 +66,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const resetPassword = async (email) => {
+    try {
+      setError(null);
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      setError(error.message);
+      throw error;
+    }
+  };
+
   const signOut = async () => {
     try {
       setError(null);
@@ -85,6 +99,7 @@ export const AuthProvider = ({ children }) => {
     error,
     signUp,
     signIn,
+    resetPassword,
     signOut,
   };
 

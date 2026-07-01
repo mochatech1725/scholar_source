@@ -90,6 +90,7 @@ export default function SignupForm({ onSwitchToLogin }) {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••••"
           disabled={loading}
+          showPasswordToggle
         >
           {password && (
             <div className="mt-2 flex items-center gap-2">
@@ -124,6 +125,7 @@ export default function SignupForm({ onSwitchToLogin }) {
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="••••••••••"
           disabled={loading}
+          showPasswordToggle
         />
 
         <div className="pt-2">
