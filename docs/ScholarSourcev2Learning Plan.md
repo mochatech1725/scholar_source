@@ -37,6 +37,7 @@ Practice this until it's automatic. You'll need it in every interview.
 | Workflow orchestration | LangGraph | Only added in Phase 4, after the pipeline is stable. |
 | Evals | Ragas \+ LangSmith | Ragas measures retrieval and generation quality. LangSmith traces every step. |
 | Tracing / Observability | LangSmith | Log every LLM call, retrieval step, and chunk with full input/output. Start day one. |
+| Python linting / formatting | Ruff | Fast, modern replacement for the older black + isort + flake8 stack; keeps CI and local validation on one tool. |
 | Frontend | React / TypeScript | Unchanged from v1. |
 | Hosting | Cloudflare Pages \+ Railway | Unchanged from v1. |
 | CI/CD | GitHub Actions | Run evals on every PR. Block merges on regressions. |
@@ -341,4 +342,3 @@ Take these alongside the phases they map to, not all at once upfront.
 ---
 
 *Last updated: June 2026*
-

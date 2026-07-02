@@ -66,6 +66,7 @@ This document provides a comprehensive testing strategy and practical guide for 
 | **httpx** | ≥0.24.0 | HTTP client for testing FastAPI | Official recommendation for testing FastAPI |
 | **fakeredis** | ≥2.19.0 | Mock Redis for rate limiting | Test rate limiting without real Redis |
 | **faker** | ≥20.0.0 | Generate fake test data | Generate realistic test data |
+| **Ruff** | ≥0.14.8 | Python linting, import sorting, and formatting | Fast modern replacement for separate black, isort, and flake8 checks |
 
 **Installation:**
 ```bash
@@ -368,14 +369,14 @@ chmod +x scripts/*.sh
 
 ### GitHub Actions Workflows
 
-Tests run automatically on every push and pull request. DISABLED FOR NOW
+Tests run automatically on every push and pull request.
 
 **`.github/workflows/test.yml`:**
 - Backend tests (Python 3.12)
 - Frontend tests (Node.js 18)
-- Linting (black, isort, flake8, ESLint)
+- Linting and formatting (Ruff, ESLint)
 
-The GitHub Actions workflow should trigger on pushes and pull requests to main branch. It should include two jobs: backend-tests (set up Python 3.12, install dependencies, run pytest) and frontend-tests (set up Node.js 18, install dependencies, run tests). Both jobs should run on ubuntu-latest.
+The GitHub Actions workflow triggers on pushes and pull requests to `main` and `develop`. It includes backend tests, frontend tests, backend lint/format checks, frontend lint checks, and a summary job. All jobs run on `ubuntu-latest`.
 
 ---
 

@@ -10,9 +10,9 @@ Run in order. All must pass before marking work complete.
 ## Backend
 
 ```bash
-ruff check .
-ruff format --check .
-pytest tests/ -x
+uv run --extra dev ruff check .
+uv run --extra dev ruff format --check .
+uv run --extra dev pytest tests/ -x
 ```
 
 ## Frontend

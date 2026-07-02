@@ -6,6 +6,7 @@ Backend: Python 3.12, FastAPI, Pydantic v2, Supabase (PostgreSQL + pgvector), Ce
 RAG tooling: LangChain for loading, splitting, and retrieval chains; LangGraph for workflow orchestration; Ragas + LangSmith for evals and tracing.
 Frontend: React 19, Vite, Tailwind CSS 3, TypeScript/TSX.
 Infrastructure: Railway (backend), Cloudflare Pages (frontend), Supabase (db + auth), GitHub Actions (CI/CD).
+Quality gates: Ruff for Python linting, import sorting, and formatting; ESLint/Vitest for frontend validation.
 
 ## Authorship Rules
 
