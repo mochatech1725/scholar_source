@@ -16,6 +16,163 @@ AI may generate: boilerplate (Pydantic schemas, route stubs, test fixtures, SQL 
 
 AI may not generate the initial production implementation of any module the human intends to explain or defend in an interview.
 
+## RAG Repo Layout
+
+RAG pipeline code should live under `backend/rag/`.
+
+Expected module boundaries:
+
+- `backend/rag/sources/`: source collection, URL normalization, source quality checks, and source rejection reasons.
+- `backend/rag/extraction/`: page fetching, text extraction, extraction caching, and extraction failure handling.
+- `backend/rag/chunking/`: chunk boundary logic, chunk ordering, chunk metadata preservation, and chunk inspection helpers.
+- `backend/rag/embeddings/`: embedding provider calls, content hashing, embedding deduplication, and embedding model tracking.
+- `backend/rag/vector_store/`: pgvector/Supabase storage client code and similarity query helpers.
+- `backend/rag/retrieval/`: query embedding, top-k retrieval, score handling, weak-evidence detection, and retrieval result models.
+- `backend/rag/reranking/`: rerank scoring, rerank ordering, and threshold decisions.
+- `backend/rag/synthesis/`: cited response generation, evidence-only prompting, weak-evidence responses, and evidence/synthesis separation.
+- `backend/rag/runs/`: structured run log creation, run step updates, failure logging, and run comparison helpers.
+- `backend/rag/orchestration/`: LangGraph state and graph wiring. Do not add this until the linear pipeline is stable, repeatable, and evaluated.
+
+Shared Pydantic models may live in `backend/rag/models.py` or a `backend/rag/models/` package once splitting is justified. RAG tests should mirror the implementation layout under `tests/rag/`.
+
+RAG evaluation assets should live under `evals/`.
+
+Expected eval layout:
+
+- `evals/golden_cases.json`: representative student queries with expected sources/domains, forbidden sources, and expected concepts.
+- `evals/run_evals.py`: repeatable local eval runner.
+- `evals/README.md`: eval purpose, required environment variables, scoring thresholds, and local/CI usage.
+- `evals/results/`: generated eval outputs. Commit only small baseline summaries; do not commit large traces, raw provider outputs, secrets, or private user content.
+
+Database schema and migration files for the RAG pipeline should live under `db/` or `supabase/` if a Supabase migrations directory is introduced. SQL must be reviewed like application code because it defines citation traceability.
+
+## AI Authorship Boundaries
+
+AI must not first-draft the production implementation of these core modules:
+
+- chunker
+- embedder
+- vector store client
+- retriever
+- reranker
+- synthesis prompt
+- source quality policy
+- weak-evidence policy
+- run logging contract
+- LangGraph state schema
+
+AI may first-draft supporting code only when it does not contain core retrieval judgment:
+
+- Pydantic request/response schemas after the human defines the fields.
+- FastAPI route stubs after the human defines the behavior.
+- Test fixtures, test factories, and mocks.
+- SQL migration boilerplate after the human defines table fields and constraints.
+- CLI wrappers and inspection scripts.
+- Frontend UI components.
+- Documentation, checklists, and review prompts.
+
+AI may review, explain, debug, or refactor core modules after the human has written the first working version and can explain the design.
+
+## Required RAG Metadata
+
+Every stored source record must include:
+
+- `source_id`
+- `url`
+- `normalized_url`
+- `title`
+- `source_type`
+- `quality_status`
+- `quality_reason`
+- `first_seen_at`
+- `last_checked_at`
+
+Every rejected source record must include:
+
+- `url`
+- `normalized_url`
+- `rejection_reason`
+- `rejected_at`
+- `run_id`
+
+Every extracted document record must include:
+
+- `source_id`
+- `url`
+- `title`
+- `extracted_text_hash`
+- `extraction_status`
+- `extraction_error`
+- `extracted_at`
+
+Every stored chunk must include:
+
+- `chunk_id`
+- `source_id`
+- `url`
+- `title`
+- `chunk_index`
+- `content`
+- `content_hash`
+- `embedding_model`
+- `created_at`
+
+Every embedding record must include:
+
+- `chunk_id`
+- `content_hash`
+- `embedding_model`
+- `embedding_dimensions`
+- `embedded_at`
+
+Every run log must include:
+
+- `run_id`
+- `user_id` or an approved non-identifying trace key
+- normalized input
+- generated queries
+- candidate source URLs
+- accept/reject reasons
+- extraction status
+- chunk IDs
+- retrieval scores
+- rerank order
+- final selected evidence
+- final cited source IDs
+- weak-evidence status and reason
+- model name
+- prompt version
+- major step timings
+- token usage and provider cost when available
+- structured failure state when the run fails
+
+Do not log raw user-submitted content beyond what is required for job processing and traceability.
+
+## Validation Before Merge
+
+Before merging any backend or pipeline change, run:
+
+```bash
+uv run --extra dev ruff check .
+uv run --extra dev ruff format --check .
+uv run --extra dev pytest tests/ -x
+```
+
+Before merging any frontend change, run:
+
+```bash
+cd web && npm run lint
+cd web && npm run test:run
+```
+
+Before merging any RAG retrieval, reranking, synthesis, or prompt change, also run the eval suite once it exists:
+
+```bash
+uv run --extra dev python evals/run_evals.py
+```
+
+If a validation gate is known to fail because of existing unrelated debt, record the failing command, the first failing error, and why it is unrelated to the change. Do not mark new pipeline work complete if it weakens citation traceability, run logging, source quality checks, or weak-evidence handling.
+
 ## Hard Rules — Never Break
 
 1. Never return a source to the user without a verified, stored URL.

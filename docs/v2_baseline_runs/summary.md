@@ -16,9 +16,21 @@ Local Railway worker exports:
 
 `/Users/teial/Downloads/logs.1782858386344.json`
 
+Local Railway production API export:
+
+`/Users/teial/Downloads/scholar-source-prod.1783025385198.log`
+
+Local Railway production worker export:
+
+`/Users/teial/Downloads/scholar-source-celery.prod.1783025609450.log`
+
 The API export contains 163 log entries. Four same-input job submissions were visible in the extracted API logs.
 
 The worker log contains 3,651 lines and includes Celery task execution, CrewAI task transitions, tool calls, search queries, final answer excerpts, and job completion records.
+
+The production API export contains 334 log lines. It shows an additional same-input production submission for job `cb4832bb-eaa7-4e1b-8dc5-9c1f75bd8e1a` at 2026-06-30 21:13:54 UTC and a Celery enqueue event with task ID `33958c7a-9b05-45d7-a94b-a916bf48a00a`.
+
+The production worker export contains 10,090 log lines. It confirms job `cb4832bb-eaa7-4e1b-8dc5-9c1f75bd8e1a` started CrewAI execution, used the same course URL input, completed CrewAI execution, and completed successfully with 5 resources.
 
 ## Same Input Used
 
@@ -32,16 +44,17 @@ No textbook, topic list, ISBN, chapter, targeted sites, excluded sites, or prefe
 
 | Run | Submitted At | Job ID | Celery Task ID | Outcome | Elapsed |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 2026-06-30 21:14:05 UTC | `6647547c-43d3-4f93-a06b-4aa6eb988793` | `e0387baf-1ae3-4730-999d-427edda80b35` | Completed with 5 reported resources | 72.31s |
-| 2 | 2026-06-30 21:44:48 UTC | `8f2e7e19-b1ca-479b-ba0b-b4bedb3e1dbc` | `891270b0-9519-4fc7-9a0b-8386c1109f27` | Completed with 6 reported resources | 61.12s |
-| 3 | 2026-06-30 21:46:49 UTC | `180d3cc7-eaa5-49a4-8acf-5892b6555046` | `a98ecfed-c5c0-4d36-a1da-7330b04de2bb` | Completed with 5 reported resources | 48.90s |
-| 4 | 2026-06-30 21:54:50 UTC | `fc826ef4-2752-4bd1-965b-7cf438caf0d5` | `28b59c48-38a7-4d18-b721-b40ef201ecce` | Completed with 5 reported resources | 46.69s |
+| 1 | 2026-06-30 21:13:54 UTC | `cb4832bb-eaa7-4e1b-8dc5-9c1f75bd8e1a` | `33958c7a-9b05-45d7-a94b-a916bf48a00a` | Completed with 5 reported resources | 68.75s |
+| 2 | 2026-06-30 21:14:05 UTC | `6647547c-43d3-4f93-a06b-4aa6eb988793` | `e0387baf-1ae3-4730-999d-427edda80b35` | Completed with 5 reported resources | 72.31s |
+| 3 | 2026-06-30 21:44:48 UTC | `8f2e7e19-b1ca-479b-ba0b-b4bedb3e1dbc` | `891270b0-9519-4fc7-9a0b-8386c1109f27` | Completed with 6 reported resources | 61.12s |
+| 4 | 2026-06-30 21:46:49 UTC | `180d3cc7-eaa5-49a4-8acf-5892b6555046` | `a98ecfed-c5c0-4d36-a1da-7330b04de2bb` | Completed with 5 reported resources | 48.90s |
+| 5 | 2026-06-30 21:54:50 UTC | `fc826ef4-2752-4bd1-965b-7cf438caf0d5` | `28b59c48-38a7-4d18-b721-b40ef201ecce` | Completed with 5 reported resources | 46.69s |
 
 ## What Changed Across Runs
 
 - Job ID changed each run, as expected.
 - Celery task ID changed each run, as expected.
-- Submission input appears identical across the four visible runs.
+- Submission input appears identical across the five visible completed runs.
 - Run 1 logged a warning that no Celery workers were available, then later logged enqueue activity.
 - Generated search queries changed across runs.
 - The resource search agent used different numbers of Serper searches across runs.

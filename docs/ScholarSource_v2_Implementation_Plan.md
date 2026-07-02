@@ -34,7 +34,9 @@ The plan intentionally avoids implementation code. Each section describes what t
 
 - [x] 0.1.1 Pick one representative course or textbook input.
 - [x] 0.1.2 Run the current system five times with the same input.
+  - Current evidence captures five completed same-input runs from Railway API and worker logs. One additional same-input job in the worker log was cancelled before execution and is not counted as a completed baseline run.
 - [x] 0.1.3 Save each final output.
+  - Current saved evidence is log-derived, not clean machine-readable final result JSON per job. Use stored job results later if exact final URL comparison is needed.
 - [x] 0.1.4 Record whether the same sources appear across runs.
 - [x] 0.1.5 Record whether the same search terms appear across runs.
 - [x] 0.1.6 Record whether the same topics are extracted across runs.
@@ -75,11 +77,15 @@ The main inconsistency appears to come from nondeterministic query generation in
 
 ### 0.5 Phase Completion Criteria
 
-- [ ] 0.5.1 You have five saved baseline runs from v1.
-- [ ] 0.5.2 You can explain what changed between those runs.
-- [ ] 0.5.3 You have a written diagnosis of the most likely instability source.
-- [ ] 0.5.4 You have a project contract that defines AI usage and system guardrails.
-- [ ] 0.5.5 You can view at least one traced LLM call.
+- [x] 0.5.1 You have five saved baseline runs from v1.
+- [x] 0.5.2 You can explain what changed between those runs.
+- [x] 0.5.3 You have a written diagnosis of the most likely instability source.
+- [x] 0.5.4 You have a project contract that defines AI usage and system guardrails.
+- [x] 0.5.5 You can view at least one traced LLM call.
+
+### Phase 0 Status
+
+Phase 0 is complete. Current saved evidence contains five completed same-input v1 runs. The completed runs show nondeterministic search-query generation, different search counts, different candidate resources, and different final resource counts for the same submitted input.
 
 ---
 

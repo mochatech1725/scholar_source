@@ -12,6 +12,14 @@ Additional worker-side evidence came from Railway Celery log exports stored loca
 
 `/Users/teial/Downloads/logs.1782858386344.json`
 
+Additional production API-side evidence came from:
+
+`/Users/teial/Downloads/scholar-source-prod.1783025385198.log`
+
+Additional production worker-side evidence came from:
+
+`/Users/teial/Downloads/scholar-source-celery.prod.1783025609450.log`
+
 The raw exports were not copied here because they contain Railway project, deployment, replica, user, task, and runtime metadata. These notes preserve the useful diagnostic facts while keeping the docs suitable for version control.
 
 ## Input Used
@@ -37,6 +45,7 @@ All observed runs used the same submitted input shape:
 ## What This Log Proves
 
 - The same query was submitted multiple times.
+- The production API and Celery logs show an additional same-input completed run for job `cb4832bb-eaa7-4e1b-8dc5-9c1f75bd8e1a`.
 - Each submission created a distinct job record.
 - Each job was enqueued to Celery with a distinct task identifier.
 - The frontend repeatedly polled job status after submission.
