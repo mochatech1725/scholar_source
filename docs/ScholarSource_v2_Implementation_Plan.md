@@ -30,18 +30,17 @@ The plan intentionally avoids implementation code. Each section describes what t
 
 **Primary learning focus:** Diagnosis, observability mindset, system boundaries.
 
-### [x]0.1 Baseline Current Behavior
+### [x] 0.1 Baseline Current Behavior
 
-- [x] Pick one representative course or textbook input.
-- [x] Run the current system five times with the same input.
-- [x] Save each final output.
-- [x] Record whether the same sources appear across runs.
-- [x] Record whether the same search terms appear across runs.
-- [x] Record whether the same topics are extracted across runs.
-- [x] Record whether the final prose changes while sources stay stable.
-- [x] Summarize the largest inconsistency in one paragraph.
-- [x] Results
- is the agentic retrieval harness: the resource search agent makes different search-planning decisions for the same input, which leads to different search queries, different candidate resources, different validation inputs, and different final outputs.
+- [x] 0.1.1 Pick one representative course or textbook input.
+- [x] 0.1.2 Run the current system five times with the same input.
+- [x] 0.1.3 Save each final output.
+- [x] 0.1.4 Record whether the same sources appear across runs.
+- [x] 0.1.5 Record whether the same search terms appear across runs.
+- [x] 0.1.6 Record whether the same topics are extracted across runs.
+- [x] 0.1.7 Record whether the final prose changes while sources stay stable.
+- [x] 0.1.8 Summarize the largest inconsistency in one paragraph.
+- [x] 0.1.9 Results: the largest inconsistency is the agentic retrieval harness. The resource search agent makes different search-planning decisions for the same input, which leads to different search queries, different candidate resources, different validation inputs, and different final outputs.
 
 ### [x] 0.2 Identify Root Cause Categories
 
@@ -49,11 +48,11 @@ The main inconsistency appears to come from nondeterministic query generation in
 
 ### [x] 0.3 Define the Development Contract
 
-- [x] Confirm the project rules for what you write and what AI can assist with.
-- [x] Add hard rules for citations, source quality, and hallucinated URLs.
-- [x] Add hard rules for logging and traceability.
-- [x] Add hard rules for when a result is too weak to show confidently.
-- [x] Add a short explanation of the v2 architecture goal.
+- [x] 0.3.1 Confirm the project rules for what you write and what AI can assist with.
+- [x] 0.3.2 Add hard rules for citations, source quality, and hallucinated URLs.
+- [x] 0.3.3 Add hard rules for logging and traceability.
+- [x] 0.3.4 Add hard rules for when a result is too weak to show confidently.
+- [x] 0.3.5 Add a short explanation of the v2 architecture goal.
 
 ### [x] 0.4 Set Up Observability
 
@@ -76,11 +75,11 @@ The main inconsistency appears to come from nondeterministic query generation in
 
 ### 0.5 Phase Completion Criteria
 
-- [ ] You have five saved baseline runs from v1.
-- [ ] You can explain what changed between those runs.
-- [ ] You have a written diagnosis of the most likely instability source.
-- [ ] You have a project contract that defines AI usage and system guardrails.
-- [ ] You can view at least one traced LLM call.
+- [ ] 0.5.1 You have five saved baseline runs from v1.
+- [ ] 0.5.2 You can explain what changed between those runs.
+- [ ] 0.5.3 You have a written diagnosis of the most likely instability source.
+- [ ] 0.5.4 You have a project contract that defines AI usage and system guardrails.
+- [ ] 0.5.5 You can view at least one traced LLM call.
 
 ---
 
@@ -92,91 +91,83 @@ The main inconsistency appears to come from nondeterministic query generation in
 
 ### 1.1 Define the Pipeline Boundary
 
-- [ ] Decide the minimum accepted input for v2.
-- [ ] Decide the minimum accepted output for v2.
-- [ ] Decide which existing frontend behavior can stay unchanged.
-- [ ] Decide which current backend flow should be bypassed or replaced during v2 work.
-- [ ] Write a short pipeline diagram in prose.
+- [ ] 1.1.1 Decide the pipeline boundary: the minimum accepted input for v2, the minimum accepted output, which existing frontend behavior stays unchanged, and which current backend flow gets bypassed or replaced during v2 work.
+- [ ] 1.1.2 Write a short pipeline diagram in prose.
 
 ### 1.2 Source Collection
 
-- [ ] Choose the first source type to support.
-- [ ] Define what metadata must be saved for every source.
-- [ ] Define what makes a source eligible for inclusion.
-- [ ] Define what makes a source rejected.
-- [ ] Add a manual test input with known good source candidates.
-- [ ] Verify source collection can return stable source records for the same input.
+- [ ] 1.2.1 Decide the source collection design: the first source type to support, what metadata must be saved for every source, and what makes a source eligible versus rejected.
+- [ ] 1.2.2 Add a manual test input with known good source candidates.
+- [ ] 1.2.3 Verify source collection can return stable source records for the same input.
 
 ### 1.3 Text Extraction
 
-- [ ] Extract readable text from collected sources.
-- [ ] Preserve source title, URL, and extraction timestamp.
-- [ ] Handle pages with no usable text.
-- [ ] Handle fetch failures without crashing the entire run.
-- [ ] Store or log enough information to debug extraction failures.
-- [ ] Verify the same source produces the same extracted content when cached.
+- [ ] 1.3.1 Extract readable text from collected sources.
+- [ ] 1.3.2 Preserve source title, URL, and extraction timestamp.
+- [ ] 1.3.3 Handle pages with no usable text.
+- [ ] 1.3.4 Handle fetch failures without crashing the entire run.
+- [ ] 1.3.5 Store or log enough information to debug extraction failures.
+- [ ] 1.3.6 Verify the same source produces the same extracted content when cached.
 
 ### 1.4 Chunking
 
-- [ ] Choose an initial chunk size.
-- [ ] Choose an initial chunk overlap.
-- [ ] Explain why overlap is useful.
-- [ ] Preserve source metadata on every chunk.
-- [ ] Preserve chunk order within the source.
-- [ ] Add a way to inspect chunks for a single source.
-- [ ] Verify chunks are neither too tiny to be useful nor too large to retrieve precisely.
+- [ ] 1.4.1 Decide the initial chunk size and overlap, and be ready to explain why the overlap value is useful.
+- [ ] 1.4.2 Preserve source metadata on every chunk.
+- [ ] 1.4.3 Preserve chunk order within the source.
+- [ ] 1.4.4 Add a way to inspect chunks for a single source.
+- [ ] 1.4.5 Verify chunks are neither too tiny to be useful nor too large to retrieve precisely.
 
 ### 1.5 Embeddings
 
-- [ ] Generate embeddings for extracted chunks.
-- [ ] Log the embedding model used.
-- [ ] Store the embedding model version or identifier with each embedded chunk.
-- [ ] Add a deduplication rule so identical content is not embedded repeatedly.
-- [ ] Verify repeated runs do not create duplicate embeddings for unchanged content.
-- [ ] Explain what the embedding vector represents in plain English.
+- [ ] 1.5.1 Generate embeddings for extracted chunks.
+- [ ] 1.5.2 Log the embedding model used.
+- [ ] 1.5.3 Store the embedding model version or identifier with each embedded chunk.
+- [ ] 1.5.4 Add a deduplication rule so identical content is not embedded repeatedly.
+- [ ] 1.5.5 Verify repeated runs do not create duplicate embeddings for unchanged content.
+- [ ] 1.5.6 Explain what the embedding vector represents in plain English.
 
 ### 1.6 Vector Storage
 
-- [ ] Enable vector search in the database.
-- [ ] Create storage for chunk text, vector values, source metadata, content hashes, and timestamps.
-- [ ] Add indexes required for retrieval performance.
-- [ ] Add a way to reset local test data safely.
-- [ ] Verify inserted chunks can be retrieved by source and by semantic similarity.
+- [ ] 1.6.1 Enable vector search in the database.
+- [ ] 1.6.2 Create storage for chunk text, vector values, source metadata, content hashes, and timestamps.
+- [ ] 1.6.3 Add indexes required for retrieval performance.
+- [ ] 1.6.4 Add a way to reset local test data safely.
+- [ ] 1.6.5 Verify inserted chunks can be retrieved by source and by semantic similarity.
 
 ### 1.7 Semantic Retrieval
 
-- [ ] Convert the user query into the same embedding space as stored chunks.
-- [ ] Retrieve the top matching chunks.
-- [ ] Return similarity scores with retrieved chunks.
-- [ ] Preserve enough metadata to cite every retrieved chunk.
-- [ ] Verify known queries retrieve expected source chunks.
-- [ ] Verify irrelevant queries do not return confident-looking weak results.
+- [ ] 1.7.1 Convert the user query into the same embedding space as stored chunks.
+- [ ] 1.7.2 Retrieve the top matching chunks.
+- [ ] 1.7.3 Return similarity scores with retrieved chunks.
+- [ ] 1.7.4 Preserve enough metadata to cite every retrieved chunk.
+- [ ] 1.7.5 Verify known queries retrieve expected source chunks.
+- [ ] 1.7.6 Verify irrelevant queries do not return confident-looking weak results.
 
 ### 1.8 Reranking
 
-- [ ] Score retrieved chunks against the original user need.
-- [ ] Separate retrieval similarity from final relevance ranking.
-- [ ] Keep the original retrieval score for debugging.
-- [ ] Keep the rerank score for debugging.
-- [ ] Verify reranking changes order when the nearest chunk is not the most useful chunk.
-- [ ] Define what score is too weak to include.
+- [ ] 1.8.1 Score retrieved chunks against the original user need.
+- [ ] 1.8.2 Separate retrieval similarity from final relevance ranking.
+- [ ] 1.8.3 Keep the original retrieval score for debugging.
+- [ ] 1.8.4 Keep the rerank score for debugging.
+- [ ] 1.8.5 Verify reranking changes order when the nearest chunk is not the most useful chunk.
+- [ ] 1.8.6 Define what score is too weak to include.
 
 ### 1.9 Cited Synthesis
 
-- [ ] Generate a final study guide from only the selected evidence.
-- [ ] Require every recommendation to include a source citation.
-- [ ] Refuse or soften the answer when retrieved evidence is insufficient.
-- [ ] Include source titles and URLs in the final response.
-- [ ] Avoid presenting unsupported claims as facts.
-- [ ] Verify the answer can be traced back to stored chunks.
+- [ ] 1.9.1 Generate a final study guide from only the selected evidence.
+- [ ] 1.9.2 Require every recommendation to include a source citation.
+- [ ] 1.9.3 Refuse or soften the answer when retrieved evidence is insufficient.
+- [ ] 1.9.4 Include source titles and URLs in the final response.
+- [ ] 1.9.5 Avoid presenting unsupported claims as facts.
+- [ ] 1.9.6 Verify the answer can be traced back to stored chunks.
 
 ### 1.10 Phase Completion Criteria
 
-- [ ] One input can complete the full path from query to cited answer.
-- [ ] The answer is based on stored chunks, not live-only search output.
-- [ ] Every cited recommendation maps back to source metadata.
-- [ ] You can explain each pipeline step from memory.
-- [ ] You have at least one manual test case that proves the pipeline works end to end.
+- [ ] 1.10.1 One input can complete the full path from query to cited answer.
+- [ ] 1.10.2 The answer is based on stored chunks, not live-only search output.
+- [ ] 1.10.3 Every cited recommendation maps back to source metadata.
+- [ ] 1.10.4 You can explain each pipeline step from memory.
+- [ ] 1.10.5 You have at least one manual test case that proves the pipeline works end to end.
 
 ---
 
@@ -188,57 +179,57 @@ The main inconsistency appears to come from nondeterministic query generation in
 
 ### 2.1 Deterministic Configuration
 
-- [ ] Identify every LLM call in the v2 pipeline.
-- [ ] Set deterministic settings wherever stable behavior is required.
-- [ ] Document any step that intentionally allows variation.
-- [ ] Ensure query generation uses stable settings.
-- [ ] Ensure synthesis uses stable settings unless there is a clear reason not to.
+- [ ] 2.1.1 Identify every LLM call in the v2 pipeline.
+- [ ] 2.1.2 Set deterministic settings wherever stable behavior is required.
+- [ ] 2.1.3 Document any step that intentionally allows variation.
+- [ ] 2.1.4 Ensure query generation uses stable settings.
+- [ ] 2.1.5 Ensure synthesis uses stable settings unless there is a clear reason not to.
 
 ### 2.2 Source and Extraction Cache
 
-- [ ] Cache collected source results by normalized query or query hash.
-- [ ] Cache fetched source content by normalized URL or URL hash.
-- [ ] Store fetch timestamp and cache freshness rules.
-- [ ] Avoid refetching unchanged sources during repeated runs.
-- [ ] Add a manual way to invalidate cached source content during development.
+- [ ] 2.2.1 Cache collected source results by normalized query or query hash.
+- [ ] 2.2.2 Cache fetched source content by normalized URL or URL hash.
+- [ ] 2.2.3 Store fetch timestamp and cache freshness rules.
+- [ ] 2.2.4 Avoid refetching unchanged sources during repeated runs.
+- [ ] 2.2.5 Add a manual way to invalidate cached source content during development.
 
 ### 2.3 Embedding Deduplication
 
-- [ ] Hash chunk content before embedding.
-- [ ] Check whether an embedding already exists before calling the embedding provider.
-- [ ] Reuse existing embeddings when content and model match.
-- [ ] Re-embed content only when the model changes or the content changes.
-- [ ] Track duplicate avoidance in logs.
+- [ ] 2.3.1 Hash chunk content before embedding.
+- [ ] 2.3.2 Check whether an embedding already exists before calling the embedding provider.
+- [ ] 2.3.3 Reuse existing embeddings when content and model match.
+- [ ] 2.3.4 Re-embed content only when the model changes or the content changes.
+- [ ] 2.3.5 Track duplicate avoidance in logs.
 
 ### 2.4 Run Logging
 
-- [ ] Create a run record for every submitted query.
-- [ ] Log normalized input.
-- [ ] Log generated search terms.
-- [ ] Log collected source identifiers.
-- [ ] Log retrieved chunk identifiers.
-- [ ] Log reranked order.
-- [ ] Log final selected evidence.
-- [ ] Log total latency and major step timings.
-- [ ] Log token usage and provider cost when available.
-- [ ] Log failure states in a structured way.
+- [ ] 2.4.1 Create a run record for every submitted query.
+- [ ] 2.4.2 Log normalized input.
+- [ ] 2.4.3 Log generated search terms.
+- [ ] 2.4.4 Log collected source identifiers.
+- [ ] 2.4.5 Log retrieved chunk identifiers.
+- [ ] 2.4.6 Log reranked order.
+- [ ] 2.4.7 Log final selected evidence.
+- [ ] 2.4.8 Log total latency and major step timings.
+- [ ] 2.4.9 Log token usage and provider cost when available.
+- [ ] 2.4.10 Log failure states in a structured way.
 
 ### 2.5 Run Comparison
 
-- [ ] Add a simple way to compare two runs with the same input.
-- [ ] Compare collected sources.
-- [ ] Compare retrieved chunks.
-- [ ] Compare reranked order.
-- [ ] Compare final cited sources.
-- [ ] Use the comparison to explain any differences between runs.
+- [ ] 2.5.1 Add a simple way to compare two runs with the same input.
+- [ ] 2.5.2 Compare collected sources.
+- [ ] 2.5.3 Compare retrieved chunks.
+- [ ] 2.5.4 Compare reranked order.
+- [ ] 2.5.5 Compare final cited sources.
+- [ ] 2.5.6 Use the comparison to explain any differences between runs.
 
 ### 2.6 Phase Completion Criteria
 
-- [ ] Run the same input five times through v2.
-- [ ] Confirm the same top evidence appears each time, unless cache freshness intentionally changes it.
-- [ ] Confirm final citations are stable.
-- [ ] Confirm run logs make differences explainable.
-- [ ] You can point to one run record and explain the full path from input to output.
+- [ ] 2.6.1 Run the same input five times through v2.
+- [ ] 2.6.2 Confirm the same top evidence appears each time, unless cache freshness intentionally changes it.
+- [ ] 2.6.3 Confirm final citations are stable.
+- [ ] 2.6.4 Confirm run logs make differences explainable.
+- [ ] 2.6.5 You can point to one run record and explain the full path from input to output.
 
 ---
 
@@ -250,47 +241,47 @@ The main inconsistency appears to come from nondeterministic query generation in
 
 ### 3.1 Golden Test Set
 
-- [ ] Create twenty representative student queries.
-- [ ] Include a mix of textbook-based, topic-based, and course-based inputs.
-- [ ] For each case, list expected source domains or URLs.
-- [ ] For each case, list forbidden source types.
-- [ ] For each case, list key concepts that should appear in the answer.
-- [ ] Include at least three cases where good sources are hard to find.
-- [ ] Include at least three cases where low-quality sources are tempting.
+- [ ] 3.1.1 Create twenty representative student queries.
+- [ ] 3.1.2 Include a mix of textbook-based, topic-based, and course-based inputs.
+- [ ] 3.1.3 For each case, list expected source domains or URLs.
+- [ ] 3.1.4 For each case, list forbidden source types.
+- [ ] 3.1.5 For each case, list key concepts that should appear in the answer.
+- [ ] 3.1.6 Include at least three cases where good sources are hard to find.
+- [ ] 3.1.7 Include at least three cases where low-quality sources are tempting.
 
 ### 3.2 Retrieval Evaluation
 
-- [ ] Measure whether retrieved chunks are relevant to the query.
-- [ ] Measure whether expected source domains appear.
-- [ ] Measure whether forbidden source types are excluded.
-- [ ] Measure whether top results are better than lower-ranked results.
-- [ ] Set an initial threshold for acceptable retrieval quality.
-- [ ] Save baseline retrieval scores.
+- [ ] 3.2.1 Measure whether retrieved chunks are relevant to the query.
+- [ ] 3.2.2 Measure whether expected source domains appear.
+- [ ] 3.2.3 Measure whether forbidden source types are excluded.
+- [ ] 3.2.4 Measure whether top results are better than lower-ranked results.
+- [ ] 3.2.5 Set an initial threshold for acceptable retrieval quality.
+- [ ] 3.2.6 Save baseline retrieval scores.
 
 ### 3.3 Generation Evaluation
 
-- [ ] Measure whether answers are grounded in retrieved evidence.
-- [ ] Measure whether answers include required concepts.
-- [ ] Measure whether answers avoid forbidden claims.
-- [ ] Measure whether citations are present and usable.
-- [ ] Set an initial threshold for acceptable answer quality.
-- [ ] Save baseline generation scores.
+- [ ] 3.3.1 Measure whether answers are grounded in retrieved evidence.
+- [ ] 3.3.2 Measure whether answers include required concepts.
+- [ ] 3.3.3 Measure whether answers avoid forbidden claims.
+- [ ] 3.3.4 Measure whether citations are present and usable.
+- [ ] 3.3.5 Set an initial threshold for acceptable answer quality.
+- [ ] 3.3.6 Save baseline generation scores.
 
 ### 3.4 Regression Gate
 
-- [ ] Add a repeatable command to run the eval suite locally.
-- [ ] Add eval output that is easy to compare over time.
-- [ ] Add thresholds that fail when quality drops too far.
-- [ ] Add a lightweight CI path for the golden test set.
-- [ ] Decide which expensive evals run locally only and which run in CI.
+- [ ] 3.4.1 Add a repeatable command to run the eval suite locally.
+- [ ] 3.4.2 Add eval output that is easy to compare over time.
+- [ ] 3.4.3 Add thresholds that fail when quality drops too far.
+- [ ] 3.4.4 Add a lightweight CI path for the golden test set.
+- [ ] 3.4.5 Decide which expensive evals run locally only and which run in CI.
 
 ### 3.5 Phase Completion Criteria
 
-- [ ] You have twenty golden cases.
-- [ ] You can run evals repeatedly.
-- [ ] You have baseline scores for retrieval and generation.
-- [ ] A bad retrieval change can fail the eval suite.
-- [ ] You can explain the difference between a normal test and an eval.
+- [ ] 3.5.1 You have twenty golden cases.
+- [ ] 3.5.2 You can run evals repeatedly.
+- [ ] 3.5.3 You have baseline scores for retrieval and generation.
+- [ ] 3.5.4 A bad retrieval change can fail the eval suite.
+- [ ] 3.5.5 You can explain the difference between a normal test and an eval.
 
 ---
 
@@ -302,48 +293,45 @@ The main inconsistency appears to come from nondeterministic query generation in
 
 ### 4.1 Preconditions
 
-- [ ] Confirm Phase 1 end-to-end flow works.
-- [ ] Confirm Phase 2 repeatability checks pass.
-- [ ] Confirm Phase 3 evals have a baseline.
-- [ ] Identify what orchestration problem actually needs solving.
-- [ ] Avoid adding orchestration just to make the architecture look more advanced.
+- [ ] 4.1.1 Confirm Phase 1 end-to-end flow works.
+- [ ] 4.1.2 Confirm Phase 2 repeatability checks pass.
+- [ ] 4.1.3 Confirm Phase 3 evals have a baseline.
+- [ ] 4.1.4 Identify what orchestration problem actually needs solving.
+- [ ] 4.1.5 Avoid adding orchestration just to make the architecture look more advanced.
 
 ### 4.2 Define Graph State
 
-- [ ] List every field that moves through the workflow.
-- [ ] Identify which step creates each field.
-- [ ] Identify which step reads each field.
-- [ ] Identify which fields are user-facing.
-- [ ] Identify which fields are debug-only.
-- [ ] Decide how errors and fallback reasons are represented.
+- [ ] 4.2.1 List every field that moves through the workflow.
+- [ ] 4.2.2 Identify which step creates each field.
+- [ ] 4.2.3 Identify which step reads each field.
+- [ ] 4.2.4 Identify which fields are user-facing.
+- [ ] 4.2.5 Identify which fields are debug-only.
+- [ ] 4.2.6 Decide how errors and fallback reasons are represented.
 
 ### 4.3 Define Workflow Steps
 
-- [ ] Add a request classification step.
-- [ ] Add a search term generation step.
-- [ ] Add a candidate retrieval step.
-- [ ] Add a candidate quality evaluation step.
-- [ ] Add a reranking step.
-- [ ] Add a synthesis step.
-- [ ] Add a fallback path for weak evidence.
-- [ ] Add a transparent user response when quality is too low.
+- [ ] 4.3.1 Add a request classification step.
+- [ ] 4.3.2 Add a search term generation step.
+- [ ] 4.3.3 Add a candidate retrieval step.
+- [ ] 4.3.4 Add a candidate quality evaluation step.
+- [ ] 4.3.5 Add a reranking step.
+- [ ] 4.3.6 Add a synthesis step.
+- [ ] 4.3.7 Add a fallback path for weak evidence.
+- [ ] 4.3.8 Add a transparent user response when quality is too low.
 
 ### 4.4 Fallback Behavior
 
-- [ ] Define what counts as insufficient evidence.
-- [ ] Define when to broaden a query.
-- [ ] Define when to try alternate source types.
-- [ ] Define when to stop and return a transparent limitation message.
-- [ ] Log every fallback decision.
-- [ ] Include fallback behavior in eval coverage.
+- [ ] 4.4.1 Decide the fallback policy: what counts as insufficient evidence, when to broaden a query, when to try alternate source types, and when to stop and return a transparent limitation message.
+- [ ] 4.4.2 Log every fallback decision.
+- [ ] 4.4.3 Include fallback behavior in eval coverage.
 
 ### 4.5 Phase Completion Criteria
 
-- [ ] The workflow produces the same successful outputs as the linear pipeline.
-- [ ] Weak retrieval results follow a clear fallback path.
-- [ ] The graph state can be inspected in traces.
-- [ ] You can draw the workflow from memory.
-- [ ] You can explain why orchestration was added after the pipeline was stable.
+- [ ] 4.5.1 The workflow produces the same successful outputs as the linear pipeline.
+- [ ] 4.5.2 Weak retrieval results follow a clear fallback path.
+- [ ] 4.5.3 The graph state can be inspected in traces.
+- [ ] 4.5.4 You can draw the workflow from memory.
+- [ ] 4.5.5 You can explain why orchestration was added after the pipeline was stable.
 
 ---
 
@@ -355,50 +343,48 @@ The main inconsistency appears to come from nondeterministic query generation in
 
 ### 5.1 Backend Integration
 
-- [ ] Decide how v2 jobs are submitted.
-- [ ] Decide how v2 job status is stored.
-- [ ] Decide whether v1 and v2 can run side by side during migration.
-- [ ] Preserve authentication requirements.
-- [ ] Preserve rate limiting requirements.
-- [ ] Preserve job ownership checks.
-- [ ] Return structured failure messages to the frontend.
+- [ ] 5.1.1 Decide the backend integration approach: how v2 jobs are submitted, how job status is stored, and whether v1 and v2 run side by side during migration.
+- [ ] 5.1.2 Preserve authentication requirements.
+- [ ] 5.1.3 Preserve rate limiting requirements.
+- [ ] 5.1.4 Preserve job ownership checks.
+- [ ] 5.1.5 Return structured failure messages to the frontend.
 
 ### 5.2 Frontend Flow
 
-- [ ] Keep the input experience simple.
-- [ ] Show meaningful progress while the pipeline runs.
-- [ ] Show retrieval and synthesis stages in user-friendly language.
-- [ ] Show final cited results clearly.
-- [ ] Show source links in a way that encourages inspection.
-- [ ] Show weak-result warnings when confidence is low.
-- [ ] Handle empty results without a blank screen.
-- [ ] Handle expired sessions.
+- [ ] 5.2.1 Keep the input experience simple.
+- [ ] 5.2.2 Show meaningful progress while the pipeline runs.
+- [ ] 5.2.3 Show retrieval and synthesis stages in user-friendly language.
+- [ ] 5.2.4 Show final cited results clearly.
+- [ ] 5.2.5 Show source links in a way that encourages inspection.
+- [ ] 5.2.6 Show weak-result warnings when confidence is low.
+- [ ] 5.2.7 Handle empty results without a blank screen.
+- [ ] 5.2.8 Handle expired sessions.
 
 ### 5.3 Trust and Safety
 
-- [ ] Make citations visible.
-- [ ] Make source quality signals visible.
-- [ ] Avoid implying that a generated guide replaces the original course material.
-- [ ] Avoid storing unnecessary user-provided sensitive content.
-- [ ] Limit repeated expensive requests.
-- [ ] Make failures understandable without exposing internal details.
+- [ ] 5.3.1 Make citations visible.
+- [ ] 5.3.2 Make source quality signals visible.
+- [ ] 5.3.3 Avoid implying that a generated guide replaces the original course material.
+- [ ] 5.3.4 Avoid storing unnecessary user-provided sensitive content.
+- [ ] 5.3.5 Limit repeated expensive requests.
+- [ ] 5.3.6 Make failures understandable without exposing internal details.
 
 ### 5.4 Mobile and Accessibility
 
-- [ ] Test the main submission flow on a phone-sized viewport.
-- [ ] Test the final results page on a phone-sized viewport.
-- [ ] Verify keyboard navigation for form controls.
-- [ ] Verify visible focus states.
-- [ ] Verify color contrast for status and warning messages.
-- [ ] Verify long URLs and long source titles do not break layout.
+- [ ] 5.4.1 Test the main submission flow on a phone-sized viewport.
+- [ ] 5.4.2 Test the final results page on a phone-sized viewport.
+- [ ] 5.4.3 Verify keyboard navigation for form controls.
+- [ ] 5.4.4 Verify visible focus states.
+- [ ] 5.4.5 Verify color contrast for status and warning messages.
+- [ ] 5.4.6 Verify long URLs and long source titles do not break layout.
 
 ### 5.5 Phase Completion Criteria
 
-- [ ] A signed-in user can submit a v2 request from the frontend.
-- [ ] The user can watch progress without refreshing.
-- [ ] The final response includes usable citations.
-- [ ] Expected error states are visible and understandable.
-- [ ] The flow works on desktop and mobile.
+- [ ] 5.5.1 A signed-in user can submit a v2 request from the frontend.
+- [ ] 5.5.2 The user can watch progress without refreshing.
+- [ ] 5.5.3 The final response includes usable citations.
+- [ ] 5.5.4 Expected error states are visible and understandable.
+- [ ] 5.5.5 The flow works on desktop and mobile.
 
 ---
 
@@ -410,52 +396,52 @@ The main inconsistency appears to come from nondeterministic query generation in
 
 ### 6.1 Release Readiness
 
-- [ ] Run backend tests.
-- [ ] Run frontend tests.
-- [ ] Run the eval suite.
-- [ ] Run the same-input repeatability check.
-- [ ] Check logs for noisy warnings.
-- [ ] Check production environment variables.
-- [ ] Check rate limits and provider quotas.
-- [ ] Verify deployment health checks.
+- [ ] 6.1.1 Run backend tests.
+- [ ] 6.1.2 Run frontend tests.
+- [ ] 6.1.3 Run the eval suite.
+- [ ] 6.1.4 Run the same-input repeatability check.
+- [ ] 6.1.5 Check logs for noisy warnings.
+- [ ] 6.1.6 Check production environment variables.
+- [ ] 6.1.7 Check rate limits and provider quotas.
+- [ ] 6.1.8 Verify deployment health checks.
 
 ### 6.2 User Feedback
 
-- [ ] Recruit ten non-friend users.
-- [ ] Give users one clear task to complete.
-- [ ] Record where users hesitate.
-- [ ] Record which results they trust.
-- [ ] Record which results they ignore.
-- [ ] Ask whether the source citations are useful.
-- [ ] Turn feedback into a prioritized fix list.
+- [ ] 6.2.1 Recruit ten non-friend users.
+- [ ] 6.2.2 Give users one clear task to complete.
+- [ ] 6.2.3 Record where users hesitate.
+- [ ] 6.2.4 Record which results they trust.
+- [ ] 6.2.5 Record which results they ignore.
+- [ ] 6.2.6 Ask whether the source citations are useful.
+- [ ] 6.2.7 Turn feedback into a prioritized fix list.
 
 ### 6.3 Public Project Evidence
 
-- [ ] Add a concise v2 explanation to the project README.
-- [ ] Add a dated changelog entry for the v2 rewrite.
-- [ ] Add a short architecture summary.
-- [ ] Add current eval scores.
-- [ ] Add current repeatability result.
-- [ ] Add known limitations.
-- [ ] Add planned next improvements.
+- [ ] 6.3.1 Add a concise v2 explanation to the project README.
+- [ ] 6.3.2 Add a dated changelog entry for the v2 rewrite.
+- [ ] 6.3.3 Add a short architecture summary.
+- [ ] 6.3.4 Add current eval scores.
+- [ ] 6.3.5 Add current repeatability result.
+- [ ] 6.3.6 Add known limitations.
+- [ ] 6.3.7 Add planned next improvements.
 
 ### 6.4 Interview Readiness
 
-- [ ] Memorize the 60-second project pitch.
-- [ ] Practice drawing the architecture in two minutes.
-- [ ] Prepare one tradeoff you made.
-- [ ] Prepare one bug you diagnosed from traces.
-- [ ] Prepare one example where evals caught a regression.
-- [ ] Prepare one example where you rejected an AI suggestion.
-- [ ] Prepare one user feedback story.
+- [ ] 6.4.1 Memorize the 60-second project pitch.
+- [ ] 6.4.2 Practice drawing the architecture in two minutes.
+- [ ] 6.4.3 Prepare one tradeoff you made.
+- [ ] 6.4.4 Prepare one bug you diagnosed from traces.
+- [ ] 6.4.5 Prepare one example where evals caught a regression.
+- [ ] 6.4.6 Prepare one example where you rejected an AI suggestion.
+- [ ] 6.4.7 Prepare one user feedback story.
 
 ### 6.5 Phase Completion Criteria
 
-- [ ] The app is deployed.
-- [ ] At least ten users have tried the v2 flow.
-- [ ] The README explains what changed and why.
-- [ ] Eval and repeatability metrics are documented.
-- [ ] You can explain the architecture without reading the code.
+- [ ] 6.5.1 The app is deployed.
+- [ ] 6.5.2 At least ten users have tried the v2 flow.
+- [ ] 6.5.3 The README explains what changed and why.
+- [ ] 6.5.4 Eval and repeatability metrics are documented.
+- [ ] 6.5.5 You can explain the architecture without reading the code.
 
 ---
 
@@ -556,4 +542,4 @@ Use these checkpoints when asking AI for help. The goal is to review your work w
 
 ---
 
-*Last updated: June 2026*
+*Last updated: July 2026*
