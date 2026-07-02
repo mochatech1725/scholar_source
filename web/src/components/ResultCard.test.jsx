@@ -90,6 +90,7 @@ describe('ResultCard', () => {
   });
 
   it('handles clipboard write failure gracefully', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     navigator.clipboard.writeText = vi.fn().mockRejectedValue(new Error('Clipboard error'));
     render(<ResultCard resource={mockResource} index={0} />);
 
@@ -99,6 +100,8 @@ describe('ResultCard', () => {
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalled();
     });
+
+    consoleErrorSpy.mockRestore();
   });
 
   describe('URL protocol validation (fix #3)', () => {
