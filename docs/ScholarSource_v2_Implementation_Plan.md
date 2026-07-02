@@ -55,13 +55,24 @@ The main inconsistency appears to come from nondeterministic query generation in
 - [x] Add hard rules for when a result is too weak to show confidently.
 - [x] Add a short explanation of the v2 architecture goal.
 
-### [ ] 0.4 Set Up Observability
+### [x] 0.4 Set Up Observability
 
 - [x] 0.4.1 Create tracing accounts or projects needed for LLM and retrieval visibility.
+  - Sign up at [smith.langchain.com](https://smith.langchain.com) (free tier). Generate an API key from **Settings → API Keys**.
+  - Note which **organization/workspace** the key belongs to — it's shown in the top-left selector in the LangSmith UI. Traces only appear in the workspace the key was scoped to.
 - [x] 0.4.2 Add local environment values for tracing.
-- [ ] 0.4.3 Verify that a simple LLM call appears in the tracing dashboard.
-- [ ] 0.4.4 Verify that request timing and token usage are visible.
-- [ ] 0.4.5 Document where to inspect traces during debugging.
+  - Required vars in `.env.local`: `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT` (any project name; LangSmith creates it on first trace if it doesn't exist), `LANGSMITH_ENDPOINT=https://api.smith.langchain.com`.
+  - `OPENAI_API_KEY` must also be set — the env vars above only configure *where traces go*, not what makes the LLM call.
+- [x] 0.4.3 Verify that a simple LLM call appears in the tracing dashboard.
+  - Env vars alone produce no traces. Something has to call an LLM through an instrumented client: either a LangChain wrapper (e.g. `ChatOpenAI` from `langchain-openai`) or the raw OpenAI SDK wrapped in the `langsmith` SDK's `@traceable` decorator.
+  - Added `langchain-openai==1.3.3` and `langsmith==0.9.5` to `pyproject.toml` for this reason — install them (`pip install langchain-openai==1.3.3 langsmith==0.9.5` or `uv sync`) before expecting any trace to appear.
+  - Verified using `scripts/verify_langsmith_trace.py`, a rerunnable script that loads `.env.local` and makes one `ChatOpenAI` call.
+- [x] 0.4.4 Verify that request timing and token usage are visible.
+  - Both appear automatically on the trace detail page — no extra configuration needed once 0.4.3 works.
+- [x] 0.4.5 Document where to inspect traces during debugging.
+  - Traces appear at smith.langchain.com under **Projects → `<LANGSMITH_PROJECT value>`** (e.g. `scholar-source-v2-local`), not on the dashboard home page.
+  - Click into a run to see input/output, latency, and token counts. For multi-step pipeline code (Phase 1+), the same view shows a run tree of nested steps (retrieve → rerank → synthesize), not just a single call.
+  - If a trace doesn't show up: check the org/workspace selector (top-left) — API keys are scoped to one org, and traces silently land wherever the key belongs, which may not be the workspace you're currently viewing.
 
 ### 0.5 Phase Completion Criteria
 
