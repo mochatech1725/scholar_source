@@ -276,10 +276,31 @@ Phase 0 is complete. Current saved evidence contains five completed same-input v
 ### 3.4 Regression Gate
 
 - [ ] 3.4.1 Add a repeatable command to run the eval suite locally.
+  - Scaffold command exists: `uv run --extra dev run-evals`. If `just` is installed, `just evals` runs the same command. It validates `evals/golden_cases.json`; RAG pipeline scoring is not implemented yet.
 - [ ] 3.4.2 Add eval output that is easy to compare over time.
 - [ ] 3.4.3 Add thresholds that fail when quality drops too far.
 - [ ] 3.4.4 Add a lightweight CI path for the golden test set.
 - [ ] 3.4.5 Decide which expensive evals run locally only and which run in CI.
+
+### Eval Harness Scaffold Status
+
+Initial eval scaffold exists at `evals/`:
+
+- `evals/golden_cases.json`
+- `evals/README.md`
+- `evals/run_evals.py`
+- `evals/results/.gitkeep`
+
+Verified scaffold commands:
+
+- `uv run --extra dev run-evals`
+- `just evals`
+- `uv run --extra dev ruff check evals/run_evals.py`
+- `uv run --extra dev ruff format --check evals/run_evals.py`
+
+Project task aliases now live in `justfile`. Use `just --list` to inspect available commands such as `just lint`, `just test`, `just frontend-test`, `just evals`, and `just validate`.
+
+Current status: schema validation works; RAG pipeline scoring is not implemented yet.
 
 ### 3.5 Phase Completion Criteria
 

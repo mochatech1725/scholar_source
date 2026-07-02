@@ -22,6 +22,12 @@ cd web && npm run lint
 cd web && npm run test:run
 ```
 
+## Evals
+
+```bash
+uv run --extra dev run-evals
+```
+
 ## RAG Pipeline Checklist
 
 Before marking any pipeline module complete, verify:

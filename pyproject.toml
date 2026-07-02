@@ -67,10 +67,14 @@ run_crew = "scholar_source.main:run"
 train = "scholar_source.main:train"
 replay = "scholar_source.main:replay"
 test = "scholar_source.main:test"
+run-evals = "evals.run_evals:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/scholar_source", "evals"]
 
 [tool.crewai]
 type = "crew"

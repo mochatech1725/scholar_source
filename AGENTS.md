@@ -168,7 +168,7 @@ cd web && npm run test:run
 Before merging any RAG retrieval, reranking, synthesis, or prompt change, also run the eval suite once it exists:
 
 ```bash
-uv run --extra dev python evals/run_evals.py
+uv run --extra dev run-evals
 ```
 
 If a validation gate is known to fail because of existing unrelated debt, record the failing command, the first failing error, and why it is unrelated to the change. Do not mark new pipeline work complete if it weakens citation traceability, run logging, source quality checks, or weak-evidence handling.

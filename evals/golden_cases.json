@@ -1,0 +1,154 @@
+{
+  "version": 1,
+  "suite": "scholar_source_rag_golden_cases",
+  "description": "Seed golden cases for evaluating ScholarSource RAG retrieval, source quality, citation coverage, and grounded synthesis.",
+  "cases": [
+    {
+      "id": "baseline_engineering_statics_course",
+      "input": {
+        "course_url": "https://www.mccormick.northwestern.edu/civil-environmental/academics/courses/descriptions/GEN_ENG%20205-2.html",
+        "course_name": "",
+        "textbook": "",
+        "topics_list": []
+      },
+      "expected_domains": [
+        "mit.edu",
+        "purdue.edu",
+        "libretexts.org"
+      ],
+      "forbidden_domains": [
+        "chegg.com",
+        "coursehero.com",
+        "studocu.com",
+        "quizlet.com"
+      ],
+      "expected_concepts": [
+        "engineering mechanics",
+        "statics",
+        "free body diagrams",
+        "equilibrium",
+        "moments"
+      ],
+      "notes": "Baseline case used during Phase 0 diagnosis. Good output should prefer accessible university or open educational resources and avoid answer-key style sites."
+    },
+    {
+      "id": "applied_math_vector_calculus_course",
+      "input": {
+        "course_url": "https://www.mccormick.northwestern.edu/applied-math/academics/courses/descriptions/228-2-1.html",
+        "course_name": "",
+        "textbook": "",
+        "topics_list": []
+      },
+      "expected_domains": [
+        "mit.edu",
+        "libretexts.org",
+        "tutorial.math.lamar.edu"
+      ],
+      "forbidden_domains": [
+        "chegg.com",
+        "coursehero.com",
+        "studocu.com"
+      ],
+      "expected_concepts": [
+        "vector calculus",
+        "multiple integrals",
+        "line integrals",
+        "surface integrals",
+        "green's theorem"
+      ],
+      "notes": "Course-based query where good sources should be concept-aligned rather than generic calculus search results."
+    },
+    {
+      "id": "topic_based_organic_chemistry_sn1_sn2",
+      "input": {
+        "course_url": "",
+        "course_name": "Organic Chemistry I",
+        "textbook": "",
+        "topics_list": [
+          "SN1 reactions",
+          "SN2 reactions",
+          "nucleophilic substitution"
+        ]
+      },
+      "expected_domains": [
+        "libretexts.org",
+        "khanacademy.org",
+        "masterorganicchemistry.com"
+      ],
+      "forbidden_domains": [
+        "chegg.com",
+        "coursehero.com",
+        "studocu.com"
+      ],
+      "expected_concepts": [
+        "nucleophile",
+        "leaving group",
+        "stereochemistry",
+        "carbocation",
+        "reaction mechanism"
+      ],
+      "notes": "Topic-based query used to verify the pipeline can work without a course URL or textbook metadata."
+    },
+    {
+      "id": "textbook_based_intro_statistics",
+      "input": {
+        "course_url": "",
+        "course_name": "Introductory Statistics",
+        "textbook": "OpenIntro Statistics",
+        "topics_list": [
+          "confidence intervals",
+          "hypothesis testing",
+          "p-values"
+        ]
+      },
+      "expected_domains": [
+        "openintro.org",
+        "stattrek.com",
+        "khanacademy.org"
+      ],
+      "forbidden_domains": [
+        "chegg.com",
+        "coursehero.com",
+        "studocu.com"
+      ],
+      "expected_concepts": [
+        "sampling distribution",
+        "confidence interval",
+        "null hypothesis",
+        "p-value",
+        "statistical significance"
+      ],
+      "notes": "Textbook-aware query where useful output should align resources with named chapters or concepts instead of broad statistics pages."
+    },
+    {
+      "id": "weak_evidence_guard_answer_key_trap",
+      "input": {
+        "course_url": "",
+        "course_name": "Calculus II",
+        "textbook": "",
+        "topics_list": [
+          "integration by parts practice test",
+          "exam solutions"
+        ]
+      },
+      "expected_domains": [
+        "mit.edu",
+        "libretexts.org",
+        "tutorial.math.lamar.edu"
+      ],
+      "forbidden_domains": [
+        "chegg.com",
+        "coursehero.com",
+        "studocu.com",
+        "slader.com"
+      ],
+      "expected_concepts": [
+        "integration by parts",
+        "u-substitution",
+        "definite integrals",
+        "practice problems"
+      ],
+      "notes": "Low-quality-source trap. Good output should reject answer-key and homework-solution sites and return a weak-evidence warning if credible sources are insufficient."
+    }
+  ]
+}
