@@ -7,14 +7,6 @@ RAG tooling: LangChain for loading, splitting, and retrieval chains; LangGraph f
 Frontend: React 19, Vite, Tailwind CSS 3, TypeScript/TSX.
 Infrastructure: Railway (backend), Cloudflare Pages (frontend), Supabase (db + auth), GitHub Actions (CI/CD).
 
-See `docs/react_tailwind_guidelines.md` for React and Tailwind conventions.
-
-## Naming Conventions
-
-Python: `snake_case` functions and variables, `PascalCase` classes, `UPPER_SNAKE_CASE` constants, `_single_underscore` for non-public names.
-React/TS: `PascalCase` components, `camelCase` functions, `kebab-case` filenames, `useFoo` for custom hooks.
-Database columns: `snake_case`. Boolean fields read as yes/no questions: `is_active`, `has_error`, `can_retry`.
-
 ## Authorship Rules
 
 The human writes the first version of every core pipeline module: chunker, embedder, vector store client, retriever, reranker, and synthesis prompt.
