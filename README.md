@@ -49,6 +49,7 @@ scholar_source/
 ├── docs/                   # Documentation
 │   ├── scholar_source_SDD.md
 │   └── scholar_source_TDD.md
+├── migrations/             # Incremental database migrations
 └── supabase_schema.sql     # Database schema
 ```
 
@@ -164,8 +165,10 @@ ScholarSource implements enterprise-grade security measures:
 
 4. **Set up Supabase database:**
    - Create a new Supabase project at https://supabase.com
-   - Run the SQL schema from `supabase_schema.sql` in the Supabase SQL Editor
-   - This creates the `jobs` and `course_cache` tables
+   - For a fresh database, run the complete schema from `supabase_schema.sql` in the Supabase SQL Editor
+   - For an existing database, apply incremental SQL files from `migrations/`
+   - This creates the current `jobs` table plus the v2 RAG traceability tables for sources, extracted documents, chunks, embeddings, and run logs
+   - Older databases may still contain a legacy `course_cache` table; the current backend does not reference it
 
 ### Frontend Setup
 

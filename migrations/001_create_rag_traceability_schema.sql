@@ -1,57 +1,16 @@
--- ScholarSource Supabase Schema
--- Use this file to create a fresh ScholarSource database from scratch.
+-- ScholarSource v2 RAG Traceability Schema
+-- Incremental migration for an existing database that already has jobs.
 --
--- The RAG tables are intentionally explicit because they define the citation,
--- retrieval, and run-trace contract for ScholarSource v2.
+-- Keep this migration aligned with the RAG portion of supabase_schema.sql so
+-- fresh installs and upgraded installs end up with the same schema.
 --
--- Legacy note: older databases may still contain a course_cache table from the
--- v1 cache design. The current backend does not reference it, so fresh
--- databases do not create it here.
+-- Legacy note: this migration intentionally does not drop, rename, or reuse any
+-- existing course_cache table. v2 source/extraction/chunk/embedding tables are
+-- the new cacheable retrieval substrate.
 
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Existing async job table used by the current application.
-CREATE TABLE IF NOT EXISTS jobs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    status TEXT NOT NULL CHECK (status IN ('pending', 'queued', 'running', 'completed', 'failed', 'cancelled')),
-    inputs JSONB NOT NULL,
-    results JSONB,
-    raw_output TEXT,
-    error TEXT,
-    status_message TEXT,
-    search_title TEXT,
-    metadata JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    completed_at TIMESTAMPTZ
-);
-
-CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
-CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_jobs_user_created_at ON jobs(user_id, created_at DESC);
-
-ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can view own jobs" ON jobs;
-DROP POLICY IF EXISTS "Users can create own jobs" ON jobs;
-DROP POLICY IF EXISTS "Users can update own jobs" ON jobs;
-DROP POLICY IF EXISTS "Users can delete own jobs" ON jobs;
-
-CREATE POLICY "Users can view own jobs" ON jobs
-    FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can create own jobs" ON jobs
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own jobs" ON jobs
-    FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own jobs" ON jobs
-    FOR DELETE USING (auth.uid() = user_id);
-
--- RAG run records. A run is created before the pipeline returns so every
--- generated recommendation can be traced back to queries, evidence, and models.
 CREATE TABLE IF NOT EXISTS rag_runs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id UUID REFERENCES jobs(id) ON DELETE SET NULL,
@@ -88,8 +47,6 @@ CREATE INDEX IF NOT EXISTS idx_rag_runs_user_created_at ON rag_runs(user_id, cre
 CREATE INDEX IF NOT EXISTS idx_rag_runs_status ON rag_runs(status);
 CREATE INDEX IF NOT EXISTS idx_rag_runs_normalized_input_hash ON rag_runs(normalized_input_hash);
 
--- Source inventory. Source records are shared corpus data and should normally
--- be written/read by backend service-role code, not directly by browser clients.
 CREATE TABLE IF NOT EXISTS rag_sources (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     url TEXT NOT NULL,
@@ -109,8 +66,6 @@ CREATE INDEX IF NOT EXISTS idx_rag_sources_normalized_url ON rag_sources(normali
 CREATE INDEX IF NOT EXISTS idx_rag_sources_quality_status ON rag_sources(quality_status);
 CREATE INDEX IF NOT EXISTS idx_rag_sources_source_type ON rag_sources(source_type);
 
--- Rejected candidates are stored per run so weak evidence and source-quality
--- decisions can be audited later.
 CREATE TABLE IF NOT EXISTS rag_source_rejections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     run_id UUID NOT NULL REFERENCES rag_runs(id) ON DELETE CASCADE,
@@ -163,8 +118,6 @@ CREATE INDEX IF NOT EXISTS idx_rag_chunks_document_id ON rag_chunks(extracted_do
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_content_hash ON rag_chunks(content_hash);
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_embedding_model ON rag_chunks(embedding_model);
 
--- Default vector size is 1536 for text-embedding-3-small. If the production
--- embedding model changes dimension, add a migration before writing new rows.
 CREATE TABLE IF NOT EXISTS rag_embeddings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     chunk_id UUID NOT NULL REFERENCES rag_chunks(id) ON DELETE CASCADE,
@@ -279,8 +232,3 @@ CREATE POLICY "Users can create own source rejections" ON rag_source_rejections
               AND rag_runs.user_id = auth.uid()
         )
     );
-
--- No browser-client policies are defined for rag_sources,
--- rag_extracted_documents, rag_chunks, or rag_embeddings. These tables contain
--- shared corpus and retrieval internals and are intended for backend
--- service-role access unless a future reviewed API exposes them.

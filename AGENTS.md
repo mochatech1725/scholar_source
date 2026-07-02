@@ -44,7 +44,12 @@ Expected eval layout:
 - `evals/README.md`: eval purpose, required environment variables, scoring thresholds, and local/CI usage.
 - `evals/results/`: generated eval outputs. Commit only small baseline summaries; do not commit large traces, raw provider outputs, secrets, or private user content.
 
-Database schema and migration files for the RAG pipeline should live under `db/` or `supabase/` if a Supabase migrations directory is introduced. SQL must be reviewed like application code because it defines citation traceability.
+Database schema and migration files for the RAG pipeline live in two places:
+
+- `supabase_schema.sql`: complete fresh-database bootstrap schema.
+- `migrations/`: incremental SQL migrations for existing databases.
+
+SQL must be reviewed like application code because it defines citation traceability.
 
 ## AI Authorship Boundaries
 

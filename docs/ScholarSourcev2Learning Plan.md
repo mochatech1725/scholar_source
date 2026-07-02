@@ -146,7 +146,7 @@ User input (topic \+ textbook)
 
 2. **The embedding function.** Call the OpenAI or Anthropic embeddings API directly first — not through a LangChain abstraction. Understand what an embedding is (a list of floats that represents semantic meaning), what the dimensions are, and how cosine similarity works. Then wrap it in LangChain.
 
-3. **The pgvector schema.** Enable pgvector in Supabase. Write the SQL to create the embeddings table manually. Columns: `id`, `content` (the chunk text), `embedding` (vector), `metadata` (JSON with source URL, title, chunk index). Don't let an ORM generate this for you the first time.
+3. **The pgvector schema.** Enable pgvector in Supabase. Write and understand the SQL manually before hiding it behind an ORM or library. The project schema is tracked in `supabase_schema.sql` for fresh databases and `migrations/` for incremental upgrades. The v2 schema must preserve traceability across `rag_sources`, `rag_source_rejections`, `rag_extracted_documents`, `rag_chunks`, `rag_embeddings`, `rag_runs`, and `rag_run_steps`. At minimum, every embedded chunk must carry source URL, title, chunk index, content hash, embedding model, vector dimensions, and timestamps.
 
 4. **The retrieval query.** Write the SQL cosine similarity query by hand before using LangChain's retriever abstraction. You should be able to explain what `<=>` does in pgvector without looking it up.
 

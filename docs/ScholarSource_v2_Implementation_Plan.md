@@ -134,6 +134,13 @@ Phase 0 is complete. Current saved evidence contains five completed same-input v
 
 ### 1.6 Vector Storage
 
+- Schema contract files:
+  - Fresh database bootstrap: `supabase_schema.sql`
+  - Incremental migration: `migrations/001_create_rag_traceability_schema.sql`
+  - Required v2 tables: `rag_sources`, `rag_source_rejections`, `rag_extracted_documents`, `rag_chunks`, `rag_embeddings`, `rag_runs`, and `rag_run_steps`
+  - Legacy note: older databases may still have `course_cache`; the current backend does not reference it, so the v2 migration leaves it untouched and fresh installs do not recreate it.
+  - Current schema status: SQL contract exists, but it still needs to be applied and verified against Supabase before marking vector storage complete.
+
 - [ ] 1.6.1 Enable vector search in the database.
 - [ ] 1.6.2 Create storage for chunk text, vector values, source metadata, content hashes, and timestamps.
 - [ ] 1.6.3 Add indexes required for retrieval performance.
