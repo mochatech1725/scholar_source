@@ -24,7 +24,7 @@ The plan intentionally avoids implementation code. Each section describes what t
 
 ---
 
-## [ ] Phase 0: Baseline, Diagnosis, and Project Contract
+## [x] Phase 0: Baseline, Diagnosis, and Project Contract
 
 **Goal:** Understand the current system failure modes before replacing them.
 
@@ -575,5 +575,3 @@ Use these checkpoints when asking AI for help. The goal is to review your work w
 - [ ] You can explain and debug every major part of the pipeline.
 
 ---
-
-*Last updated: July 2026*
