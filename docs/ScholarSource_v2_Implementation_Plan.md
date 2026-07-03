@@ -95,6 +95,13 @@ Phase 0 is complete. Current saved evidence contains five completed same-input v
 
 **Primary learning focus:** Chunking, embeddings, vector search, reranking, cited synthesis.
 
+### 1.0 Phase 1 Course Checkpoints
+
+- [ ] 1.0.1 Start [Building and Evaluating Advanced RAG - DeepLearning.AI](https://www.deeplearning.ai/courses/building-evaluating-advanced-rag) before writing the Phase 1 RAG modules.
+- [ ] 1.0.2 Finish the chunking, embeddings, retrieval architecture, and evaluation lessons before implementing `backend/rag/chunking/`, `backend/rag/embeddings/`, and `backend/rag/retrieval/`.
+- [ ] 1.0.3 Start [Retrieval Augmented Generation - DeepLearning.AI](https://www.deeplearning.ai/courses/retrieval-augmented-generation) after the first end-to-end Phase 1 path works once: source extraction, chunking, embedding, vector storage, retrieval, reranking, and cited synthesis.
+- [ ] 1.0.4 Finish the deeper vector search and semantic retrieval lessons before marking Phase 1 complete.
+
 ### 1.1 Define the Pipeline Boundary
 
 - [ ] 1.1.1 Decide the pipeline boundary: the minimum accepted input for v2, the minimum accepted output, which existing frontend behavior stays unchanged, and which current backend flow gets bypassed or replaced during v2 work.
@@ -252,6 +259,11 @@ Phase 0 is complete. Current saved evidence contains five completed same-input v
 
 **Primary learning focus:** Golden datasets, retrieval metrics, answer groundedness, CI gates.
 
+### 3.0 Phase 3 Course Checkpoint
+
+- [ ] 3.0.1 Start [Evaluating AI Agents - DeepLearning.AI](https://www.deeplearning.ai/courses/evaluating-ai-agents) before creating the Phase 3 golden test set and eval metrics.
+- [ ] 3.0.2 Finish the evaluation design lessons before setting final local and CI eval thresholds.
+
 ### 3.1 Golden Test Set
 
 - [ ] 3.1.1 Create twenty representative student queries.
@@ -324,6 +336,11 @@ Current status: schema validation works; RAG pipeline scoring is not implemented
 **Goal:** Add workflow control only after the retrieval pipeline is reliable.
 
 **Primary learning focus:** Graph state, node boundaries, conditional routing, fallbacks.
+
+### 4.0 Phase 4 Course Checkpoint
+
+- [ ] 4.0.1 Start [AI Agents in LangGraph - DeepLearning.AI](https://www.deeplearning.ai/courses/ai-agents-in-langgraph) before designing the Phase 4 graph state or node boundaries.
+- [ ] 4.0.2 Finish the graph construction and state management lessons before implementing LangGraph orchestration in the repo.
 
 ### 4.1 Preconditions
 
