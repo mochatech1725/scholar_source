@@ -6,7 +6,7 @@ Goal: Rebuild ScholarSource as a production-style RAG system. Learn RAG, pgvecto
 
 ## **The Core Rule**
 
-**You design the module. You write the first version. You ask for review or explanation. You refactor after you understand it.**
+You design the module. You write the first version. You ask for review or explanation. You refactor after you understand it.
 
 This isn't just a learning preference — it's what makes the project defensible in interviews. Per the "Build a Personal Project" doc: if you can't debug a module live in five minutes of questioning, it shouldn't be on your resume. Every piece of this system should be something you can whiteboard from memory.
 
@@ -20,14 +20,10 @@ Practice this until it's automatic. You'll need it in every interview.
 
 "ScholarSource v1 used CrewAI agents to find study resources, but I ran into a fundamental problem: the same input produced inconsistent results on every run. I diagnosed this as a retrieval problem, not an agent problem. So I rebuilt it from scratch as a controlled RAG pipeline — user input goes through query generation, semantic retrieval from a pgvector store, reranking by relevance, and a final LLM synthesis step. I added evals so any change to the pipeline has to pass a golden test set before it ships. LangGraph handles the workflow orchestration. The result is a system that returns consistent, traceable, explainable results."
 
----
-
-## 
-
 ## **Tech Stack**
 
 | Layer | Tool | Why |
-| ----- | ----- | ----- |
+| --- | --- | --- |
 | Backend | FastAPI | You already know it. No ramp-up cost. |
 | Database | PostgreSQL \+ pgvector via Supabase | You already use Supabase. pgvector is just an extension — no new infrastructure. |
 | Embeddings | OpenAI `text-embedding-3-small` or Anthropic | Industry standard. Easy to swap later. |
@@ -84,9 +80,9 @@ Practice this until it's automatic. You'll need it in every interview.
 
 Before writing a single line of new code, run v1 five times with the same input and log what's different each time. Ask yourself:
 
-* Is the agent making different tool calls each run?  
-* Are different search queries being generated?  
-* Is the chunking or retrieval varying?  
+* Is the agent making different tool calls each run?
+* Are different search queries being generated?
+* Is the chunking or retrieval varying?
 * Is the LLM just producing different prose from the same retrieved context?
 
 The answer determines where Phase 1 focuses first. If retrieval is already consistent but generation varies, that's a different fix than if retrieval itself is unstable.
@@ -95,9 +91,9 @@ The answer determines where Phase 1 focuses first. If retrieval is already consi
 
 Create `AGENTS.md` in the project root. It should define:
 
-* Stack and conventions  
-* What you write vs. what AI can generate  
-* Hard rules (citation required, no hallucinated URLs, etc.)  
+* Stack and conventions
+* What you write vs. what AI can generate
+* Hard rules (citation required, no hallucinated URLs, etc.)
 * How modules should be structured
 
 This file is your architectural contract with yourself and with any AI tool you use. Treat it as code — version controlled, reviewed before changes.
@@ -110,35 +106,55 @@ Sign up at smith.langchain.com (free tier available). Add the environment variab
 
 Before building, write the positioning statement:
 
-* What ScholarSource v2 is  
-* Who it's for  
-* What problem it solves  
-* What's different from v1  
+* What ScholarSource v2 is
+* Who it's for
+* What problem it solves
+* What's different from v1
 * What's different from generic AI search
+
+Your answer to "generic AI search" should be specific:
+
+> Generic AI search asks the open web a question and lets a model summarize whatever it finds in that moment. ScholarSource v2 is different because it uses a controlled RAG pipeline over vetted educational sources. It stores source URLs, extracted text, chunks, embeddings, retrieval scores, and run logs, then only synthesizes answers from retrieved evidence. The system is not just trying to sound helpful; it must prove where each recommendation came from and pass evals against a golden dataset before changes ship.
+
+The important distinction is control. Generic AI search is optimized for broad discovery and a fast answer. ScholarSource v2 is optimized for repeatable study-resource recommendations that can be inspected, tested, and defended. If the app recommends a source, you should be able to trace that recommendation back to a stored URL, a source title, a chunk ID, a retrieval score, and a specific run.
 
 If you can't articulate this in 60 seconds, the scope isn't sharp enough yet.
 
 ---
 
-## **Phase 1: Non-Agentic RAG Pipeline (2–3 weeks)**
+## **Phase 1: Minimal Non-Agentic RAG Over Curated Sources (2–3 weeks)**
 
 **New skills this phase:** Embeddings, pgvector, LangChain document loaders and splitters, retrieval chains.
 
 **What you're building:** A controlled, deterministic pipeline that takes a topic or textbook as input and returns ranked, cited study resources — no agents, no unpredictability.
 
+### **What this phase means**
+
+**Minimal** means you are building the smallest complete version of the pipeline that proves the architecture works end to end. It does not need every fallback, every UI polish detail, LangGraph orchestration, or a large source corpus yet. It does need the core loop to work: take an input, retrieve relevant chunks from known sources, rerank them, synthesize a cited answer, and log what happened.
+
+**Non-agentic** means the system follows a fixed sequence of steps instead of letting an agent decide what to do next. In v1, an agent could choose different tools, issue different searches, or wander into different reasoning paths on each run. In Phase 1, the flow is explicit: generate queries, collect sources, extract text, chunk, embed, retrieve, rerank, synthesize. The LLM is used inside specific steps, but it does not control the overall workflow.
+
+**RAG** means retrieval-augmented generation. The answer is not produced from the model's memory alone. The app first retrieves evidence from stored source chunks, then gives those chunks to the model as context for synthesis. That separation matters: retrieval decides what evidence is available; synthesis turns that evidence into a useful student-facing recommendation.
+
+**Curated sources** means Phase 1 should start with a small set of approved educational sources instead of the entire open web. For example, you might allow official textbook companion sites, university pages, Khan Academy, OpenStax, CK-12, MIT OCW, or other sources you have explicitly reviewed. This reduces noise while you are learning the mechanics of RAG. Once the pipeline is measurable and stable, you can expand source collection without confusing source-quality problems with retrieval problems.
+
+This version is more deterministic than v1 because the system constrains the parts that used to vary: source eligibility, chunking rules, embedding model, retrieval query, top-k count, reranking criteria, synthesis prompt, temperature settings, and run logging. It may still use LLM calls, so it is not mathematically deterministic in the same way as a pure SQL query, but the workflow is constrained enough that you can compare runs and diagnose exactly where variation enters.
+
 ### **The pipeline flow**
 
-User input (topic \+ textbook)  
-    → Query generation (LLM call, deterministic settings: temp=0)  
-    → Web search / source collection  
-    → Page text extraction (LangChain document loaders)  
-    → Chunking (LangChain text splitters)  
-    → Embedding (OpenAI or Anthropic embeddings API)  
-    → Store in pgvector (Supabase)  
-    → Semantic retrieval (top-k chunks)  
-    → Reranking (score chunks against original query)  
-    → LLM synthesis (produce source list with citations)  
-    → Return to user
+```text
+User input (topic + textbook)
+    -> Query generation (LLM call, deterministic settings: temp=0)
+    -> Web search / source collection
+    -> Page text extraction (LangChain document loaders)
+    -> Chunking (LangChain text splitters)
+    -> Embedding (OpenAI or Anthropic embeddings API)
+    -> Store in pgvector (Supabase)
+    -> Semantic retrieval (top-k chunks)
+    -> Reranking (score chunks against original query)
+    -> LLM synthesis (produce source list with citations)
+    -> Return to user
+```
 
 ### **What to write yourself (in order)**
 
@@ -160,7 +176,7 @@ Set `temperature=0` on every LLM call that should be consistent. Cache page extr
 
 ### **Courses to take alongside Phase 1**
 
-* [Building and Evaluating Advanced RAG — DeepLearning.AI](https://www.deeplearning.ai/courses/building-evaluating-advanced-rag) — Take this in week 1 of this phase. It explains chunking strategies and retrieval architecture clearly.  
+* [Building and Evaluating Advanced RAG — DeepLearning.AI](https://www.deeplearning.ai/courses/building-evaluating-advanced-rag) — Take this in week 1 of this phase. It explains chunking strategies and retrieval architecture clearly.
 * [Retrieval Augmented Generation — DeepLearning.AI](https://www.deeplearning.ai/courses/retrieval-augmented-generation) — Go deeper on vector DBs and semantic search after you've built the first version.
 
 ---
@@ -193,23 +209,82 @@ Set `temperature=0` on every LLM call that should be consistent. Cache page extr
 
 **Write the eval set before you build the eval harness.** This is the Google doc principle: evals are the contract with the AI. They communicate what "correct" means more precisely than any prompt.
 
+### **What evals are**
+
+Evals are tests for behavior that is too fuzzy for normal unit tests. A unit test can check, "does this function return a list?" An eval checks, "did the system retrieve useful sources, avoid bad sources, and write an answer grounded in the retrieved evidence?"
+
+For ScholarSource, evals answer questions like:
+
+* Did the retriever find sources that would actually help a student study this topic?
+* Did it avoid answer-key sites, pirated textbooks, spam, and irrelevant pages?
+* Did the final answer cite only sources that were retrieved and stored?
+* Did the model add unsupported claims, or did it stay grounded in the chunks?
+* Did a code or prompt change make retrieval quality better or worse?
+
+Evals are not a replacement for unit tests. You still need unit tests for URL normalization, chunk metadata, SQL queries, API responses, and logging. Evals sit above those tests and measure whether the full RAG behavior is good.
+
 ### **Build your golden test set first**
 
-Create 20 test cases in a JSON file. Each case has:
+A golden dataset is a hand-written set of examples that defines what "good" means for this product. For Phase 3, create 20 test cases in `evals/golden_cases.json`. Each case should represent a real student query and the quality expectations for that query.
 
-* `input`: a topic \+ textbook combination a real student might enter  
-* `expected_sources`: at least 2-3 URLs or domains you'd expect to see in a good result  
-* `forbidden_sources`: sources that should never appear (paywalled, irrelevant, low quality)  
+Each case has:
+
+* `input`: a topic \+ textbook combination a real student might enter
+* `expected_sources`: at least 2-3 URLs or domains you'd expect to see in a good result
+* `forbidden_sources`: sources that should never appear, such as paywalled sources, irrelevant pages, pirated textbooks, answer-key sites, or low-quality SEO pages
 * `expected_concepts`: key concepts that should appear in the synthesized response
+* `minimum_source_count`: the minimum number of credible sources required before the app can return a normal answer
+* `notes`: why this example exists and what failure it is meant to catch
 
 Do this before writing any eval code. Sit down with the app and think about what good looks like for 20 different real student queries.
 
+Example:
+
+```json
+{
+  "id": "biology-cellular-respiration-01",
+  "input": {
+    "topic": "cellular respiration",
+    "textbook": "OpenStax Biology 2e"
+  },
+  "expected_sources": [
+    "openstax.org",
+    "khanacademy.org",
+    "biologydictionary.net"
+  ],
+  "forbidden_sources": [
+    "quizlet.com",
+    "coursehero.com",
+    "chegg.com"
+  ],
+  "expected_concepts": [
+    "glycolysis",
+    "Krebs cycle",
+    "electron transport chain",
+    "ATP"
+  ],
+  "minimum_source_count": 3,
+  "notes": "Checks whether the system finds study-oriented explanations instead of answer-key or flashcard pages."
+}
+```
+
+The golden dataset is not "the answers." It is the benchmark. When you change chunking, retrieval, reranking, prompts, source filters, or models, you rerun the benchmark and check whether the system still behaves correctly.
+
 ### **Eval metrics to measure (using Ragas)**
 
-* **Context Precision:** Are the retrieved chunks actually relevant to the query?  
-* **Context Recall:** Did the system retrieve all the relevant information that exists?  
-* **Answer Groundedness (Faithfulness):** Is the synthesized response supported by the retrieved chunks, or is it hallucinating?  
+* **Context Precision:** Are the retrieved chunks actually relevant to the query?
+* **Context Recall:** Did the system retrieve all the relevant information that exists?
+* **Answer Groundedness (Faithfulness):** Is the synthesized response supported by the retrieved chunks, or is it hallucinating?
 * **Answer Relevance:** Does the response actually answer what the user asked?
+
+For ScholarSource, prioritize the metrics in this order:
+
+1. **Context Precision** first, because bad retrieved chunks poison everything downstream. If the context is wrong, a polished answer is still wrong.
+2. **Faithfulness** second, because every claim in the answer must be supported by retrieved chunks.
+3. **Source-policy pass rate** third, because a result that cites answer-key sites, pirated books, or spam should fail even if it seems topically relevant.
+4. **Answer Relevance** fourth, because the final response still needs to be useful to the student.
+
+Use LangSmith traces to debug failed evals. Ragas can tell you that a case failed; LangSmith helps you inspect why. Look at the generated queries, candidate URLs, accepted/rejected sources, extracted chunks, retrieval scores, rerank order, and final cited chunks. Then classify the failure: bad source collection, bad extraction, bad chunking, bad embeddings, bad retrieval, bad reranking, or bad synthesis.
 
 ### **Wire evals into GitHub Actions**
 
@@ -233,13 +308,15 @@ LangGraph turns your linear pipeline into a stateful graph where each step is a 
 
 ### **Your graph nodes**
 
-classify\_request  
-    → generate\_search\_queries  
-    → retrieve\_candidates (pgvector semantic search)  
-    → evaluate\_candidates (score each result)  
-    → rerank  
-    → synthesize\_response  
-    → \[fallback if results are weak\]
+```text
+classify_request
+    -> generate_search_queries
+    -> retrieve_candidates (pgvector semantic search)
+    -> evaluate_candidates (score each result)
+    -> rerank
+    -> synthesize_response
+    -> [fallback if results are weak]
+```
 
 The fallback node is important and often skipped. If the retrieval step returns fewer than 3 high-quality chunks, the graph should route to a fallback (broaden the query, try alternative sources, or return a transparent "couldn't find enough quality sources" message) rather than synthesizing a weak response.
 
@@ -261,11 +338,11 @@ Per the "Build a Personal Project" doc: AI gets you to 80% fast, then leaves you
 
 ### **What "past the demo cliff" means for ScholarSource v2**
 
-* Error states: what happens when a URL can't be fetched? When the LLM returns a malformed response? When pgvector returns no results?  
-* Empty states: what does a new user see before they've entered anything?  
-* Loading states: the pipeline takes time — show meaningful progress, not a spinner  
-* Mobile layout: test it on your phone  
-* Rate limiting: prevent abuse of your LLM calls  
+* Error states: what happens when a URL can't be fetched? When the LLM returns a malformed response? When pgvector returns no results?
+* Empty states: what does a new user see before they've entered anything?
+* Loading states: the pipeline takes time — show meaningful progress, not a spinner
+* Mobile layout: test it on your phone
+* Rate limiting: prevent abuse of your LLM calls
 * Auth edge cases: session expiry, invalid tokens
 
 ### **After you ship**
@@ -283,7 +360,7 @@ Start a public changelog on the README. Format: `[date] — what changed and why
 Pick these from day one and be able to cite them in interviews:
 
 | Metric | How to measure | Target |
-| ----- | ----- | ----- |
+| --- | --- | --- |
 | Eval pass rate | Ragas \+ golden test set | \> 80% |
 | Retrieval latency | Log in LangSmith, p50 and p95 | p50 \< 3s |
 | Run consistency | % of same-input runs returning same top-3 chunk IDs | 100% |
@@ -318,7 +395,7 @@ Per the "Build a Personal Project" doc — the conversation is the artifact. Ass
 Take these alongside the phases they map to, not all at once upfront.
 
 | Phase | Course |
-| ----- | ----- |
+| --- | --- |
 | Phase 1 | [Building and Evaluating Advanced RAG — DeepLearning.AI](https://www.deeplearning.ai/courses/building-evaluating-advanced-rag) |
 | Phase 1 (deeper) | [Retrieval Augmented Generation — DeepLearning.AI](https://www.deeplearning.ai/courses/retrieval-augmented-generation) |
 | Phase 3 | [Evaluating AI Agents — DeepLearning.AI](https://www.deeplearning.ai/courses/evaluating-ai-agents) |
@@ -330,15 +407,15 @@ Take these alongside the phases they map to, not all at once upfront.
 ## **Timeline Summary**
 
 | Phase | Duration | Primary New Skill |
-| ----- | ----- | ----- |
+| --- | --- | --- |
 | Phase 0: Diagnose \+ Foundation | 1 week | None — setup and diagnosis |
 | Phase 1: Non-Agentic RAG Pipeline | 2–3 weeks | Embeddings, pgvector, LangChain |
 | Phase 2: Make It Repeatable | 2 weeks | Caching, logging, determinism |
 | Phase 3: Evals | 2 weeks | Ragas, LangSmith, CI evals |
 | Phase 4: LangGraph | 2–3 weeks | Graph orchestration, state management |
 | Phase 5: Ship Past Demo Cliff | 1–2 weeks | Follow-through, real users |
-| **Total** | **10–13 weeks** |  |
+| **Total** | **10–13 weeks** | |
 
 ---
 
-*Last updated: June 2026*
+Last updated: June 2026
