@@ -85,3 +85,4 @@ web/.env.development
 *.dump
 *.sql.backup
 
+eu_regulation_en.pdf

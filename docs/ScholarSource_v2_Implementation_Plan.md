@@ -97,10 +97,13 @@ Phase 0 is complete. Current saved evidence contains five completed same-input v
 
 ### 1.0 Phase 1 Course Checkpoints
 
-- [ ] 1.0.1 Start [Building and Evaluating Advanced RAG - DeepLearning.AI](https://www.deeplearning.ai/courses/building-evaluating-advanced-rag) before writing the Phase 1 RAG modules.
-- [ ] 1.0.2 Finish the chunking, embeddings, retrieval architecture, and evaluation lessons before implementing `backend/rag/chunking/`, `backend/rag/embeddings/`, and `backend/rag/retrieval/`.
-- [ ] 1.0.3 Start [Retrieval Augmented Generation - DeepLearning.AI](https://www.deeplearning.ai/courses/retrieval-augmented-generation) after the first end-to-end Phase 1 path works once: source extraction, chunking, embedding, vector storage, retrieval, reranking, and cited synthesis.
-- [ ] 1.0.4 Finish the deeper vector search and semantic retrieval lessons before marking Phase 1 complete.
+- [ ] 1.0.1 Start *Vector Database and Document Retrieval* (Manning liveProject, Matteus Tanha) before writing the Phase 1 RAG modules. Covers chunking, embeddings, and vector storage using Qdrant.
+- [ ] 1.0.2 Finish the chunking, embedding, and vector storage lessons in *Vector Database and Document Retrieval* before implementing `backend/rag/chunking/`, `backend/rag/embeddings/`, and the vector storage layer in `backend/rag/retrieval/`. Translate Qdrant specific code into the Supabase and pgvector schema already defined in `supabase_schema.sql`.
+- [ ] 1.0.3 Start *Hybrid Search and Retrieval Evaluation* (Manning liveProject, Matteus Tanha) after the first end to end retrieval path works once, meaning source extraction, chunking, embedding, vector storage, and basic semantic retrieval. Covers BM25, reciprocal rank fusion, and retrieval metrics like precision, recall, MRR, and NDCG.
+- [ ] 1.0.4 Finish the hybrid ranking and evaluation lessons before implementing `backend/rag/reranking/`.
+- [ ] 1.0.5 Start *Prompt Engineering for Context-Aware Q&A* (Manning liveProject, Matteus Tanha) before implementing cited synthesis. Covers system prompt design for staying on context, context injection for top ranked chunks, and source attribution.
+- [ ] 1.0.6 Finish the prompt design and source attribution lessons before implementing the cited synthesis logic in section 1.9.
+- [ ] 1.0.7 Hold off on *Building an Agentic RAG System with LangGraph* (Manning liveProject, Matteus Tanha) until Phase 1 is complete. That project covers tool wrapping, self evaluation nodes, and retry and fallback loops, which belong to a later agentic phase, not this one.
 
 ### 1.1 Define the Pipeline Boundary
 
@@ -124,6 +127,8 @@ Phase 0 is complete. Current saved evidence contains five completed same-input v
 
 ### 1.4 Chunking
 
+*Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha)*
+
 - [ ] 1.4.1 Decide the initial chunk size and overlap, and be ready to explain why the overlap value is useful.
 - [ ] 1.4.2 Preserve source metadata on every chunk.
 - [ ] 1.4.3 Preserve chunk order within the source.
@@ -131,6 +136,8 @@ Phase 0 is complete. Current saved evidence contains five completed same-input v
 - [ ] 1.4.5 Verify chunks are neither too tiny to be useful nor too large to retrieve precisely.
 
 ### 1.5 Embeddings
+
+*Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha)*
 
 - [ ] 1.5.1 Generate embeddings for extracted chunks.
 - [ ] 1.5.2 Log the embedding model used.
@@ -140,6 +147,22 @@ Phase 0 is complete. Current saved evidence contains five completed same-input v
 - [ ] 1.5.6 Explain what the embedding vector represents in plain English.
 
 ### 1.6 Vector Storage
+
+*Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha). The course uses Qdrant; translate concepts to the Supabase and pgvector schema below.*
+
+### Qdrant to Postgres and pgvector Translation Reference
+
+| Concept | Qdrant Term / Call | Postgres and pgvector Equivalent |
+|---|---|---|
+| Table of vectors | Collection | Table with a vector column |
+| Stored item | Point (id, vector, payload) | Row (vector column plus ordinary metadata columns) |
+| Create the table | `client.create_collection()`, vector size and distance metric set upfront | `CREATE TABLE` with a `vector(1536)` column, then `CREATE INDEX` for HNSW separately |
+| Insert data | `client.upsert()` | `INSERT INTO` or `UPSERT` statement |
+| Similarity search | `client.search()`, returns scored results | SQL query using `<=>` for cosine distance, ordered and limited to top N |
+| Metadata filtering combined with search | Qdrant's built in filter query objects | Normal `WHERE` clause combined with the vector distance ordering in the same SQL query |
+| Distance metric setting | Set explicitly at collection creation | Determined by which operator you use in the query (`<=>` for cosine, `<->` for Euclidean, etc.) |
+
+**Rule of thumb:** any method call starting with `client.` that creates, inserts, or searches is Qdrant specific and needs a Postgres translation. Anything conceptual the course explains before the code, such as why you chunk a certain way, why you pick a certain vector size, or why cosine distance makes sense, carries over directly with no translation needed.
 
 - Schema contract files:
   - Fresh database bootstrap: `supabase_schema.sql`
@@ -156,14 +179,18 @@ Phase 0 is complete. Current saved evidence contains five completed same-input v
 
 ### 1.7 Semantic Retrieval
 
+*Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha)*
+
 - [ ] 1.7.1 Convert the user query into the same embedding space as stored chunks.
 - [ ] 1.7.2 Retrieve the top matching chunks.
 - [ ] 1.7.3 Return similarity scores with retrieved chunks.
 - [ ] 1.7.4 Preserve enough metadata to cite every retrieved chunk.
 - [ ] 1.7.5 Verify known queries retrieve expected source chunks.
-- [ ] 1.7.6 Verify irrelevant queries do not return confident-looking weak results.
+- [ ] 1.7.6 Verify irrelevant queries do not return confident looking weak results.
 
 ### 1.8 Reranking
+
+*Reference: Hybrid Search and Retrieval Evaluation (Manning liveProject, Matteus Tanha). The course uses BM25 fused with reciprocal rank fusion rather than a cross encoder, but it satisfies the same requirement below.*
 
 - [ ] 1.8.1 Score retrieved chunks against the original user need.
 - [ ] 1.8.2 Separate retrieval similarity from final relevance ranking.
@@ -173,6 +200,8 @@ Phase 0 is complete. Current saved evidence contains five completed same-input v
 - [ ] 1.8.6 Define what score is too weak to include.
 
 ### 1.9 Cited Synthesis
+
+*Reference: Prompt Engineering for Context-Aware Q&A (Manning liveProject, Matteus Tanha)*
 
 - [ ] 1.9.1 Generate a final study guide from only the selected evidence.
 - [ ] 1.9.2 Require every recommendation to include a source citation.
@@ -184,10 +213,11 @@ Phase 0 is complete. Current saved evidence contains five completed same-input v
 ### 1.10 Phase Completion Criteria
 
 - [ ] 1.10.1 One input can complete the full path from query to cited answer.
-- [ ] 1.10.2 The answer is based on stored chunks, not live-only search output.
+- [ ] 1.10.2 The answer is based on stored chunks, not live only search output.
 - [ ] 1.10.3 Every cited recommendation maps back to source metadata.
 - [ ] 1.10.4 You can explain each pipeline step from memory.
 - [ ] 1.10.5 You have at least one manual test case that proves the pipeline works end to end.
+- [ ] 1.10.6 You can articulate the retrieval evaluation metrics from *Hybrid Search and Retrieval Evaluation* (precision, recall, MRR, NDCG, groundedness) for your own pipeline's results, even informally.
 
 ---
 
