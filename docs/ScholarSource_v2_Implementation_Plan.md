@@ -46,7 +46,11 @@ The plan intentionally avoids implementation code. Each section describes what t
 
 ### [x] 0.2 Identify Root Cause Categories
 
-The main inconsistency appears to come from nondeterministic query generation inside the agentic retrieval harness. The search agent can make different planning decisions for the same input, which changes the search queries it sends, the web results it receives, the sources selected for extraction, and the material passed into validation and LLM synthesis. Source extraction and synthesis may amplify the differences, but they are downstream effects rather than the primary cause. Missing run logs make this harder to prove precisely, but the behavior points to search-planning nondeterminism as the root instability source.
+The main inconsistency appears to come from nondeterministic query generation inside the agentic retrieval harness, specifically in the `resource_discovery_agent` during `resource_search_task`. The `course_intelligence_agent` creates the topic frame from the course page, but the saved baseline evidence does not show that course-topic extraction is where same-input runs diverged. The documented divergence begins when the resource discovery step chooses live search queries and decides how many Serper searches to run.
+
+For the same submitted course URL, the resource search step generated different queries such as `Engineering Mechanics Statics practice exam PDF site:edu`, `Engineering Mechanics practice exam site:edu`, `Engineering mechanics statics exam pdf site:edu`, and `Engineering Mechanics Statics exam problems PDF site:edu`. Those search-planning differences changed the web results returned, the candidate resources selected for validation, and the material passed into final formatting and synthesis. Source validation, extraction, and final prose may amplify the differences, but they are downstream effects rather than the primary root cause.
+
+Interview explanation: the inconsistent results were primarily caused by the `resource_discovery_agent`, not the `course_intelligence_agent`. More precisely, the failure mode was nondeterministic agentic retrieval planning: the system delegated search-query generation and source selection to an LLM agent with live search tools, so identical input could produce different retrieval plans and therefore different final resource lists. Missing structured run logs make exact reconstruction harder, but the behavior points to resource search-planning nondeterminism as the root instability source.
 
 ### [x] 0.3 Define the Development Contract
 
