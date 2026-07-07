@@ -99,15 +99,16 @@ Phase 0 is complete. Current saved evidence contains five completed same-input v
 
 **Primary learning focus:** Chunking, embeddings, vector search, reranking, cited synthesis.
 
-### 1.0 Phase 1 Course Checkpoints
+### 1.0 Phase 1 Course Checkpoints, Not Implementation Steps
+
+This subsection tracks when to use the Manning liveProjects while building Phase 1. It is not a separate coding section. Production code work starts in section 1.1 and proceeds through section 1.10. Some course checkpoints happen before coding a module, and some happen after a basic version of earlier modules already works.
 
 - [X] 1.0.1 Start *Vector Database and Document Retrieval* (Manning liveProject, Matteus Tanha) before writing the Phase 1 RAG modules. Covers chunking, embeddings, and vector storage using Qdrant.
-- [ ] 1.0.2 Finish the chunking, embedding, and vector storage lessons in *Vector Database and Document Retrieval* before implementing `backend/rag/chunking/`, `backend/rag/embeddings/`, and the vector storage layer in `backend/rag/retrieval/`. Translate Qdrant specific code into the Supabase and pgvector schema already defined in `supabase_schema.sql`.
-- [ ] 1.0.3 Start *Hybrid Search and Retrieval Evaluation* (Manning liveProject, Matteus Tanha) after the first end to end retrieval path works once, meaning source extraction, chunking, embedding, vector storage, and basic semantic retrieval. Covers BM25, reciprocal rank fusion, and retrieval metrics like precision, recall, MRR, and NDCG.
+- [X] 1.0.2 Finish the chunking, embedding, and vector storage lessons in *Vector Database and Document Retrieval* before implementing `backend/rag/chunking/`, `backend/rag/embeddings/`, and the vector storage layer in `backend/rag/retrieval/`. The course uses Qdrant, so treat its storage code as conceptual guidance; the implementation translation to Supabase and pgvector happens in section 1.6.
+- [ ] 1.0.3 Start *Hybrid Search and Retrieval Evaluation* (Manning liveProject, Matteus Tanha) after sections 1.2 through 1.7 have produced one basic retrieval path: source collection, text extraction, chunking, embedding, vector storage, and semantic retrieval. This checkpoint comes before implementing section 1.8 reranking. Covers BM25, reciprocal rank fusion, and retrieval metrics like precision, recall, MRR, and NDCG.
 - [ ] 1.0.4 Finish the hybrid ranking and evaluation lessons before implementing `backend/rag/reranking/`.
 - [ ] 1.0.5 Start *Prompt Engineering for Context-Aware Q&A* (Manning liveProject, Matteus Tanha) before implementing cited synthesis. Covers system prompt design for staying on context, context injection for top ranked chunks, and source attribution.
 - [ ] 1.0.6 Finish the prompt design and source attribution lessons before implementing the cited synthesis logic in section 1.9.
-- [ ] 1.0.7 Hold off on *Building an Agentic RAG System with LangGraph* (Manning liveProject, Matteus Tanha) until Phase 1 is complete. That project covers tool wrapping, self evaluation nodes, and retry and fallback loops, which belong to a later agentic phase, not this one.
 
 ### 1.1 Define the Pipeline Boundary
 
@@ -375,6 +376,7 @@ Current status: schema validation works; RAG pipeline scoring is not implemented
 
 - [ ] 4.0.1 Start [AI Agents in LangGraph - DeepLearning.AI](https://www.deeplearning.ai/courses/ai-agents-in-langgraph) before designing the Phase 4 graph state or node boundaries.
 - [ ] 4.0.2 Finish the graph construction and state management lessons before implementing LangGraph orchestration in the repo.
+- [ ] 4.0.3 Start *Building an Agentic RAG System with LangGraph* (Manning liveProject, Matteus Tanha) after Phases 1 through 3 are stable and before implementing retry, fallback, or self-evaluation loops. That project covers tool wrapping, self-evaluation nodes, and retry and fallback loops.
 
 ### 4.1 Preconditions
 
