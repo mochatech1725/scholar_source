@@ -86,3 +86,4 @@ web/.env.development
 *.sql.backup
 
 eu_regulation_en.pdf
+supabase/
