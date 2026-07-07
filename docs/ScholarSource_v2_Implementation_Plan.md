@@ -117,6 +117,8 @@ This subsection tracks when to use the Manning liveProjects while building Phase
 
 ### 1.2 Source Collection
 
+*Reference: the source collection design (tiers, curated domains, denylist, metadata contract, and eligibility checklist) is written out in `docs/ScholarSourcev2Learning Plan.md`, Phase 1, "Where the sources come from".*
+
 - [ ] 1.2.1 Decide the source collection design: the first source type to support, what metadata must be saved for every source, and what makes a source eligible versus rejected.
 - [ ] 1.2.2 Add a manual test input with known good source candidates.
 - [ ] 1.2.3 Verify source collection can return stable source records for the same input.
@@ -132,7 +134,7 @@ This subsection tracks when to use the Manning liveProjects while building Phase
 
 ### 1.4 Chunking
 
-*Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha)*
+*Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha).*
 
 - [ ] 1.4.1 Decide the initial chunk size and overlap, and be ready to explain why the overlap value is useful.
 - [ ] 1.4.2 Preserve source metadata on every chunk.
@@ -142,7 +144,7 @@ This subsection tracks when to use the Manning liveProjects while building Phase
 
 ### 1.5 Embeddings
 
-*Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha)*
+*Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha).*
 
 - [ ] 1.5.1 Generate embeddings for extracted chunks.
 - [ ] 1.5.2 Log the embedding model used.
@@ -158,7 +160,7 @@ This subsection tracks when to use the Manning liveProjects while building Phase
 ### Qdrant to Postgres and pgvector Translation Reference
 
 | Concept | Qdrant Term / Call | Postgres and pgvector Equivalent |
-|---|---|---|
+| --- | --- | --- |
 | Table of vectors | Collection | Table with a vector column |
 | Stored item | Point (id, vector, payload) | Row (vector column plus ordinary metadata columns) |
 | Create the table | `client.create_collection()`, vector size and distance metric set upfront | `CREATE TABLE` with a `vector(1536)` column, then `CREATE INDEX` for HNSW separately |
@@ -184,7 +186,7 @@ This subsection tracks when to use the Manning liveProjects while building Phase
 
 ### 1.7 Semantic Retrieval
 
-*Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha)*
+*Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha).*
 
 - [ ] 1.7.1 Convert the user query into the same embedding space as stored chunks.
 - [ ] 1.7.2 Retrieve the top matching chunks.
@@ -206,7 +208,7 @@ This subsection tracks when to use the Manning liveProjects while building Phase
 
 ### 1.9 Cited Synthesis
 
-*Reference: Prompt Engineering for Context-Aware Q&A (Manning liveProject, Matteus Tanha)*
+*Reference: Prompt Engineering for Context-Aware Q&A (Manning liveProject, Matteus Tanha).*
 
 - [ ] 1.9.1 Generate a final study guide from only the selected evidence.
 - [ ] 1.9.2 Require every recommendation to include a source citation.

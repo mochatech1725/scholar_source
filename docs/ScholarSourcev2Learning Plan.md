@@ -156,6 +156,113 @@ User input (topic + textbook)
     -> Return to user
 ```
 
+### **Where the sources come from (implementation plan 1.2.1)**
+
+This is the concrete answer to implementation plan step 1.2.1: the first
+source type to support, the metadata saved for every source, and what makes a
+source eligible versus rejected.
+
+#### **Decision summary**
+
+Phase 1 uses two collectors, added in this order:
+
+1. **Seed catalog (first source type).** A hand-curated JSON file
+   (`backend/rag/sources/catalog.json`) mapping test topics to 3–5 known-good
+   URLs each. This is deliberately boring: zero search variability, so while
+   you are building extraction, chunking, embedding, and retrieval, the input
+   side of the pipeline cannot be the reason two runs differ. It also directly
+   satisfies implementation plan 1.2.2 ("a manual test input with known good
+   source candidates") and 1.2.3 (stable source records for the same input).
+2. **Domain-filtered web search (second source type).** Serper search using
+   the deterministic query templates, with every candidate passed through the
+   source quality policy before it is stored. Turn this on only after the
+   seed-catalog path works end to end, so source-quality problems never get
+   confused with retrieval problems.
+
+#### **Tier 1: curated open-education domains (always eligible)**
+
+These are the domains to seed the catalog from and to prefer in search
+results. All of them are free to access, text-heavy (extractable), and
+appropriate to cite in a study guide.
+
+| Domain | Covers | Format | Licensing / citation note |
+| --- | --- | --- | --- |
+| `openstax.org` | College intro textbooks: biology, physics, chemistry, math, econ, psych | HTML chapters | CC BY 4.0 — safest source to quote and cite |
+| `libretexts.org` | STEM textbooks and course shells across chem, math, bio, physics, stats | HTML | CC licenses vary by page; always link back |
+| `ocw.mit.edu` | Full MIT courses: lecture notes, problem sets, exams | HTML + PDF | CC BY-NC-SA — ideal for practice problems |
+| `khanacademy.org` | K-12 through intro college, articles and exercises | HTML articles | Proprietary but free; cite and link, do not reproduce at length |
+| `ck12.org` | K-12 flexbooks, especially math and science | HTML | CC BY-NC |
+| `tutorial.math.lamar.edu` | Paul's Online Math Notes: algebra through differential equations | HTML | Free for personal study; strong for worked examples |
+| `hyperphysics.phy-astr.gsu.edu` | Physics concept maps and explanations | HTML | Free reference, widely cited in physics courses |
+| `owl.purdue.edu` | Writing, citation styles, grammar | HTML | Free reference for humanities queries |
+| `wikipedia.org` | Background and definitions for any topic | HTML | CC BY-SA — eligible, but background support, not a primary recommendation |
+
+#### **Tier 2: institutional domains (eligible via search)**
+
+Any `.edu`, `.gov`, or `.ac.uk` page found by the search collector is
+accepted by default — university course pages, lecture notes, and department
+study guides are exactly what students want. You do not enumerate these; the
+domain-suffix rule in the source policy handles them.
+
+#### **Tier 3: everything else (accepted only if nothing disqualifies it)**
+
+General web pages from search stay eligible if they pass the safety and
+denylist checks. Expect Phase 3 evals to tighten this tier: when golden cases
+show a junk domain slipping through, it moves to the denylist.
+
+#### **The denylist (never eligible, never cited)**
+
+| Domain | Why rejected |
+| --- | --- |
+| `chegg.com`, `coursehero.com`, `numerade.com`, `bartleby.com` | Paywalled answer mills; encourage answer-copying, not studying |
+| `studocu.com`, `scribd.com`, `slideshare.net` | Scraped/uploaded content of unclear ownership |
+| `quizlet.com` | Flashcard fragments; poor chunks, weak citations |
+| `z-lib`-style mirrors, `libgen` | Pirated textbooks — hard rule from the project contract |
+| `pinterest.com` | Image aggregation; no extractable study text |
+
+#### **Metadata saved for every source**
+
+Every collected source — accepted or rejected — produces a record. Accepted
+sources become `rag_sources` rows; rejected candidates become
+`rag_source_rejections` rows tied to the run. Minimum fields:
+
+* `url` and `normalized_url` (lowercased host, tracking params and fragments
+  stripped — this is the dedupe key)
+* `title` (from search result or page)
+* `source_type` (`seed_catalog` or `web_search`)
+* `quality_status` and `quality_reason` (the policy's decision, in words)
+* `metadata` JSONB: the query that found it, its search rank, and its tier
+* timestamps (`first_seen_at`, `last_checked_at`)
+
+#### **Eligible versus rejected: the checklist**
+
+A candidate is eligible only if all of these hold:
+
+* URL is `https` and passes the existing SSRF safety check
+  (`backend/security_utils.validate_url`)
+* Domain is not on the denylist (exact or subdomain match)
+* Content type is HTML or PDF
+* Extracted text is at least ~200 characters after cleaning (pages that are
+  all navigation or video embeds fail here, at extraction time)
+
+Rejection is recorded with the reason, never silently dropped — that paper
+trail is what makes "why didn't it use source X?" answerable later.
+
+#### **How to verify this step is done (implementation plan 1.2.3)**
+
+Run source collection twice with the same test topic. The two runs must
+produce identical `normalized_url` sets and identical accept/reject
+decisions. Then check `rag_source_rejections` and confirm every rejection has
+a human-readable reason.
+
+#### **Growth path**
+
+The catalog starts with your Phase 1 manual test topics (3–5 URLs each). Each
+time you add a golden case in Phase 3, add or verify catalog entries and
+domain rules for that subject. The catalog is versioned in git, so source
+curation decisions show up in diffs and the changelog like any other code
+change.
+
 ### **What to write yourself (in order)**
 
 1. **The chunking module.** Read the LangChain docs on `RecursiveCharacterTextSplitter`. Write the splitter yourself, choosing chunk size and overlap. Understand why overlap exists and what happens without it.
@@ -418,4 +525,4 @@ Take these alongside the phases they map to, not all at once upfront.
 
 ---
 
-Last updated: June 2026
+Last updated: July 2026
