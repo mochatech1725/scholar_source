@@ -8,20 +8,21 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+const isLocalSupabaseMode = import.meta.env.VITE_IN_LOCAL_SUPABASE_MODE === 'true';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env.local file.');
 }
 
 // Validate key format
-if (!supabaseAnonKey.startsWith('eyJ')) {
+if (!isLocalSupabaseMode && !supabaseAnonKey.startsWith('eyJ')) {
   console.error('❌ Invalid Supabase anon key format! Key must start with "eyJ" (JWT format)');
   console.error('Key starts with:', supabaseAnonKey.substring(0, 10));
   throw new Error('Invalid Supabase anon key format. Please check your VITE_SUPABASE_ANON_KEY in .env.local');
 }
 
 // Validate URL format
-if (!supabaseUrl.startsWith('https://') || !supabaseUrl.includes('.supabase.co')) {
+if (!isLocalSupabaseMode && (!supabaseUrl.startsWith('https://') || !supabaseUrl.includes('.supabase.co'))) {
   console.error('❌ Invalid Supabase URL format!');
   console.error('URL should be: https://xxxxxxxxxxxxx.supabase.co');
   console.error('Actual URL:', supabaseUrl);
@@ -38,6 +39,7 @@ if (import.meta.env.DEV) {
     keySuffix: '...' + supabaseAnonKey?.substring(supabaseAnonKey.length - 10),
     keyStartsWithJWT: supabaseAnonKey?.startsWith('eyJ'),
     keyEndsWithValid: supabaseAnonKey?.length > 100,
+    isLocalSupabaseMode,
   });
 }
 
