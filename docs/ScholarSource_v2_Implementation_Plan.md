@@ -175,6 +175,7 @@ This subsection tracks when to use the Manning liveProjects while building Phase
 
 - [x] 1.1.1 Decide the pipeline boundary: the minimum accepted input for v2, the minimum accepted output, which existing frontend behavior stays unchanged, and which current backend flow gets bypassed or replaced during v2 work.
 - [x] 1.1.2 Write a short pipeline diagram in prose.
+- [x] 1.1.3 Apply the shared foundations from the reference sections: create the `backend/rag/` package skeleton (`__init__.py` in every subpackage) plus `config.py`, `errors.py`, `hashing.py`, and `models.py`, and verify imports and basic behavior with a smoke test.
 
 #### Boundary Decision Record (1.1.1)
 
