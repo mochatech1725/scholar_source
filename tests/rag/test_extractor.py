@@ -190,6 +190,38 @@ def test_same_content_produces_same_hash(monkeypatch: pytest.MonkeyPatch) -> Non
     assert first.extracted_text_hash == second.extracted_text_hash
 
 
+def test_cached_source_returns_same_extracted_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    cached_documents = {}
+    fetch_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal fetch_count
+        fetch_count += 1
+        changed_html = PAGE_HTML.replace("bodies in equilibrium", "changed page content")
+        html = PAGE_HTML if fetch_count == 1 else changed_html
+        return httpx.Response(200, text=html, headers={"content-type": "text/html"})
+
+    extractor = _extractor_with(handler, monkeypatch)
+    source = _source()
+
+    def cached_extract(source: SourceRecord):
+        cached_document = cached_documents.get(source.normalized_url)
+        if cached_document is not None:
+            return cached_document.model_copy(deep=True)
+        document = extractor.extract(source)
+        cached_documents[source.normalized_url] = document
+        return document
+
+    first = cached_extract(source)
+    second = cached_extract(source)
+
+    assert fetch_count == 1
+    assert second.extraction_status is ExtractionStatus.COMPLETED
+    assert second.text == first.text
+    assert second.extracted_text_hash == first.extracted_text_hash
+    assert "changed page content" not in second.text
+
+
 def test_unpersisted_source_raises() -> None:
     with pytest.raises(ExtractionError, match="persisted before extraction"):
         SourceExtractor(SETTINGS).extract(_source(persisted=False))

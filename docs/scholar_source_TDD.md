@@ -1142,6 +1142,11 @@ High Load:
 - **fakeredis** (≥2.19.0) - Mock Redis for rate limiting
 - **faker** (≥20.0.0) - Generate fake test data
 
+**Documentation TODO:** Keep this TDD section current when tests introduce new
+libraries, pytest fixtures, or helper patterns. For example, RAG extraction
+tests use pytest's built-in `monkeypatch`/`pytest.MonkeyPatch` fixture to
+replace `httpx.Client` with a mock transport during source-fetch tests.
+
 **Configuration (`pytest.ini`):**
 
 Configuration includes:
@@ -1255,4 +1260,3 @@ Run via `./scripts/test-all.sh`
 **Document Version:** 1.0  
 **Last Updated:** December 2024  
 **Author:** ScholarSource Development Team
-

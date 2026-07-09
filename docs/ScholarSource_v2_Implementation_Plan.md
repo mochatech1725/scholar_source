@@ -227,28 +227,62 @@ This subsection tracks when to use the Manning liveProjects while building Phase
   so no legal frontend input ever errors. With the flag off, behavior is
   identical to today everywhere.
 
-#### Pipeline Diagram in Prose (1.1.2)
+#### Numbered Pipeline Flow (1.1.2)
 
-A run starts with a topic list and optional course context. Both arrive
-either directly from the form (the topics textarea plus the existing
-course-name and university fields) or from the URL-to-topics adapter,
-which fetches the submitted course page once, cleans the HTML to text,
-and makes one structured LLM call that extracts the topic list and course
-title from the page's syllabus or outline content.
-Source collection renders deterministic search queries per topic, executes
-them through Serper, and filters candidates through the domain quality
-policy into source records. Extraction fetches each surviving source and
-produces clean text from HTML or PDF. Chunking splits that text into
-overlapping paragraph chunks with stable IDs and metadata. Embedding
-converts chunks to vectors with hash-based deduplication, and vector
-storage persists chunks and vectors in Supabase pgvector. Retrieval runs
-semantic and lexical search per topic over the stored chunks. Reranking
-fuses and scores the hits, selects evidence, and applies the weak-evidence
-threshold. Synthesis receives only the selected chunks, referenced by
-chunk ID, and produces a structured cited study guide; titles and URLs are
-joined back from stored chunk metadata. The pipeline ends by completing
-the job with a `results` resource list and `raw_output` markdown in the
-same envelope the frontend already renders.
+```text
+1. User input
+   topic list + optional course context
+   |
+   v
+2. URL-to-topics adapter, when the user submits a course URL
+   fetch page once -> clean HTML -> structured LLM topic extraction
+   |
+   v
+3. Deterministic query generation
+   render stable search queries for each topic
+   |
+   v
+4. Source collection
+   run Serper searches -> deduplicate normalized URLs
+   |
+   v
+5. Source quality policy
+   accept/reject candidates -> persist accepted source records
+   |
+   v
+6. Extraction
+   fetch accepted HTML/PDF sources -> clean text -> hash extracted text
+   |
+   v
+7. Chunking
+   split text into ordered overlapping chunks with source metadata
+   |
+   v
+8. Embedding and vector storage
+   embed missing chunks -> store chunks/vectors in Supabase pgvector
+   |
+   v
+9. Retrieval
+   run semantic + lexical search per topic over stored chunks
+   |
+   v
+10. Reranking and weak-evidence check
+    fuse scores -> rank hits -> select evidence or flag weak evidence
+    |
+    v
+11. Cited synthesis
+    send only selected chunk evidence to synthesis -> draft guide by chunk ID
+    |
+    v
+12. Citation resolution and job completion
+    join titles/URLs from stored metadata -> return `results` + `raw_output`
+```
+
+The frontend-facing envelope stays unchanged: the job still completes with a
+`results` resource list and `raw_output` markdown that the existing UI can
+render. The hard boundary is that synthesis sees selected chunk evidence only;
+source titles, URLs, and citation metadata are joined back from storage after
+generation.
 
 ### Reference: Target Layout for `backend/rag/`
 
@@ -708,6 +742,7 @@ from backend.rag.models import QualityStatus, SourceRecord
 MatchType = Literal["domain", "suffix"]
 PolicyAction = Literal["rejected", "preferred"]
 
+# Drop analytics/referrer params so one real source maps to one normalized URL.
 TRACKING_PARAM_PREFIXES: tuple[str, ...] = ("utm_", "fbclid", "gclid", "ref")
 
 
@@ -1042,7 +1077,7 @@ ON CONFLICT (pattern, match_type) DO NOTHING;
 - [X] 1.3.3 Handle pages with no usable text.
 - [X] 1.3.4 Handle fetch failures without crashing the entire run.
 - [X] 1.3.5 Store or log enough information to debug extraction failures.
-- [ ] 1.3.6 Verify the same source produces the same extracted content when cached.
+- [X] 1.3.6 Verify the same source produces the same extracted content when cached.
 
 ### Reference: Extraction (`backend/rag/extraction/extractor.py`)
 
