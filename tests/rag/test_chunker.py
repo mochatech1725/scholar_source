@@ -2,7 +2,7 @@ from uuid import uuid4
 
 import pytest
 
-from backend.rag.chunking.chunker import CHUNKING_METHOD, chunk_document, chunk_text
+from backend.rag.chunking.chunker import CHUNKING_METHOD, chunk_document, chunk_text, describe_chunks
 from backend.rag.config import RagSettings
 from backend.rag.errors import ChunkingError
 from backend.rag.hashing import sha256_text
@@ -86,3 +86,30 @@ def test_chunk_document_requires_persisted_document_for_traceability() -> None:
 
 def test_chunk_text_returns_no_chunks_for_blank_text() -> None:
     assert chunk_text(" \n\n\t ", settings=RagSettings()) == []
+
+
+def test_describe_chunks_returns_inspection_summary_for_single_source() -> None:
+    settings = RagSettings(chunk_target_chars=360, chunk_overlap_chars=80, chunk_min_chars=120)
+    document = _document()
+    chunks = chunk_document(document, settings=settings)
+
+    description = describe_chunks(chunks, preview_chars=80)
+
+    assert f"{len(chunks)} chunks from {document.title}" in description
+    assert f"source_id={document.source_id} url={document.url}" in description
+    assert "[000]" in description
+    assert "chars" in description
+    assert "equilibrium" in description
+
+
+def test_describe_chunks_returns_empty_message_when_no_chunks_exist() -> None:
+    assert describe_chunks([]) == "No chunks."
+
+
+def test_describe_chunks_rejects_mixed_source_chunks() -> None:
+    settings = RagSettings(chunk_target_chars=360, chunk_overlap_chars=80, chunk_min_chars=120)
+    first_chunk = chunk_document(_document(), settings=settings)[0]
+    second_chunk = chunk_document(_document(), settings=settings)[0]
+
+    with pytest.raises(ChunkingError, match="single source"):
+        describe_chunks([first_chunk, second_chunk])

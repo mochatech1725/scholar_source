@@ -103,7 +103,15 @@ def describe_chunks(chunks: list[ChunkRecord], *, preview_chars: int = 120) -> s
     if not chunks:
         return "No chunks."
 
-    lines = [f"{len(chunks)} chunks from {chunks[0].title}"]
+    source_ids = {chunk.source_id for chunk in chunks}
+    if len(source_ids) > 1:
+        raise ChunkingError("Chunk inspection requires chunks from a single source.")
+
+    first_chunk = chunks[0]
+    lines = [
+        f"{len(chunks)} chunks from {first_chunk.title}",
+        f"source_id={first_chunk.source_id} url={first_chunk.url}",
+    ]
     for chunk in chunks:
         preview = shorten(" ".join(chunk.content.split()), width=preview_chars, placeholder="...")
         lines.append(f"  [{chunk.chunk_index:03d}] {len(chunk.content):>5} chars  {preview}")

@@ -6,6 +6,18 @@ This plan turns the ScholarSource v2 learning plan into an execution checklist. 
 
 ScholarSource v2 replaces the current agent-first resource discovery flow with a controlled retrieval pipeline. The system should collect source content, split it into reusable chunks, embed those chunks, store them in a vector-enabled database, retrieve the most relevant evidence for a student query, rerank the evidence, and synthesize a cited study resource guide. Orchestration is added only after the basic pipeline is stable, tested, observable, and repeatable.
 
+## Working Context
+
+Current v2 implementation work is happening on the `rag-v2` Git branch.
+
+RAG database work should default to the local Supabase CLI development stack
+running in Docker, not the hosted dev or production Supabase projects. The local
+stack provides Supabase HTTP APIs, Postgres, pgvector, Auth, PostgREST, Studio,
+and local API keys while keeping experimental source, chunk, embedding, and run
+log data disposable. Use `docs/supabase_rag_local_setup.md` for exact setup,
+reset, and safety commands. Hosted Supabase commands should be treated as
+explicit deployment or migration work, not routine local RAG iteration.
+
 Each numbered section describes what to build, what to learn, what to
 verify, and what evidence proves the phase is complete. Unnumbered
 reference implementation sections — merged from the former
@@ -1197,7 +1209,7 @@ class SourceExtractor:
 - [x] 1.4.1 Decide the initial chunk size and overlap, and be ready to explain why the overlap value is useful.
 - [x] 1.4.2 Preserve source metadata on every chunk.
 - [x] 1.4.3 Preserve chunk order within the source.
-- [ ] 1.4.4 Add a way to inspect chunks for a single source.
+- [x] 1.4.4 Add a way to inspect chunks for a single source.
 - [ ] 1.4.5 Verify chunks are neither too tiny to be useful nor too large to retrieve precisely.
 
 ### Reference: Chunking (`backend/rag/chunking/chunker.py`)
