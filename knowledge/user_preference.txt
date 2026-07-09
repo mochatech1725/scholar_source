@@ -1,4 +1,6 @@
-User name is John Doe.
-User is an AI Engineer.
-User is interested in AI Agents.
-User is based in San Francisco, California.
+
+For ScholarSource implementation step references, use docs/ScholarSource_v2_Implementation_Plan.md as the plan file.
+When a ScholarSource implementation step is complete, mark it with [x] in docs/ScholarSource_v2_Implementation_Plan.md.
+Do not stage or commit ScholarSource changes; the user prefers to handle git staging and commits.
+ScholarSource local development uses local Supabase so dev/prod schemas remain untouched until code is verified.
+Refactoring is acceptable for ScholarSource work, but notify the user before doing it.
