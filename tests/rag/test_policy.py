@@ -29,6 +29,20 @@ def test_unlisted_domains_still_pass_default_checks() -> None:
     assert decided.quality_status.value == "accepted"
 
 
+def test_policy_uses_url_not_caller_supplied_normalized_url() -> None:
+    source = SourceRecord(
+        url="https://www.chegg.com/homework-help/statics",
+        normalized_url="https://ocw.mit.edu/courses/statics",
+        title="t",
+        source_type="web_search",
+    )
+
+    decided = evaluate_source(source, POLICY)
+
+    assert decided.quality_status.value == "rejected"
+    assert decided.normalized_url == "https://www.chegg.com/homework-help/statics"
+
+
 def test_normalize_url_strips_tracking_and_fragments() -> None:
     url = "https://Example.edu/Notes/?utm_source=x&topic=statics#section-2"
     assert normalize_url(url) == "https://example.edu/Notes?topic=statics"

@@ -82,7 +82,9 @@ def evaluate_source(source: SourceRecord, policy: DomainPolicy) -> SourceRecord:
     if not validate_url(source.url):
         return _decided(source, QualityStatus.REJECTED, "URL failed safety validation.")
 
-    domain = registered_domain(source.normalized_url)
+    normalized_url = normalize_url(source.url)
+    source = source.model_copy(update={"normalized_url": normalized_url})
+    domain = registered_domain(normalized_url)
     rejected = policy.first_match(domain, "rejected")
     if rejected is not None:
         detail = rejected.reason or "on the rejected list"

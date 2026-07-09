@@ -1037,11 +1037,11 @@ ON CONFLICT (pattern, match_type) DO NOTHING;
 
 ### 1.3 Text Extraction
 
-- [ ] 1.3.1 Extract readable text from collected sources.
-- [ ] 1.3.2 Preserve source title, URL, and extraction timestamp.
-- [ ] 1.3.3 Handle pages with no usable text.
-- [ ] 1.3.4 Handle fetch failures without crashing the entire run.
-- [ ] 1.3.5 Store or log enough information to debug extraction failures.
+- [X] 1.3.1 Extract readable text from collected sources.
+- [X] 1.3.2 Preserve source title, URL, and extraction timestamp.
+- [X] 1.3.3 Handle pages with no usable text.
+- [X] 1.3.4 Handle fetch failures without crashing the entire run.
+- [X] 1.3.5 Store or log enough information to debug extraction failures.
 - [ ] 1.3.6 Verify the same source produces the same extracted content when cached.
 
 ### Reference: Extraction (`backend/rag/extraction/extractor.py`)

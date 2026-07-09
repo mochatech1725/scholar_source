@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID
 
@@ -56,6 +56,7 @@ class ExtractedDocument(RagModel):
     extracted_text_hash: str
     extraction_status: ExtractionStatus
     extraction_error: str | None = None
+    extracted_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict = Field(default_factory=dict)
 
 

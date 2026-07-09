@@ -120,6 +120,30 @@ def _read_crew_output(result) -> Tuple[str, str]:
     return raw_output, markdown_content
 
 
+def _clear_previous_crew_output() -> None:
+    """Remove stale CrewAI output so this run cannot parse an old report."""
+    report_path = get_crew_output_path()
+    if not report_path.exists():
+        return
+
+    try:
+        report_path.unlink()
+    except OSError as error:
+        logger.warning(f"Failed to remove stale CrewAI report {report_path}: {error}")
+
+
+def _extract_fatal_crew_error(markdown_content: str) -> Optional[str]:
+    """Return a top-level crew error, not per-resource ERROR markers."""
+    content = markdown_content.lstrip()
+    if content.startswith("```"):
+        content = re.sub(r"\A```(?:markdown)?\s*", "", content, count=1, flags=re.IGNORECASE)
+
+    error_match = re.match(r"ERROR:\s*(.+?)(?:\n|$)", content, flags=re.IGNORECASE)
+    if error_match:
+        return error_match.group(1)
+    return None
+
+
 def _parse_crew_results(
     markdown_content: str,
     normalized_inputs: Dict,
@@ -281,6 +305,7 @@ def run_crew_task(
         crew = crew_instance.crew()
         logger.info(f"🚀 Starting CrewAI execution for job {job_id}")
 
+        _clear_previous_crew_output()
         result = asyncio.run(_run_crew_async(crew, normalized_inputs, job_id))
 
         update_job_status(
@@ -292,10 +317,14 @@ def run_crew_task(
 
         raw_output, markdown_content = _read_crew_output(result)
 
-        # Check if the crew itself returned an error marker
-        if "ERROR:" in markdown_content[:500]:
-            error_match = re.search(r'ERROR:\s*(.+?)(?:\n|$)', markdown_content)
-            error_msg = error_match.group(1) if error_match else "Cannot access provided resources"
+        resources, textbook_info, section_groups = _parse_crew_results(
+            markdown_content, normalized_inputs
+        )
+
+        # Treat only top-level crew errors as fatal. Resource-level errors are
+        # filtered by the markdown parser so valid partial results can complete.
+        error_msg = _extract_fatal_crew_error(markdown_content)
+        if error_msg and not resources:
             update_job_status(
                 job_id,
                 status="failed",
@@ -305,10 +334,6 @@ def run_crew_task(
                 use_service_role=True,
             )
             return {"status": "failed", "error": error_msg, "job_id": job_id}
-
-        resources, textbook_info, section_groups = _parse_crew_results(
-            markdown_content, normalized_inputs
-        )
 
         metadata: Dict = {
             "resource_count": len(resources),
@@ -416,6 +441,8 @@ def run_crew_task_sync(
         crew = crew_instance.crew()
         logger.info(f"🚀 Starting CrewAI execution for job {job_id} (sync mode)")
 
+        _clear_previous_crew_output()
+
         # Handle the case where FastAPI's event loop is already running
         try:
             asyncio.get_running_loop()
@@ -438,10 +465,14 @@ def run_crew_task_sync(
 
         raw_output, markdown_content = _read_crew_output(result)
 
-        # Check if the crew itself returned an error marker
-        if "ERROR:" in markdown_content[:500]:
-            error_match = re.search(r'ERROR:\s*(.+?)(?:\n|$)', markdown_content)
-            error_msg = error_match.group(1) if error_match else "Cannot access provided resources"
+        resources, textbook_info, section_groups = _parse_crew_results(
+            markdown_content, normalized_inputs
+        )
+
+        # Treat only top-level crew errors as fatal. Resource-level errors are
+        # filtered by the markdown parser so valid partial results can complete.
+        error_msg = _extract_fatal_crew_error(markdown_content)
+        if error_msg and not resources:
             update_job_status(
                 job_id,
                 status="failed",
@@ -451,10 +482,6 @@ def run_crew_task_sync(
                 use_service_role=True,
             )
             return {"status": "failed", "error": error_msg, "job_id": job_id}
-
-        resources, textbook_info, section_groups = _parse_crew_results(
-            markdown_content, normalized_inputs
-        )
 
         metadata: Dict = {
             "resource_count": len(resources),
