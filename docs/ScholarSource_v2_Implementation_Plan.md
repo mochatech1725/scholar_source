@@ -1194,7 +1194,7 @@ class SourceExtractor:
 
 *Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha).*
 
-- [ ] 1.4.1 Decide the initial chunk size and overlap, and be ready to explain why the overlap value is useful.
+- [x] 1.4.1 Decide the initial chunk size and overlap, and be ready to explain why the overlap value is useful.
 - [ ] 1.4.2 Preserve source metadata on every chunk.
 - [ ] 1.4.3 Preserve chunk order within the source.
 - [ ] 1.4.4 Add a way to inspect chunks for a single source.
@@ -1211,10 +1211,16 @@ paragraphs and fixed-size overlap. Semantic chunking stays available as a
 Phase 3 experiment once evals can measure whether it actually retrieves
 better.
 
-Your defense for 1.4.1: ~1400 characters targets chunks that hold one complete
-explanation (~350 tokens) while staying precise to retrieve; 200 characters of
-overlap means a definition that straddles a boundary still matches from either
-side.
+Decision for 1.4.1: start with `chunk_target_chars = 1400`,
+`chunk_overlap_chars = 200`, and `chunk_min_chars = 200` in `RagSettings`.
+Your defense: ~1400 characters is roughly 350 tokens, which is large enough to
+hold one complete explanation from a study guide while still being narrow enough
+for precise retrieval. A 200-character overlap keeps boundary-crossing concepts
+retrievable from either neighboring chunk; for example, if a term is introduced
+near the end of one chunk and explained at the start of the next, both chunks
+still carry enough shared context for embeddings and reranking. The overlap is
+deliberately smaller than the chunk target so duplicate context helps recall
+without flooding storage or retrieval with near-identical chunks.
 
 ```python
 """Deterministic paragraph chunking with overlap and metadata preservation."""
