@@ -6,11 +6,12 @@ All protected endpoints must include a valid JWT token in the Authorization head
 """
 
 import os
+
 import jwt
-from jwt import PyJWKClient
-from typing import Dict
-from fastapi import Request, HTTPException, status
+from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPBearer
+from jwt import PyJWKClient
+
 from backend.env_loader import load_environment
 
 # Load environment variables
@@ -50,7 +51,7 @@ class AuthenticationError(HTTPException):
         )
 
 
-def verify_jwt_token(token: str) -> Dict:
+def verify_jwt_token(token: str) -> dict:
     """
     Verify a Supabase JWT token and return the decoded payload.
 
@@ -86,13 +87,13 @@ def verify_jwt_token(token: str) -> Dict:
 
         return payload
     except jwt.ExpiredSignatureError:
-        raise AuthenticationError("Token has expired")
+        raise AuthenticationError("Token has expired") from None
     except jwt.InvalidAudienceError:
-        raise AuthenticationError("Invalid token audience")
+        raise AuthenticationError("Invalid token audience") from None
     except jwt.InvalidTokenError:
-        raise AuthenticationError("Invalid token")
+        raise AuthenticationError("Invalid token") from None
     except Exception as e:
-        raise AuthenticationError(f"Token verification failed: {str(e)}")
+        raise AuthenticationError(f"Token verification failed: {str(e)}") from e
 
 
 def get_user_id_from_token(token: str) -> str:
@@ -119,7 +120,7 @@ def get_user_id_from_token(token: str) -> str:
 
 async def get_current_user(
     request: Request,
-) -> Dict:
+) -> dict:
     """
     FastAPI dependency to extract and verify the current user from the request.
 
