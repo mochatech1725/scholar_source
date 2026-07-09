@@ -69,7 +69,7 @@ asks you to be able to defend (steps 1.4.1, 1.5.6, 1.8.6).
 | Book 4: Building an Agentic RAG System with LangGraph | The graph shape (analyze → retrieve → generate → evaluate with a bounded refinement loop) as the Phase 4 design, retry-with-fallback around LLM calls | Everything, until Phases 1–3 are done. Also note the solution notebook contains a real bug: `time.sleep(30 ** attempt)` sleeps 1s, then 30s, then 900s — use sane exponential backoff |
 | AI Agents and Applications (ch. 6–9) | Concepts only: ingestion/query separation, advanced indexing, query transformations as later experiments | ChromaDB specifics, tutorial corpora |
 
-Two decisions in this translation matter more than everything else:
+Three decisions in this translation matter more than everything else:
 
 - **Embeddings move to OpenAI `text-embedding-3-small` (1536 dims).** The
   books use `all-MiniLM-L6-v2` (384 dims), but your migration already commits
@@ -77,6 +77,14 @@ Two decisions in this translation matter more than everything else:
   OpenAI key and `langchain-openai` (which gives you LangSmith tracing from
   Phase 0 for free), and Railway does not want a 90 MB sentence-transformers
   model in the worker image.
+- **The vector store is Supabase pgvector, not a dedicated vector database
+  (Qdrant, Pinecone, ChromaDB).** The books use Qdrant, but ScholarSource
+  already runs Supabase Postgres for jobs and auth, so pgvector adds vector
+  search without a new service to provision, pay for, secure, and keep in
+  sync with the relational data. Chunks, embeddings, and job records live in
+  one database under one set of RLS policies, and the corpus size (one
+  course's worth of sources per run) is nowhere near the scale where a
+  dedicated vector engine earns its operational cost.
 - **Query generation becomes deterministic templates, not an LLM.** Your
   Phase 0 diagnosis found the v1 instability came from nondeterministic
   search-query planning in the resource discovery agent. The single highest
