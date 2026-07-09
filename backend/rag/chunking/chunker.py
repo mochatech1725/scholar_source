@@ -1,0 +1,108 @@
+"""Deterministic paragraph chunking with traceable source metadata."""
+
+from __future__ import annotations
+
+import re
+from textwrap import shorten
+
+from backend.rag.config import RagSettings
+from backend.rag.errors import ChunkingError
+from backend.rag.hashing import sha256_text
+from backend.rag.models import ChunkRecord, ExtractedDocument
+
+SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
+CHUNKING_METHOD = "paragraph_pack_v1"
+
+
+def split_paragraphs(text: str) -> list[str]:
+    """Split text into non-empty paragraphs."""
+    return [part.strip() for part in text.split("\n\n") if part.strip()]
+
+
+def split_oversized(paragraph: str, target_chars: int) -> list[str]:
+    """Split a paragraph larger than the target at sentence boundaries."""
+    if len(paragraph) <= target_chars:
+        return [paragraph]
+
+    pieces: list[str] = []
+    current = ""
+    for sentence in SENTENCE_BOUNDARY.split(paragraph):
+        if current and len(current) + len(sentence) + 1 > target_chars:
+            pieces.append(current)
+            current = sentence
+        else:
+            current = f"{current} {sentence}".strip()
+    if current:
+        pieces.append(current)
+    return pieces
+
+
+def chunk_text(text: str, *, settings: RagSettings) -> list[str]:
+    """Pack paragraphs into chunks near the target size with overlap."""
+    units: list[str] = []
+    for paragraph in split_paragraphs(text):
+        units.extend(split_oversized(paragraph, settings.chunk_target_chars))
+    if not units:
+        return []
+
+    chunks: list[str] = []
+    current = ""
+    for unit in units:
+        if current and len(current) + len(unit) + 2 > settings.chunk_target_chars:
+            chunks.append(current)
+            overlap = current[-settings.chunk_overlap_chars :]
+            current = f"{overlap}\n\n{unit}"
+        else:
+            current = f"{current}\n\n{unit}".strip()
+    if len(current) >= settings.chunk_min_chars or not chunks:
+        chunks.append(current)
+    else:
+        chunks[-1] = f"{chunks[-1]}\n\n{current}"
+    return chunks
+
+
+def chunk_document(document: ExtractedDocument, *, settings: RagSettings) -> list[ChunkRecord]:
+    """Convert an extracted document into chunk records with source metadata."""
+    if document.document_id is None:
+        raise ChunkingError("Document must be persisted before chunking.")
+    if not document.text:
+        return []
+
+    records: list[ChunkRecord] = []
+    for index, content in enumerate(chunk_text(document.text, settings=settings)):
+        records.append(
+            ChunkRecord(
+                source_id=document.source_id,
+                extracted_document_id=document.document_id,
+                url=document.url,
+                title=document.title,
+                chunk_index=index,
+                content=content,
+                content_hash=sha256_text(content),
+                embedding_model=settings.embedding_model,
+                metadata={
+                    "chunking_method": CHUNKING_METHOD,
+                    "chunk_target_chars": settings.chunk_target_chars,
+                    "chunk_overlap_chars": settings.chunk_overlap_chars,
+                    "length": len(content),
+                    "source_id": str(document.source_id),
+                    "source_url": document.url,
+                    "source_title": document.title,
+                    "extracted_document_id": str(document.document_id),
+                    "extracted_text_hash": document.extracted_text_hash,
+                },
+            )
+        )
+    return records
+
+
+def describe_chunks(chunks: list[ChunkRecord], *, preview_chars: int = 120) -> str:
+    """Return a human-readable chunk summary for one source."""
+    if not chunks:
+        return "No chunks."
+
+    lines = [f"{len(chunks)} chunks from {chunks[0].title}"]
+    for chunk in chunks:
+        preview = shorten(" ".join(chunk.content.split()), width=preview_chars, placeholder="...")
+        lines.append(f"  [{chunk.chunk_index:03d}] {len(chunk.content):>5} chars  {preview}")
+    return "\n".join(lines)
