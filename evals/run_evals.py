@@ -21,7 +21,6 @@ REQUIRED_CASE_FIELDS = (
     "id",
     "input",
     "expected_domains",
-    "forbidden_domains",
     "expected_concepts",
     "notes",
 )
@@ -29,11 +28,18 @@ REQUIRED_CASE_FIELDS = (
 
 @dataclass(frozen=True)
 class EvalSuite:
-    """Validated golden-case suite metadata."""
+    """Validated golden-case suite metadata.
+
+    Forbidden domains are split in the file: 'shared_forbidden_domains' at the
+    suite root applies to every case, and a case may extend (never replace) it
+    via optional 'additional_forbidden_domains'. Validation merges both into
+    each case's 'forbidden_domains', so scoring code only sees the full list.
+    """
 
     version: int
     suite: str
     description: str
+    shared_forbidden_domains: list[str]
     cases: list[dict[str, Any]]
 
 
@@ -63,18 +69,19 @@ def _require_string(value: Any, field_name: str, case_id: str | None = None) -> 
     return value
 
 
-def _require_string_list(value: Any, field_name: str, case_id: str) -> list[str]:
+def _require_string_list(value: Any, field_name: str, case_id: str | None = None) -> list[str]:
+    target = f"case {case_id!r}" if case_id else "suite"
     if not isinstance(value, list) or not value:
-        raise GoldenCaseError(f"case {case_id!r} field {field_name!r} must be a non-empty list.")
+        raise GoldenCaseError(f"{target} field {field_name!r} must be a non-empty list.")
 
     invalid_values = [item for item in value if not isinstance(item, str) or not item.strip()]
     if invalid_values:
-        raise GoldenCaseError(f"case {case_id!r} field {field_name!r} contains non-string or empty values.")
+        raise GoldenCaseError(f"{target} field {field_name!r} contains non-string or empty values.")
 
     return value
 
 
-def _validate_case(raw_case: Any, seen_ids: set[str]) -> dict[str, Any]:
+def _validate_case(raw_case: Any, seen_ids: set[str], shared_forbidden_domains: list[str]) -> dict[str, Any]:
     if not isinstance(raw_case, dict):
         raise GoldenCaseError("Each eval case must be a JSON object.")
 
@@ -90,11 +97,26 @@ def _validate_case(raw_case: Any, seen_ids: set[str]) -> dict[str, Any]:
     if not isinstance(raw_case["input"], dict) or not raw_case["input"]:
         raise GoldenCaseError(f"case {case_id!r} field 'input' must be a non-empty object.")
 
+    if "forbidden_domains" in raw_case:
+        raise GoldenCaseError(
+            f"case {case_id!r} defines 'forbidden_domains'; universal domains belong in "
+            "suite-level 'shared_forbidden_domains', case extras in 'additional_forbidden_domains'."
+        )
+
+    additional = raw_case.get("additional_forbidden_domains")
+    if additional is not None:
+        _require_string_list(additional, "additional_forbidden_domains", case_id)
+        overlap = sorted(set(additional) & set(shared_forbidden_domains))
+        if overlap:
+            raise GoldenCaseError(f"case {case_id!r} repeats shared forbidden domains: {', '.join(overlap)}")
+    else:
+        additional = []
+
     _require_string_list(raw_case["expected_domains"], "expected_domains", case_id)
-    _require_string_list(raw_case["forbidden_domains"], "forbidden_domains", case_id)
     _require_string_list(raw_case["expected_concepts"], "expected_concepts", case_id)
     _require_string(raw_case["notes"], "notes", case_id)
 
+    raw_case["forbidden_domains"] = [*shared_forbidden_domains, *additional]
     return raw_case
 
 
@@ -110,17 +132,20 @@ def load_suite(path: Path = GOLDEN_CASES_PATH) -> EvalSuite:
     suite = _require_string(data.get("suite"), "suite")
     description = _require_string(data.get("description"), "description")
 
+    shared_forbidden_domains = _require_string_list(data.get("shared_forbidden_domains"), "shared_forbidden_domains")
+
     raw_cases = data.get("cases")
     if not isinstance(raw_cases, list) or not raw_cases:
         raise GoldenCaseError("suite field 'cases' must be a non-empty list.")
 
     seen_ids: set[str] = set()
-    cases = [_validate_case(raw_case, seen_ids) for raw_case in raw_cases]
+    cases = [_validate_case(raw_case, seen_ids, shared_forbidden_domains) for raw_case in raw_cases]
 
     return EvalSuite(
         version=version,
         suite=suite,
         description=description,
+        shared_forbidden_domains=shared_forbidden_domains,
         cases=cases,
     )
 

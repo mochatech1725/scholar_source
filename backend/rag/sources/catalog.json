@@ -1,0 +1,40 @@
+{
+  "engineering mechanics statics": [
+    {
+      "url": "https://ocw.mit.edu/courses/2-01-elements-of-structures-fall-2006/",
+      "title": "MIT OCW 2.01 Elements of Structures"
+    },
+    {
+      "url": "https://eng.libretexts.org/Bookshelves/Mechanical_Engineering/Engineering_Statics_(Baker_and_Haynes)",
+      "title": "Engineering Statics (LibreTexts)"
+    },
+    {
+      "url": "https://openstax.org/books/college-physics-2e/pages/9-introduction-to-statics-and-torque",
+      "title": "OpenStax College Physics: Statics and Torque"
+    }
+  ],
+  "the french revolution": [
+    {
+      "url": "https://sourcebooks.fordham.edu/mod/modsbook13.asp",
+      "title": "Internet Modern History Sourcebook: The French Revolution"
+    },
+    {
+      "url": "https://www.khanacademy.org/humanities/world-history/1750-1900/french-revolution-tutorial",
+      "title": "Khan Academy: The French Revolution"
+    },
+    {
+      "url": "https://en.wikipedia.org/wiki/French_Revolution",
+      "title": "Wikipedia: French Revolution"
+    }
+  ],
+  "cellular respiration": [
+    {
+      "url": "https://openstax.org/books/biology-2e/pages/7-introduction",
+      "title": "OpenStax Biology 2e: Cellular Respiration"
+    },
+    {
+      "url": "https://www.khanacademy.org/science/ap-biology/cellular-energetics/cellular-respiration-ap/a/intro-to-cellular-respiration-and-redox",
+      "title": "Khan Academy: Intro to Cellular Respiration"
+    }
+  ]
+}

@@ -623,9 +623,11 @@ class PipelineResult(RagModel):
 
 *Reference: the source collection design (tiers, curated domains, denylist, metadata contract, and eligibility checklist) is written out in `docs/ScholarSourcev2Learning Plan.md`, Phase 1, "Where the sources come from".*
 
-- [ ] 1.2.1 Decide the source collection design: the first source type to support, what metadata must be saved for every source, and what makes a source eligible versus rejected.
-- [ ] 1.2.2 Add a manual test input with known good source candidates.
-- [ ] 1.2.3 Verify source collection can return stable source records for the same input.
+- [x] 1.2.1 Decide the source collection design: the first source type to support, what metadata must be saved for every source, and what makes a source eligible versus rejected.
+- [x] 1.2.2 Add a manual test input with known good source candidates.
+- [x] 1.2.3 Verify source collection can return stable source records for the same input.
+- [x] 1.2.4 Broaden subject coverage beyond STEM: humanities golden eval cases (French Revolution, Hamlet) and a prose-heavy catalog topic, so retrieval and chunking are never tuned on STEM content alone.
+- [x] 1.2.5 Deduplicate universal forbidden domains in the golden-case suite: suite-level `shared_forbidden_domains` merged with additive per-case `additional_forbidden_domains` (golden cases contract v2).
 
 ### Reference: Sources — Deterministic Queries, Collection, Quality Policy
 

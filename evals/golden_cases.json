@@ -1,7 +1,12 @@
 {
-  "version": 1,
+  "version": 2,
   "suite": "scholar_source_rag_golden_cases",
-  "description": "Seed golden cases for evaluating ScholarSource RAG retrieval, source quality, citation coverage, and grounded synthesis.",
+  "description": "Seed golden cases for evaluating ScholarSource RAG retrieval, source quality, citation coverage, and grounded synthesis. Universal forbidden domains live in shared_forbidden_domains and apply to every case; a case may extend (never replace) them via additional_forbidden_domains.",
+  "shared_forbidden_domains": [
+    "chegg.com",
+    "coursehero.com",
+    "studocu.com"
+  ],
   "cases": [
     {
       "id": "baseline_engineering_statics_course",
@@ -16,10 +21,7 @@
         "purdue.edu",
         "libretexts.org"
       ],
-      "forbidden_domains": [
-        "chegg.com",
-        "coursehero.com",
-        "studocu.com",
+      "additional_forbidden_domains": [
         "quizlet.com"
       ],
       "expected_concepts": [
@@ -43,11 +45,6 @@
         "mit.edu",
         "libretexts.org",
         "tutorial.math.lamar.edu"
-      ],
-      "forbidden_domains": [
-        "chegg.com",
-        "coursehero.com",
-        "studocu.com"
       ],
       "expected_concepts": [
         "vector calculus",
@@ -75,11 +72,6 @@
         "khanacademy.org",
         "masterorganicchemistry.com"
       ],
-      "forbidden_domains": [
-        "chegg.com",
-        "coursehero.com",
-        "studocu.com"
-      ],
       "expected_concepts": [
         "nucleophile",
         "leaving group",
@@ -106,11 +98,6 @@
         "stattrek.com",
         "khanacademy.org"
       ],
-      "forbidden_domains": [
-        "chegg.com",
-        "coursehero.com",
-        "studocu.com"
-      ],
       "expected_concepts": [
         "sampling distribution",
         "confidence interval",
@@ -136,10 +123,7 @@
         "libretexts.org",
         "tutorial.math.lamar.edu"
       ],
-      "forbidden_domains": [
-        "chegg.com",
-        "coursehero.com",
-        "studocu.com",
+      "additional_forbidden_domains": [
         "slader.com"
       ],
       "expected_concepts": [
@@ -149,6 +133,66 @@
         "practice problems"
       ],
       "notes": "Low-quality-source trap. Good output should reject answer-key and homework-solution sites and return a weak-evidence warning if credible sources are insufficient."
+    },
+    {
+      "id": "topic_based_history_french_revolution",
+      "input": {
+        "course_url": "",
+        "course_name": "Modern European History",
+        "textbook": "",
+        "topics_list": [
+          "the French Revolution",
+          "causes of the French Revolution",
+          "the Reign of Terror"
+        ]
+      },
+      "expected_domains": [
+        "fordham.edu",
+        "khanacademy.org",
+        "wikipedia.org"
+      ],
+      "additional_forbidden_domains": [
+        "quizlet.com"
+      ],
+      "expected_concepts": [
+        "estates general",
+        "storming of the bastille",
+        "declaration of the rights of man",
+        "reign of terror",
+        "napoleon"
+      ],
+      "notes": "Humanities coverage case. Sources are long-form prose and primary documents rather than problem sets; verifies retrieval and chunking are not tuned only for STEM content."
+    },
+    {
+      "id": "textbook_based_literature_hamlet",
+      "input": {
+        "course_url": "",
+        "course_name": "Introduction to Shakespeare",
+        "textbook": "The Norton Shakespeare",
+        "topics_list": [
+          "Hamlet",
+          "close reading",
+          "soliloquy analysis"
+        ]
+      },
+      "expected_domains": [
+        "folger.edu",
+        "gutenberg.org",
+        "poetryfoundation.org"
+      ],
+      "additional_forbidden_domains": [
+        "sparknotes.com",
+        "gradesaver.com",
+        "enotes.com"
+      ],
+      "expected_concepts": [
+        "soliloquy",
+        "tragedy",
+        "revenge",
+        "elizabethan theater",
+        "iambic pentameter"
+      ],
+      "notes": "Literature coverage case and humanities answer-mill trap. Good output should favor primary texts and scholarly resources over plot-summary and essay-mill sites."
     }
   ]
 }
