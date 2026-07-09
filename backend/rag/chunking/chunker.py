@@ -82,6 +82,8 @@ def chunk_document(document: ExtractedDocument, *, settings: RagSettings) -> lis
                 embedding_model=settings.embedding_model,
                 metadata={
                     "chunking_method": CHUNKING_METHOD,
+                    "chunk_index": index,
+                    "source_order": index,
                     "chunk_target_chars": settings.chunk_target_chars,
                     "chunk_overlap_chars": settings.chunk_overlap_chars,
                     "length": len(content),

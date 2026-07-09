@@ -43,6 +43,8 @@ def test_chunk_document_preserves_source_metadata_on_every_chunk() -> None:
         assert chunk.url == document.url
         assert chunk.title == document.title
         assert chunk.chunk_index == index
+        assert chunk.metadata["chunk_index"] == index
+        assert chunk.metadata["source_order"] == index
         assert chunk.content_hash == sha256_text(chunk.content)
         assert chunk.embedding_model == settings.embedding_model
         assert chunk.metadata["chunking_method"] == CHUNKING_METHOD
@@ -51,6 +53,30 @@ def test_chunk_document_preserves_source_metadata_on_every_chunk() -> None:
         assert chunk.metadata["source_title"] == document.title
         assert chunk.metadata["extracted_document_id"] == str(document.document_id)
         assert chunk.metadata["extracted_text_hash"] == document.extracted_text_hash
+
+
+def test_chunk_document_preserves_chunk_order_within_source() -> None:
+    settings = RagSettings(chunk_target_chars=150, chunk_overlap_chars=25, chunk_min_chars=40)
+    markers = ["ORDER_MARKER_000", "ORDER_MARKER_001", "ORDER_MARKER_002"]
+    text = "\n\n".join(
+        f"{marker} introduces a distinct source section for ordering checks. The section ends with stable filler text."
+        for marker in markers
+    )
+    document = ExtractedDocument(
+        document_id=uuid4(),
+        source_id=uuid4(),
+        url="https://ocw.mit.edu/ordered-notes",
+        title="Ordered Notes",
+        text=text,
+        extracted_text_hash=sha256_text(text),
+        extraction_status=ExtractionStatus.COMPLETED,
+    )
+
+    chunks = chunk_document(document, settings=settings)
+
+    assert [chunk.chunk_index for chunk in chunks] == list(range(len(chunks)))
+    assert [chunk.metadata["source_order"] for chunk in chunks] == list(range(len(chunks)))
+    assert [marker for chunk in chunks for marker in markers if marker in chunk.content] == markers
 
 
 def test_chunk_document_requires_persisted_document_for_traceability() -> None:

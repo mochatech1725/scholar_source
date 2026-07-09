@@ -1196,7 +1196,7 @@ class SourceExtractor:
 
 - [x] 1.4.1 Decide the initial chunk size and overlap, and be ready to explain why the overlap value is useful.
 - [x] 1.4.2 Preserve source metadata on every chunk.
-- [ ] 1.4.3 Preserve chunk order within the source.
+- [x] 1.4.3 Preserve chunk order within the source.
 - [ ] 1.4.4 Add a way to inspect chunks for a single source.
 - [ ] 1.4.5 Verify chunks are neither too tiny to be useful nor too large to retrieve precisely.
 
