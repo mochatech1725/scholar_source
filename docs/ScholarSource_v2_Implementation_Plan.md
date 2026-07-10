@@ -1210,7 +1210,7 @@ class SourceExtractor:
 - [x] 1.4.2 Preserve source metadata on every chunk.
 - [x] 1.4.3 Preserve chunk order within the source.
 - [x] 1.4.4 Add a way to inspect chunks for a single source.
-- [ ] 1.4.5 Verify chunks are neither too tiny to be useful nor too large to retrieve precisely.
+- [x] 1.4.5 Verify chunks are neither too tiny to be useful nor too large to retrieve precisely.
 
 ### Reference: Chunking (`backend/rag/chunking/chunker.py`)
 
@@ -1233,6 +1233,15 @@ near the end of one chunk and explained at the start of the next, both chunks
 still carry enough shared context for embeddings and reranking. The overlap is
 deliberately smaller than the chunk target so duplicate context helps recall
 without flooding storage or retrieval with near-identical chunks.
+
+Verification for 1.4.5: `tests/rag/test_chunker.py` asserts that
+representative multi-paragraph sources produce several chunks, every normal
+chunk meets `chunk_min_chars`, and no chunk exceeds
+`chunk_target_chars + chunk_overlap_chars + 2`. The `+ 2` accounts for the
+paragraph separator added when overlap is carried into the next chunk. A
+separate test covers an oversized sentence with no punctuation so extracted
+text without clean sentence boundaries still stays within the retrieval-size
+band.
 
 ```python
 """Deterministic paragraph chunking with overlap and metadata preservation."""

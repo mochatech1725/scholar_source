@@ -88,6 +88,33 @@ def test_chunk_text_returns_no_chunks_for_blank_text() -> None:
     assert chunk_text(" \n\n\t ", settings=RagSettings()) == []
 
 
+def test_chunk_text_produces_useful_and_precise_sizes_for_representative_source() -> None:
+    settings = RagSettings(chunk_target_chars=360, chunk_overlap_chars=80, chunk_min_chars=120)
+    text = "\n\n".join(_paragraph(f"Section {index}") for index in range(8))
+
+    chunks = chunk_text(text, settings=settings)
+    lengths = [len(chunk) for chunk in chunks]
+
+    assert len(chunks) > 3
+    assert all(length >= settings.chunk_min_chars for length in lengths)
+    assert all(length <= settings.chunk_target_chars + settings.chunk_overlap_chars + 2 for length in lengths)
+    assert max(lengths) - min(lengths) < settings.chunk_target_chars
+
+
+def test_chunk_text_splits_oversized_sentence_to_keep_chunks_precise() -> None:
+    settings = RagSettings(chunk_target_chars=120, chunk_overlap_chars=20, chunk_min_chars=40)
+    oversized_sentence = " ".join(f"concept{index:03d}" for index in range(45))
+    intro = "Introductory context with enough detail to stand alone."
+    text = f"{intro}\n\n{oversized_sentence}\n\nClosing context with an example."
+
+    chunks = chunk_text(text, settings=settings)
+    lengths = [len(chunk) for chunk in chunks]
+
+    assert len(chunks) > 1
+    assert all(length <= settings.chunk_target_chars + settings.chunk_overlap_chars + 2 for length in lengths)
+    assert all(length >= settings.chunk_min_chars for length in lengths)
+
+
 def test_describe_chunks_returns_inspection_summary_for_single_source() -> None:
     settings = RagSettings(chunk_target_chars=360, chunk_overlap_chars=80, chunk_min_chars=120)
     document = _document()

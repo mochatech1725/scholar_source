@@ -27,11 +27,38 @@ def split_oversized(paragraph: str, target_chars: int) -> list[str]:
     pieces: list[str] = []
     current = ""
     for sentence in SENTENCE_BOUNDARY.split(paragraph):
+        if len(sentence) > target_chars:
+            if current:
+                pieces.append(current)
+                current = ""
+            pieces.extend(_split_long_sentence(sentence, target_chars))
+            continue
         if current and len(current) + len(sentence) + 1 > target_chars:
             pieces.append(current)
             current = sentence
         else:
             current = f"{current} {sentence}".strip()
+    if current:
+        pieces.append(current)
+    return pieces
+
+
+def _split_long_sentence(sentence: str, target_chars: int) -> list[str]:
+    """Split sentence text that has no usable punctuation boundary."""
+    pieces: list[str] = []
+    current = ""
+    for word in sentence.split():
+        if len(word) > target_chars:
+            if current:
+                pieces.append(current)
+                current = ""
+            pieces.extend(word[start : start + target_chars] for start in range(0, len(word), target_chars))
+            continue
+        if current and len(current) + len(word) + 1 > target_chars:
+            pieces.append(current)
+            current = word
+        else:
+            current = f"{current} {word}".strip()
     if current:
         pieces.append(current)
     return pieces
@@ -47,8 +74,14 @@ def chunk_text(text: str, *, settings: RagSettings) -> list[str]:
 
     chunks: list[str] = []
     current = ""
+    max_chunk_chars = settings.chunk_target_chars + settings.chunk_overlap_chars + 2
     for unit in units:
-        if current and len(current) + len(unit) + 2 > settings.chunk_target_chars:
+        combined_length = len(current) + len(unit) + 2
+        if (
+            current
+            and combined_length > settings.chunk_target_chars
+            and (len(current) >= settings.chunk_min_chars or combined_length > max_chunk_chars)
+        ):
             chunks.append(current)
             overlap = current[-settings.chunk_overlap_chars :]
             current = f"{overlap}\n\n{unit}"
