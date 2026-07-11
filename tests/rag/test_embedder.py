@@ -19,6 +19,16 @@ class FakeEmbeddings:
         return self.vectors
 
 
+class FakeExistingIndex:
+    def __init__(self, existing_hashes: set[str] | None = None) -> None:
+        self.existing_hashes = existing_hashes or set()
+        self.calls: list[tuple[list[str], str]] = []
+
+    def existing_embedding_hashes(self, content_hashes: list[str], embedding_model: str) -> set[str]:
+        self.calls.append((content_hashes, embedding_model))
+        return self.existing_hashes.intersection(content_hashes)
+
+
 def _chunk(content: str, *, persisted: bool = True) -> ChunkRecord:
     return ChunkRecord(
         chunk_id=uuid4() if persisted else None,
@@ -52,6 +62,64 @@ def test_embed_chunks_generates_embedding_records_for_persisted_chunks() -> None
     assert [record.embedding for record in records] == provider.vectors
 
 
+def test_embed_chunks_deduplicates_identical_content_in_batch() -> None:
+    settings = RagSettings(
+        embedding_model="text-embedding-3-small-test-version",
+        embedding_dimensions=3,
+    )
+    duplicate_a = _chunk("same explanation about eigenvectors")
+    duplicate_b = _chunk("  SAME   explanation ABOUT eigenvectors  ")
+    unique = _chunk("different explanation about determinants")
+    provider = FakeEmbeddings([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
+
+    records = ChunkEmbedder(settings=settings, embeddings=provider).embed_chunks([duplicate_a, duplicate_b, unique])
+
+    assert provider.texts == [duplicate_a.content, unique.content]
+    assert [record.chunk_id for record in records] == [duplicate_a.chunk_id, unique.chunk_id]
+    assert [record.content_hash for record in records] == [duplicate_a.content_hash, unique.content_hash]
+
+
+def test_embed_chunks_skips_hashes_embedded_by_previous_run() -> None:
+    settings = RagSettings(
+        embedding_model="text-embedding-3-small-test-version",
+        embedding_dimensions=3,
+    )
+    unchanged = _chunk("unchanged content from an earlier run")
+    new = _chunk("new content from this run")
+    provider = FakeEmbeddings([[0.4, 0.5, 0.6]])
+    existing_index = FakeExistingIndex({unchanged.content_hash})
+
+    records = ChunkEmbedder(
+        settings=settings,
+        embeddings=provider,
+        existing_index=existing_index,
+    ).embed_chunks([unchanged, new])
+
+    assert existing_index.calls == [([unchanged.content_hash, new.content_hash], settings.embedding_model)]
+    assert provider.texts == [new.content]
+    assert [record.chunk_id for record in records] == [new.chunk_id]
+    assert [record.content_hash for record in records] == [new.content_hash]
+
+
+def test_embed_chunks_returns_empty_when_all_hashes_were_embedded_by_previous_run() -> None:
+    settings = RagSettings(
+        embedding_model="text-embedding-3-small-test-version",
+        embedding_dimensions=3,
+    )
+    chunks = [_chunk("first unchanged chunk"), _chunk("second unchanged chunk")]
+    provider = FakeEmbeddings([])
+    existing_index = FakeExistingIndex({chunk.content_hash for chunk in chunks})
+
+    records = ChunkEmbedder(
+        settings=settings,
+        embeddings=provider,
+        existing_index=existing_index,
+    ).embed_chunks(chunks)
+
+    assert records == []
+    assert provider.texts == []
+
+
 def test_embed_chunks_logs_embedding_model_used(caplog: pytest.LogCaptureFixture) -> None:
     settings = RagSettings(
         embedding_model="text-embedding-3-small-test-version",
@@ -66,6 +134,8 @@ def test_embed_chunks_logs_embedding_model_used(caplog: pytest.LogCaptureFixture
     assert record.embedding_model == settings.embedding_model
     assert record.embedding_dimensions == settings.embedding_dimensions
     assert record.chunk_count == 1
+    assert record.pending_chunk_count == 1
+    assert record.skipped_chunk_count == 0
 
 
 def test_embed_chunks_requires_persisted_chunks_for_traceability() -> None:

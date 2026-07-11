@@ -174,7 +174,8 @@ CREATE TABLE IF NOT EXISTS rag_embeddings (
     embedding vector(1536) NOT NULL,
     embedded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
-    UNIQUE (chunk_id, embedding_model)
+    UNIQUE (chunk_id, embedding_model),
+    UNIQUE (content_hash, embedding_model)
 );
 
 CREATE INDEX IF NOT EXISTS idx_rag_embeddings_chunk_id ON rag_embeddings(chunk_id);
