@@ -142,9 +142,11 @@ This version is more deterministic than v1 because the system constrains the par
 
 ### **The pipeline flow**
 
+**Query generation** means rewriting the student's raw request into a small set of search and retrieval queries. This may use an LLM call with deterministic settings, but the LLM is not answering the student yet; it is only producing better queries for finding evidence.
+
 ```text
 User input (topic + textbook)
-    -> Query generation (LLM call, deterministic settings: temp=0)
+    -> Query generation (LLM rewrites input into 2-5 search/retrieval queries; temp=0)
     -> Web search / source collection
     -> Page text extraction (LangChain document loaders)
     -> Chunking (LangChain text splitters)
