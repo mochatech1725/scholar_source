@@ -387,7 +387,7 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   - Legacy note: older databases may still have `course_cache`; the current backend does not reference it, so the v2 migration leaves it untouched and fresh installs do not recreate it.
   - Current schema status: SQL contract exists, but it still needs to be applied and verified against Supabase before marking vector storage complete.
 
-- [ ] 1.6.1 Enable vector search in the database.
+- [X] 1.6.1 Enable vector search in the database.
 - [ ] 1.6.2 Create storage for chunk text, vector values, source metadata, content hashes, and timestamps.
 - [ ] 1.6.3 Add indexes required for retrieval performance.
 - [ ] 1.6.4 Add a way to reset local test data safely.

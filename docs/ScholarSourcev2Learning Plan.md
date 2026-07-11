@@ -273,7 +273,33 @@ change.
 
 3. **The pgvector schema.** Enable pgvector in Supabase. Write and understand the SQL manually before hiding it behind an ORM or library. The project schema is tracked in `supabase_schema.sql` for fresh databases and `migrations/` for incremental upgrades. The v2 schema must preserve traceability across `rag_sources`, `rag_source_rejections`, `rag_extracted_documents`, `rag_chunks`, `rag_embeddings`, `rag_runs`, and `rag_run_steps`. At minimum, every embedded chunk must carry source URL, title, chunk index, content hash, embedding model, vector dimensions, and timestamps.
 
-4. **The retrieval query.** Write the SQL cosine similarity query by hand before using LangChain's retriever abstraction. You should be able to explain what `<=>` does in pgvector without looking it up.
+4. **The retrieval query.** Write the SQL cosine similarity query by hand before using LangChain's retriever abstraction. You should be able to explain what `<=>` does in pgvector without looking it up. In the project SQL files (`supabase_schema.sql` and `migrations/002_create_rag_search_functions.sql`), `match_rag_chunks()` uses the pgvector cosine-distance operator:
+
+   ```sql
+   e.embedding <=> query_embedding
+   ```
+
+   `<=>` compares two vectors and returns cosine distance. A distance of `0`
+   means the vectors are identical, and smaller distances mean more similar
+   chunks. That is why the function sorts with:
+
+   ```sql
+   ORDER BY e.embedding <=> query_embedding
+   ```
+
+   The function returns `1 - (e.embedding <=> query_embedding)` as
+   `similarity` so callers see a higher-is-better score instead of a
+   lower-is-better distance. For example, a cosine distance of `0.10` becomes a
+   similarity score of `0.90`. Tables: `rag_embeddings` stores vectors and embedding metadata, while `rag_chunks` stores the chunk text and source metadata returned to the user.
+   Other pgvector operators exist, but this project uses `<=>` because cosine
+   distance is the expected default for normalized text embeddings:
+
+   | Operator | Meaning |
+   | --- | --- |
+   | `<=>` | Cosine distance |
+   | `<->` | Euclidean/L2 distance |
+   | `<#>` | Negative inner product |
+   | `<+>` | Manhattan/L1 distance |
 
 5. **The reranking step.** After retrieving top-k chunks, score each one against the original query using a second LLM call (or Cohere's rerank API). Return the top 5 reranked results.
 
