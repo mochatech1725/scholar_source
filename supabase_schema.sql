@@ -159,6 +159,7 @@ CREATE TABLE IF NOT EXISTS rag_chunks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_source_id ON rag_chunks(source_id);
+CREATE INDEX IF NOT EXISTS idx_rag_chunks_source_chunk_index ON rag_chunks(source_id, chunk_index);
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_document_id ON rag_chunks(extracted_document_id);
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_content_hash ON rag_chunks(content_hash);
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_embedding_model ON rag_chunks(embedding_model);
@@ -180,6 +181,7 @@ CREATE TABLE IF NOT EXISTS rag_embeddings (
 
 CREATE INDEX IF NOT EXISTS idx_rag_embeddings_chunk_id ON rag_embeddings(chunk_id);
 CREATE INDEX IF NOT EXISTS idx_rag_embeddings_content_model ON rag_embeddings(content_hash, embedding_model);
+CREATE INDEX IF NOT EXISTS idx_rag_embeddings_model_embedded_at ON rag_embeddings(embedding_model, embedded_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rag_embeddings_vector_hnsw
     ON rag_embeddings USING hnsw (embedding vector_cosine_ops);
 

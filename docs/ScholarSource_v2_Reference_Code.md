@@ -1227,8 +1227,9 @@ Notes:
 - Full-text search replaces the course's hand-built sparse vocabulary. The
   vocabulary approach requires rebuilding indices whenever the corpus changes;
   `to_tsvector` handles stemming and new documents for free.
-- The existing HNSW index (`idx_rag_embeddings_vector_hnsw`) already covers
-  the semantic path.
+- The HNSW index (`idx_rag_embeddings_vector_hnsw`) covers vector-distance
+  ordering. Migration 005 adds the supporting retrieval indexes for
+  model-filtered semantic search and source-ordered chunk inspection.
 
 ---
 
