@@ -301,6 +301,40 @@ change.
    | `<#>` | Negative inner product |
    | `<+>` | Manhattan/L1 distance |
 
+   The same SQL files also define a lexical, keyword-based search path with
+   PostgreSQL full-text search:
+
+   ```sql
+   ts_rank(
+       to_tsvector('english', c.content),
+       websearch_to_tsquery('english', query_text)
+   ) AS lexical_score
+   ```
+
+   This is not embedding search. `to_tsvector('english', c.content)` turns a
+   stored chunk into searchable terms using PostgreSQL's English text rules,
+   including lowercasing, stop-word removal, and stemming. For example,
+   "studies" and "studying" can be reduced toward the same searchable root.
+   `websearch_to_tsquery('english', query_text)` turns normal user search text
+   into a PostgreSQL full-text query. `ts_rank(...)` then scores how strongly
+   the chunk's words match the query words, and the function returns that value
+   as `lexical_score`.
+
+   The lexical function filters with:
+
+   ```sql
+   WHERE to_tsvector('english', c.content)
+         @@ websearch_to_tsquery('english', query_text)
+   ```
+
+   `@@` means "the text vector matches the text query." The function orders by
+   `lexical_score DESC` because full-text rank is already higher-is-better.
+   Use this interview distinction: `<=>` finds semantically similar chunks by
+   vector meaning; `ts_rank(...)` finds chunks with strong keyword/text matches.
+   ScholarSource keeps both because semantic search handles paraphrases, while
+   lexical search protects exact terms such as names, formulas, titles, and
+   course-specific vocabulary.
+
 5. **The reranking step.** After retrieving top-k chunks, score each one against the original query using a second LLM call (or Cohere's rerank API). Return the top 5 reranked results.
 
 6. **The synthesis step.** Pass the top 5 chunks plus the original query to the LLM. System prompt must require citations. This is where your AGENTS.md guardrail ("always cite chunk source") applies.
