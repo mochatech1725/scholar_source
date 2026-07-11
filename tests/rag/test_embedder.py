@@ -34,7 +34,11 @@ def _chunk(content: str, *, persisted: bool = True) -> ChunkRecord:
 
 
 def test_embed_chunks_generates_embedding_records_for_persisted_chunks() -> None:
-    settings = RagSettings(embedding_dimensions=3, embedding_batch_size=2)
+    settings = RagSettings(
+        embedding_model="text-embedding-3-small-test-version",
+        embedding_dimensions=3,
+        embedding_batch_size=2,
+    )
     chunks = [_chunk("first chunk about vectors"), _chunk("second chunk about matrices")]
     provider = FakeEmbeddings([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
 
@@ -46,6 +50,22 @@ def test_embed_chunks_generates_embedding_records_for_persisted_chunks() -> None
     assert all(record.embedding_model == settings.embedding_model for record in records)
     assert all(record.embedding_dimensions == settings.embedding_dimensions for record in records)
     assert [record.embedding for record in records] == provider.vectors
+
+
+def test_embed_chunks_logs_embedding_model_used(caplog: pytest.LogCaptureFixture) -> None:
+    settings = RagSettings(
+        embedding_model="text-embedding-3-small-test-version",
+        embedding_dimensions=3,
+    )
+    provider = FakeEmbeddings([[0.1, 0.2, 0.3]])
+
+    with caplog.at_level("INFO", logger="backend.rag.embeddings.embedder"):
+        ChunkEmbedder(settings=settings, embeddings=provider).embed_chunks([_chunk("logged chunk")])
+
+    record = next(item for item in caplog.records if item.message == "Generating embeddings")
+    assert record.embedding_model == settings.embedding_model
+    assert record.embedding_dimensions == settings.embedding_dimensions
+    assert record.chunk_count == 1
 
 
 def test_embed_chunks_requires_persisted_chunks_for_traceability() -> None:

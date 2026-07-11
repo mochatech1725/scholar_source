@@ -7,9 +7,12 @@ from typing import Protocol
 
 from langchain_openai import OpenAIEmbeddings
 
+from backend.logging_config import get_logger
 from backend.rag.config import RagSettings
 from backend.rag.errors import EmbeddingError
 from backend.rag.models import ChunkRecord, EmbeddingRecord
+
+logger = get_logger(__name__)
 
 
 class EmbeddingProvider(Protocol):
@@ -42,6 +45,14 @@ class ChunkEmbedder:
         if any(chunk.chunk_id is None for chunk in chunks):
             raise EmbeddingError("Chunks must be persisted before embedding.")
 
+        logger.info(
+            "Generating embeddings",
+            extra={
+                "embedding_model": self._settings.embedding_model,
+                "embedding_dimensions": self._settings.embedding_dimensions,
+                "chunk_count": len(chunks),
+            },
+        )
         vectors = self._embeddings.embed_documents([chunk.content for chunk in chunks])
         self._validate(chunks, vectors)
 

@@ -351,8 +351,8 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 *Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha).*
 
 - [x] 1.5.1 Generate embeddings for extracted chunks.
-- [ ] 1.5.2 Log the embedding model used.
-- [ ] 1.5.3 Store the embedding model version or identifier with each embedded chunk.
+- [x] 1.5.2 Log the embedding model used.
+- [x] 1.5.3 Store the embedding model version or identifier with each embedded chunk.
 - [ ] 1.5.4 Add a deduplication rule so identical content is not embedded repeatedly.
 - [ ] 1.5.5 Verify repeated runs do not create duplicate embeddings for unchanged content.
 - [ ] 1.5.6 Explain what the embedding vector represents in plain English.
