@@ -355,7 +355,8 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 - [x] 1.5.3 Store the embedding model version or identifier with each embedded chunk.
 - [x] 1.5.4 Add a deduplication rule so identical content is not embedded repeatedly.
 - [x] 1.5.5 Verify repeated runs do not create duplicate embeddings for unchanged content.
-- [ ] 1.5.6 Explain what the embedding vector represents in plain English.
+- [x] 1.5.6 Explain what the embedding vector represents in plain English.
+  - An embedding vector is a list of numbers that represents the meaning or features of a piece of data, such as text, an image, or a video. Items with similar embedding vectors are likely to be semantically similar or related, though not always exactly the same in meaning.
 
 ### Reference: Embeddings (`backend/rag/embeddings/embedder.py`)
 
