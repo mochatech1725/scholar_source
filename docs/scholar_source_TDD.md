@@ -5,7 +5,7 @@
 ## Document Control
 
 | Field | Value |
-|-------|-------|
+| ------- | ------- |
 | **Document Title** | ScholarSource Technical Design Document |
 | **Version** | 1.0 |
 | **Date** | December 2024 |
@@ -36,6 +36,7 @@ This Technical Design Document (TDD) provides detailed implementation specificat
 **Audience:** Software engineers implementing or maintaining the system.
 
 **Related Documents:**
+
 - `scholar_source_SDD.md` - High-level system architecture and design rationale
 - `docs/TESTING_GUIDE.md` - Testing documentation
 
@@ -57,6 +58,7 @@ Creates a new job in Supabase database.
 - **Raises:** Exception if job creation fails
 
 **Implementation Details:**
+
 - Generates search title from inputs using `_generate_search_title()`
 - Sets initial status to 'pending'
 - Stores inputs as JSONB in database
@@ -71,6 +73,7 @@ Gets job data from Supabase database.
 - **Returns:** Job data dictionary or None if not found
 
 **Implementation Details:**
+
 - Queries `jobs` table by `id` column
 - Returns None if job not found
 - Logs errors but doesn't raise exceptions
@@ -90,6 +93,7 @@ Updates job status and optional fields in Supabase.
 - **Raises:** Exception if update fails
 
 **Implementation Details:**
+
 - Updates `jobs` table using Supabase client
 - Sets `completed_at` timestamp when status is 'completed' or 'failed'
 - All optional fields can be None
@@ -156,6 +160,7 @@ The job management system coordinates job submission, execution, and status trac
    - No direct communication between API and worker processes (database acts as coordination point)
 
 **Key Characteristics:**
+
 - **State Storage:** Supabase `jobs` table serves as the single source of truth for job state
 - **Execution Model:** Distributed task queue with Celery workers (separate processes, not threads)
 - **Communication:** Worker processes write to Supabase; Redis queue coordinates job distribution
@@ -186,6 +191,7 @@ Enqueues a ScholarSource crew job to the Celery task queue, or runs synchronousl
   - `str`: Celery task ID (in async mode) or "sync" (in sync mode)
 
 **Implementation Details:**
+
 - Enqueues job to Celery queue using `run_crew_task.apply_async()`
 - Job routed to `crew_jobs` queue with default priority
 - Celery task ID stored in job metadata for cancellation tracking
@@ -212,12 +218,14 @@ Celery task that executes the ScholarSource crew. Runs in separate worker proces
   - `Dict[str, any]`: Status and results/error information
 
 **Implementation Details:**
+
 - Decorated with `@app.task()` making it a Celery task
 - Runs in separate worker process (not in API process)
 - Handles retries automatically (max 3 retries, 60s delay)
 - Updates job status via `update_job_status()` throughout execution
 
 **Execution Flow:**
+
 1. Check if job was cancelled before starting
 2. Update job status to 'running'
 3. Create ScholarSource crew instance
@@ -236,13 +244,14 @@ Cancels an active crew job by cancelling its async task.
 - **Returns:** True if task was found and cancelled, False otherwise
 
 **Implementation Details:**
+
 - Looks up task in `_active_tasks` dict by job_id
 - Calls `task.cancel()` if task exists and not done
 - Returns True if cancelled, False if not found
 
-### 2.3 Markdown Parser Component (`backend/markdown_parser.py`)
+### 2.4 Markdown Parser Component (`backend/markdown_parser.py`)
 
-#### 2.3.1 Function Signatures
+#### 2.4.1 Function Signatures
 
 **`parse_markdown_to_resources(markdown_content: str, excluded_sites: Optional[str] = None) -> Dict[str, Any]`**
 
@@ -254,6 +263,7 @@ Parses markdown report into structured resources and metadata.
 - **Returns:** Dictionary with 'resources' (list) and 'textbook_info' (dict or None)
 
 **Post-Processing:**
+
 - Filters out resources with "ERROR" in title, description, or URL
 - Filters excluded domains if `excluded_sites` provided
 - Extracts textbook info from markdown (pattern: `**Textbook:** ...`)
@@ -268,6 +278,7 @@ Filters resources by excluded domains.
 - **Returns:** List of resources with excluded domains removed
 
 **Implementation Details:**
+
 - Splits `excluded_sites` by comma
 - Strips whitespace from each domain
 - Checks if resource URL contains any excluded domain
@@ -284,6 +295,7 @@ Checks if resource contains error indicators.
 - **Returns:** True if error detected, False otherwise
 
 **Error Detection:**
+
 - Checks for "ERROR" (case-insensitive) in url, title, or description
 - Checks for "Failed to connect", "Could not fetch", "404", "Not found"
 - Returns True if any error indicator found
@@ -300,6 +312,7 @@ Initializes and returns Supabase client.
 - **Raises:** ValueError if SUPABASE_URL or SUPABASE_ANON_KEY not set
 
 **Implementation Details:**
+
 - Reads environment variables on import
 - Raises ValueError if missing (fails fast)
 - Client is module-level singleton
@@ -313,6 +326,7 @@ Initializes and returns Supabase client.
 #### 3.1.1 Jobs Table DDL
 
 The `jobs` table is created with the following schema:
+
 - Primary key: `id` (UUID, auto-generated)
 - Status field with CHECK constraint allowing: pending, running, completed, failed, cancelled
 - JSONB fields for inputs, results, and metadata
@@ -320,6 +334,7 @@ The `jobs` table is created with the following schema:
 - Timestamps: created_at (defaults to NOW()), completed_at (nullable)
 
 Indexes:
+
 - `idx_jobs_status` on status column
 - `idx_jobs_created_at` on created_at column (DESC)
 
@@ -328,7 +343,7 @@ Row Level Security is enabled with a permissive policy allowing all operations.
 **Field Descriptions:**
 
 | Field | Type | Description |
-|-------|------|-------------|
+| ------- | ------ | ------------- |
 | `id` | UUID | Primary key, auto-generated |
 | `status` | TEXT | Job status (enum: pending, running, completed, failed, cancelled) |
 | `inputs` | JSONB | Original input parameters from user |
@@ -342,6 +357,7 @@ Row Level Security is enabled with a permissive policy allowing all operations.
 | `completed_at` | TIMESTAMPTZ | Job completion timestamp (null until completed/failed) |
 
 **Indexes:**
+
 - `idx_jobs_status` - Optimizes status queries (polling)
 - `idx_jobs_created_at` - Optimizes chronological queries
 
@@ -352,12 +368,14 @@ Row Level Security is enabled with a permissive policy allowing all operations.
 **Pydantic Model: `CourseInputRequest`**
 
 The model includes the following optional fields:
+
 - `university_name`, `course_name`, `course_url` (strings)
 - `isbn`, `book_pdf_path`, `book_url` (strings)
 - `topics_list`, `excluded_sites` (strings)
 - `desired_resource_types` (list of strings)
 
 **Validation Logic:**
+
 1. **Empty String Conversion:**
    - `@model_validator(mode='before')` converts empty strings to None
    - Whitespace-only strings also converted to None
@@ -386,6 +404,7 @@ The HomePage component uses React hooks for state management with the following 
 - Form state: `searchParamType`, `formData` (containing course_url, book_url, isbn, topics_list, desired_resource_types, excluded_sites, bypass_cache), `validationError`
 
 **State Structure:**
+
 - `jobId` - Current job UUID (null when no active job)
 - `isLoading` - Whether job is in progress
 - `results` - Parsed resource list (null until completed)
@@ -401,6 +420,7 @@ The HomePage component uses React hooks for state management with the following 
 **`handleSubmit(e)` (async)**
 
 Handles form submission:
+
 1. Prevents default form submission
 2. Validates form data using `isFormValid()`
 3. Calls `submitJob()` API with form data
@@ -410,6 +430,7 @@ Handles form submission:
 **`pollJobStatus()` (async, useCallback)**
 
 Polls job status:
+
 1. Calls `getJobStatus(jobId)` API
 2. Updates status, results, error based on response
 3. Stops polling if status is completed, failed, or cancelled
@@ -418,6 +439,7 @@ Polls job status:
 **`handleCancel()` (async)**
 
 Handles job cancellation:
+
 1. Calls `cancelJob(jobId)` API
 2. Updates job status to cancelled
 3. Stops polling (cleared by useEffect cleanup)
@@ -425,11 +447,13 @@ Handles job cancellation:
 #### 4.1.3 Polling Implementation
 
 The polling is implemented using `useEffect` hook:
+
 - Sets up an interval using `setInterval` that calls `pollJobStatus()` every 2000ms (2 seconds)
 - Cleans up the interval on unmount or when jobId changes
 - Only polls when jobId is not null
 
 **Polling Strategy:**
+
 - Polls every 2 seconds while job is active
 - Stops polling when job completes, fails, or is cancelled
 - Cleans up interval on unmount or jobId change
@@ -441,15 +465,18 @@ The search form is implemented inline within HomePage rather than as a separate 
 #### 4.2.1 Form Fields
 
 **Search Type Selector:**
+
 - Dropdown with options: course_url, book_url, isbn
 - Controls which input fields are shown
 
 **Dynamic Input Fields (based on search type):**
+
 - `course_url` - URL input (shown when "Course URL" selected)
 - `book_url` - URL input (shown when "Book URL" selected)
 - `isbn` - Text input (shown when "Book ISBN" selected)
 
 **Optional Accordion Sections:**
+
 - `desired_resource_types` - Checkboxes (textbooks, practice_problem_sets, practice_exams_tests, lecture_videos)
 - `topics_list` - Textarea (comma-separated focus topics)
 - `excluded_sites` - Textarea (comma-separated domains to exclude)
@@ -461,11 +488,13 @@ The search form is implemented inline within HomePage rather than as a separate 
 **`isFormValid()` function**
 
 Validates based on selected search type:
+
 - `course_url`: course_url must not be empty
 - `book_url`: book_url must not be empty
 - `isbn`: isbn must not be empty
 
 **Validation Rules:**
+
 - Submit button disabled when form invalid
 - Validation error displayed on submit attempt with invalid form
 - Error cleared when user modifies inputs
@@ -492,6 +521,7 @@ Uses `useState` for `sortBy` state and `useMemo` to compute sorted resources. Wh
 
 **NotebookLM Integration Limitation:**
 The application does not programmatically create NotebookLM notebooks. The "Copy + NotebookLM" button opens NotebookLM in a new tab, but users must manually import the resource URLs. This is because:
+
 - Programmatic notebook creation via API is only available in NotebookLM Enterprise (paid/enterprise tier)
 - ScholarSource targets the free/public NotebookLM tier used by students
 - No NotebookLM API integration exists in the codebase
@@ -500,6 +530,7 @@ The application does not programmatically create NotebookLM notebooks. The "Copy
 #### 4.3.2 State Management
 
 ResultsTable component uses React hooks for state:
+
 - `filterType` - Current filter selection (defaults to 'all')
 - `sortBy` - Current sort option (defaults to 'type')
 - `copiedUrl` - URL that was recently copied (null or URL string)
@@ -533,19 +564,23 @@ Agent definition using `@agent` decorator. Reads configuration from `agents_conf
 #### 5.2.1 Task Definitions
 
 **course_analysis_task:**
+
 - Extracts textbook info from course page
 - Uses WebPageFetcherTool to fetch course content
 - Outputs: course_title, topics_list, textbook_title, textbook_author
 
 **resource_search_task:**
+
 - Searches for 5-7 resources using SerperDevTool
 - Outputs to `report.md` file
 
 **resource_validation_task:**
+
 - Validates resources using WebsiteSearchTool and YoutubeVideoSearchTool
 - Filters out invalid/illegal resources
 
 **final_output_task:**
+
 - Formats final markdown output
 - Outputs to `report.md` file
 
@@ -575,6 +610,7 @@ Agent definition using `@agent` decorator. Reads configuration from `agents_conf
 **Request Body:**
 
 JSON object with optional fields:
+
 - `course_url` (string)
 - `desired_resource_types` (array of strings)
 - `excluded_sites` (string, comma-separated domains)
@@ -582,6 +618,7 @@ JSON object with optional fields:
 - Other course/book input fields
 
 **Error Responses:**
+
 - **400 Bad Request:** Invalid inputs (at least one field required)
 - **429 Too Many Requests:** Rate limit exceeded
 - **500 Internal Server Error:** Job creation failed
@@ -591,6 +628,7 @@ JSON object with optional fields:
 **Response (200 OK - Pending/Running):**
 
 JSON object containing:
+
 - `job_id` (UUID string)
 - `status` (string: "pending" or "running")
 - `status_message` (string, optional)
@@ -598,6 +636,7 @@ JSON object containing:
 - `created_at` (ISO 8601 timestamp)
 
 **Error Responses:**
+
 - **404 Not Found:** Job ID doesn't exist
 - **429 Too Many Requests:** Rate limit exceeded
 
@@ -606,11 +645,13 @@ JSON object containing:
 **Response (200 OK):**
 
 JSON object containing:
+
 - `job_id` (UUID string)
 - `status` (string: "cancelled")
 - `message` (string)
 
 **Error Responses:**
+
 - **400 Bad Request:** Job already completed/failed/cancelled
 - **404 Not Found:** Job ID doesn't exist
 - **429 Too Many Requests:** Rate limit exceeded
@@ -621,16 +662,19 @@ JSON object containing:
 **Response (200 OK):**
 
 JSON object containing:
+
 - `status` (string: "healthy")
 - `version` (string: "0.1.0")
 - `database` (string: "skipped" or connection status)
 
 **Purpose:**
+
 - Health check endpoint for Railway deployment
 - Used by monitoring systems to verify service availability
 - Simplified check (skips database connectivity to avoid timeout during container startup)
 
 **Future Health Check Improvements:**
+
 - Check database connectivity
 - Check external API availability (OpenAI, Serper)
 - Return detailed health status for each component
@@ -641,10 +685,12 @@ JSON object containing:
 **Error Response Format:**
 
 JSON object with `detail` field containing:
+
 - `error` (string): Error type
 - `message` (string): Human-readable error message
 
 **HTTP Status Codes:**
+
 - 200: Success
 - 400: Bad Request (validation errors)
 - 404: Not Found (job doesn't exist)
@@ -654,29 +700,34 @@ JSON object with `detail` field containing:
 **Future Error Handling Enhancements:**
 
 **Network Error Detection:**
+
 - Distinguish network timeout vs server error
 - Provide user-friendly error messages with actionable suggestions
 - Include "what went wrong" and "how to fix it" in error responses
 
 **Retry Logic:**
+
 - Implement exponential backoff for transient network errors (503, 502, timeouts)
 - Show retry countdown to user
 - Manual "Try Again" option for non-retryable errors
 - Auto-retry transient errors with configurable max attempts
 
 **Error Categorization:**
+
 - Detect OpenAI API errors vs network vs validation errors
 - Show specific next steps based on error type
 - Add "Show Details" option for debugging
 - Categorize job failure error messages
 
 **Rate Limiting Detection:**
+
 - Detect 429 responses from backend/OpenAI
 - Show wait time and auto-retry after delay
 - Queue job if rate limited
 - Display rate limit information to user
 
 **Empty Results Handling:**
+
 - Explain why no resources found
 - Suggest how to improve search (broaden inputs, try different keywords)
 - Provide helpful suggestions for empty result scenarios
@@ -687,17 +738,20 @@ JSON object with `detail` field containing:
 ScholarSource does not integrate with NotebookLM's API to automatically create notebooks. This is a deliberate design constraint based on NotebookLM's API availability:
 
 **Constraint:**
+
 - **NotebookLM Enterprise API Required:** Programmatic notebook creation is only available through NotebookLM Enterprise API (paid/enterprise subscription)
 - **Free Tier Limitation:** The free/public NotebookLM version does not provide API access for automated operations
 - **Target User Base:** ScholarSource is designed for students using the free NotebookLM tier
 
 **Current Implementation:**
+
 - Frontend provides "Copy + NotebookLM" button that:
   1. Opens NotebookLM in a new browser tab using `window.open()` with NotebookLM URL
   2. Users manually paste resource URLs into NotebookLM
   3. NotebookLM processes the URLs and creates study materials
 
 **Why Not Enterprise API:**
+
 - Enterprise API requires paid subscription (not accessible to free-tier users)
 - Would add complexity (authentication, API key management)
 - Would limit user base to Enterprise subscribers only
@@ -710,16 +764,18 @@ ScholarSource does not integrate with NotebookLM's API to automatically create n
 ### 7.1 Cache Key Generation Algorithm
 
 **Inputs to Hash:**
+
 1. course_url (if provided)
 2. book_url (if provided)
-4. isbn (if provided)
-5. topics_list (sorted, comma-separated)
-6. desired_resource_types (sorted, comma-separated)
-7. config_hash (SHA256 of agents.yaml + tasks.yaml)
+3. isbn (if provided)
+4. topics_list (sorted, comma-separated)
+5. desired_resource_types (sorted, comma-separated)
+6. config_hash (SHA256 of agents.yaml + tasks.yaml)
 
 **Algorithm:**
 
 The `_generate_cache_key()` function:
+
 1. Builds key parts list from input parameters (course_url, book_url, isbn, topics_list, desired_resource_types)
 2. Normalizes topics and resource types by sorting
 3. Joins key parts with '|' separator and appends config_hash
@@ -727,6 +783,7 @@ The `_generate_cache_key()` function:
 5. Returns cache key in format: `"{cache_type}:{first_16_chars_of_hash}"`
 
 **Cache Key Format:**
+
 - Analysis: `"analysis:{hash}"`
 - Full: `"full:{hash}"`
 
@@ -743,6 +800,7 @@ Computes a SHA256 hash of agents.yaml and tasks.yaml files.
 - Caches hash in memory to avoid re-reading files on every call
 
 **Implementation Details:**
+
 - Reads `src/scholar_source/config/agents.yaml` and `tasks.yaml`
 - Computes SHA256 hash of both files concatenated
 - Returns hex string (e.g., "a7f3c2e1...")
@@ -760,6 +818,7 @@ Creates consistent cache keys from user inputs by normalizing and extracting onl
 - **Returns:** Normalized dictionary with sorted keys
 
 **Function flow:**
+
 1. Extracts only cache-relevant fields: `course_url`, `book_url`, `isbn`, `topics_list`, `desired_resource_types`
 2. Sorts keys alphabetically
 3. Normalizes URLs (removes trailing slashes, converts to lowercase)
@@ -768,17 +827,20 @@ Creates consistent cache keys from user inputs by normalizing and extracting onl
 ### 7.3 TTL Implementation
 
 **TTL Values:**
+
 - Analysis cache: 30 days (configurable via `COURSE_ANALYSIS_TTL_DAYS` env var, default 30)
 - Full cache: 7 days (configurable via `RESOURCE_RESULTS_TTL_DAYS` env var, default 7)
 
 **Expiration Check:**
 
 The `is_cache_expired()` function:
+
 - Selects appropriate TTL based on cache_type (COURSE_ANALYSIS_TTL_DAYS for 'analysis', RESOURCE_RESULTS_TTL_DAYS for 'full')
 - Calculates age as difference between current time and cached_at timestamp
 - Returns True if age exceeds TTL threshold
 
 **TTL Logic:**
+
 - Analysis cache: 30 days (textbook extraction, topics) - Changes infrequently
 - Full cache: 7 days (complete resource discovery results) - New resources may be published
 - Checks `cached_at` timestamp against current time
@@ -797,6 +859,7 @@ Retrieves cached course analysis or full results.
 - **Returns:** Cached results dictionary or None if not found/expired
 
 **Function flow:**
+
 1. Returns None immediately if bypass_cache is True
 2. Computes current config hash
 3. Generates cache key from inputs and config hash
@@ -816,6 +879,7 @@ Stores cached course analysis or full results.
   - `cache_type`: 'analysis' or 'full'
 
 **Function flow:**
+
 1. Computes current config hash
 2. Generates cache key from inputs and config hash
 3. Upserts cache entry into Supabase course_cache table with cache_key, config_hash, cache_type, inputs, results, and cached_at timestamp
@@ -823,11 +887,13 @@ Stores cached course analysis or full results.
 ### 7.5 Cache Invalidation
 
 **Automatic Invalidation:**
+
 - When `agents.yaml` or `tasks.yaml` changes, config_hash changes
 - New cache keys generated, old cache entries become orphaned
 - Old entries can be cleaned up manually or via scheduled job
 
 **Manual Invalidation:**
+
 - User sets `bypass_cache=true` in request
 - Cache is checked but result is ignored
 - Fresh crew execution always performed
@@ -841,11 +907,13 @@ Removes stale cache entries from old config versions.
 - **Returns:** Number of deleted entries
 
 **Function flow:**
+
 1. Gets current config hash via `get_config_hash()`
 2. Deletes all rows from `course_cache` table where `config_hash != current_hash`
 3. Returns count of deleted rows
 
 **Use Cases:**
+
 - Periodic cleanup of orphaned cache entries
 - Run after configuration file changes
 - Can be scheduled as cron job or background task
@@ -859,6 +927,7 @@ Gets cache statistics for monitoring and health checks.
 - **Returns:** Dictionary with cache statistics
 
 **Function flow:**
+
 1. Gets current config hash via `get_config_hash()`
 2. Queries `course_cache` table for:
    - Total entries
@@ -869,6 +938,7 @@ Gets cache statistics for monitoring and health checks.
 3. Returns statistics as dictionary
 
 **Statistics Returned:**
+
 - `total_entries`: Total number of cache entries
 - `valid_entries`: Entries matching current config hash
 - `stale_entries`: Entries with different config hash
@@ -878,7 +948,8 @@ Gets cache statistics for monitoring and health checks.
 
 ### 7.6 Two-Tier Caching Strategy
 
-**Tier 1: Course Analysis (30 days TTL)**
+#### Tier 1: Course Analysis (30 days TTL)
+
 - **What:** Textbook extraction, topic identification, course metadata
 - **Why Cache:** This is expensive (requires parsing course pages) and changes infrequently
 - **TTL:** 30 days (configurable via `COURSE_ANALYSIS_TTL_DAYS`)
@@ -887,7 +958,8 @@ Gets cache statistics for monitoring and health checks.
   - TTL expires (30 days)
   - Force refresh requested
 
-**Tier 2: Full Resource Results (7 days TTL)**
+#### Tier 2: Full Resource Results (7 days TTL)
+
 - **What:** Complete resource discovery results (all found resources)
 - **Why Shorter TTL:** New resources may be published online daily
 - **TTL:** 7 days (configurable via `RESOURCE_RESULTS_TTL_DAYS`)
@@ -896,7 +968,8 @@ Gets cache statistics for monitoring and health checks.
   - TTL expires (7 days - ensures fresh results)
   - Force refresh requested
 
-**Recommended Approach: Cache Analysis Only**
+#### Recommended Approach: Cache Analysis Only
+
 - Best Practice: Cache only course analysis, always run resource discovery fresh
 - Benefits:
   - ✅ Fast course parsing (cached for 30 days)
@@ -912,6 +985,7 @@ Gets cache statistics for monitoring and health checks.
 #### 8.1.1 Rate Limiter Initialization
 
 The rate limiter is initialized in `backend/rate_limiter.py`:
+
 - Checks for `REDIS_URL` environment variable
 - If REDIS_URL is set: Creates Limiter with Redis storage_uri for multi-instance deployments
 - If REDIS_URL is not set: Creates Limiter with in-memory storage for single instance
@@ -920,6 +994,7 @@ The rate limiter is initialized in `backend/rate_limiter.py`:
 - Logs which backend is active (Redis vs in-memory)
 
 **Key Points:**
+
 - ✅ **Redis-ready from day 1:** Automatically uses Redis if `REDIS_URL` is set
 - ✅ **Zero-config migration:** Just add `REDIS_URL` env var when scaling
 - ✅ **Startup logging:** Shows which backend is active (Redis vs in-memory)
@@ -940,18 +1015,20 @@ Rate limits are applied using `@limiter.limit()` decorator on FastAPI endpoint f
 **Rate Limit Configuration:**
 
 | Endpoint | Limit | Reasoning |
-|----------|-------|-----------|
+| ---------- | ------- | ----------- |
 | `POST /api/submit` | `10/hour; 2/minute` | Each job costs money (OpenAI API). Allow 10 jobs/hour (reasonable for students). Prevent burst spam (max 2/min). |
 | `GET /api/status/{job_id}` | `100/minute` | Cheap operation (just database read). Frontend polls every 2-3 seconds. Be generous to avoid false positives. |
 | `POST /api/cancel/{job_id}` | `20/hour` | Rare operation. Allow retries if needed. Not expensive. |
 | `GET /api/health` | **No limit** | Health checks should always work. Used by Railway/monitoring systems. |
 
 **Rate Limit Syntax:**
+
 - `"10/hour"` = 10 requests per hour
 - `"2/minute"` = 2 requests per minute
 - `"10/hour; 2/minute"` = **Combined limit:** Max 10/hour, but no more than 2 in any given minute
 
 **Why Combined Limits:**
+
 - Prevents burst attacks: `"10/hour"` alone allows 10 requests in 10 seconds, then nothing
 - `"10/hour; 2/minute"` allows 2 requests/min up to 10 total/hour
 - Better for legitimate users who make requests over time
@@ -966,6 +1043,7 @@ Custom handler for rate limit exceeded errors.
 - Response body includes: error type, message with retry_after time, retry_after value, and limit details
 
 **Retry-After Calculation:**
+
 - Extracts time window from limit string
 - Default: 60 seconds
 - If "minute" in limit: 60 seconds
@@ -975,12 +1053,14 @@ Custom handler for rate limit exceeded errors.
 #### 8.1.4 FastAPI Integration
 
 Rate limiting is integrated into FastAPI by:
+
 1. Importing `limiter` and `rate_limit_handler` from `backend.rate_limiter`
 2. Importing `RateLimitExceeded` exception from `slowapi.errors`
 3. Registering limiter with app state: `app.state.limiter = limiter`
 4. Adding exception handler: `app.add_exception_handler(RateLimitExceeded, rate_limit_handler)`
 
 **Required Changes:**
+
 1. Import rate limiting components
 2. Register limiter with app state
 3. Add exception handler for 429 errors
@@ -998,6 +1078,7 @@ Rate limiting is integrated into FastAPI by:
 - **Redis**: Required for both task queuing (Celery broker) and rate limiting (shared state)
 
 **Architecture Benefits:**
+
 - ✅ **Independent Scaling**: Scale API and Worker instances separately based on demand
 - ✅ **Process Isolation**: Worker crashes don't affect API availability
 - ✅ **Shared Rate Limiting**: Redis-backed rate limiting works across all API instances
@@ -1013,6 +1094,7 @@ Rate limiting is integrated into FastAPI by:
 3. **Rate Limiting**: Shared state across all API instances
 
 **Without Redis:**
+
 - ❌ Celery workers cannot receive jobs
 - ❌ Rate limiting falls back to in-memory (single-instance only)
 - ⚠️ System can run in `SYNC_MODE` (development only, not for production)
@@ -1020,12 +1102,14 @@ Rate limiting is integrated into FastAPI by:
 #### 8.2.3 Scaling Strategy
 
 **API Layer Scaling:**
+
 - Scale API instances based on HTTP request volume
 - All instances share Redis for rate limiting (consistent limits)
 - Stateless design allows horizontal scaling behind load balancer
 - Each instance can handle job submission (enqueues to Redis)
 
 **Worker Layer Scaling:**
+
 - Scale worker instances based on queue depth and job volume
 - Workers automatically consume jobs from Redis queue
 - Each worker can process multiple jobs concurrently (configurable)
@@ -1033,7 +1117,7 @@ Rate limiting is integrated into FastAPI by:
 
 **Example Scaling Scenario:**
 
-```
+```text
 Initial Setup:
 - 1 API instance (handles requests)
 - 1 Worker instance (2 concurrent jobs)
@@ -1070,6 +1154,7 @@ High Load:
    - Submit multiple jobs and verify they're distributed to workers
 
 **External Redis Options:**
+
 - **Railway Redis**: Integrated with Railway platform
 
 ### 8.3 Rate Limiting Configuration
@@ -1081,6 +1166,7 @@ High Load:
 **Note:** In development, the system can run without Redis using `SYNC_MODE=true`, but this is not suitable for production multi-instance deployments.
 
 **Code Configuration:**
+
 - Limits are hardcoded in endpoint decorators
 - Can be made configurable via environment variables if needed
 - Redis-backed rate limiting provides consistent limits across all API instances
@@ -1109,6 +1195,7 @@ High Load:
   - `e2e/` - End-to-end tests (future)
 
 **Test Quality Goals:**
+
 - Comprehensive test coverage for Markdown Parser
 - Thorough testing of API Endpoints
 - Complete validation testing for Models
@@ -1127,6 +1214,7 @@ High Load:
   - `client.test.js` - API client tests
 
 **Test Quality Goals:**
+
 - Comprehensive testing of UI Components
 - Thorough testing of API client functionality
 
@@ -1135,6 +1223,7 @@ High Load:
 #### 9.2.1 Backend Testing
 
 **Tools:**
+
 - **pytest** (≥7.4.0) - Test runner and framework
 - **pytest-asyncio** (≥0.21.0) - Async test support for FastAPI
 - **pytest-mock** (≥3.11.0) - Mocking external dependencies
@@ -1150,6 +1239,7 @@ replace `httpx.Client` with a mock transport during source-fetch tests.
 **Configuration (`pytest.ini`):**
 
 Configuration includes:
+
 - testpaths set to 'tests'
 - adopts: verbose mode
 - asyncio_mode set to 'auto'
@@ -1161,6 +1251,7 @@ Install dependencies via: `pip install -r requirements-dev.txt`
 #### 9.2.2 Frontend Testing
 
 **Tools:**
+
 - **Vitest** (≥1.0.0) - Fast, Vite-native test runner
 - **@vitest/ui** (≥1.0.0) - Visual test runner UI
 - **@testing-library/react** (≥14.0.0) - User-centric component testing
@@ -1172,6 +1263,7 @@ Install dependencies via: `pip install -r requirements-dev.txt`
 **Configuration (`vitest.config.js`):**
 
 Configuration includes:
+
 - test environment: 'jsdom'
 - globals: true
 - setupFiles: './src/test/setup.js'
@@ -1186,6 +1278,7 @@ Install dependencies via npm with dev flag: vitest, @vitest/ui, @testing-library
 #### 9.3.1 Backend: Mock Supabase
 
 **Available Fixtures (from `conftest.py`):**
+
 - `mock_supabase` - Complete Supabase client mock
 - `mock_crew_success` - CrewAI returns valid markdown
 - `mock_crew_failure` - CrewAI raises exception
@@ -1198,6 +1291,7 @@ Tests use the `mock_supabase` fixture from conftest.py. Test functions can popul
 #### 9.3.2 Frontend: Mock API with MSW
 
 **Mock Endpoints (`web/src/test/mocks/handlers.js`):**
+
 - `GET /api/health` - Returns healthy status
 - `POST /api/submit` - Returns job_id and pending status
 - `GET /api/status/:jobId` - Returns job status (pending/running/completed)
@@ -1257,6 +1351,6 @@ Run via `./scripts/test-all.sh`
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** December 2024  
+**Document Version:** 1.0
+**Last Updated:** December 2024
 **Author:** ScholarSource Development Team
