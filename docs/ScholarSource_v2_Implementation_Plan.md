@@ -388,7 +388,8 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   - Current schema status: SQL contract exists, but it still needs to be applied and verified against Supabase before marking vector storage complete.
 
 - [X] 1.6.1 Enable vector search in the database.
-- [ ] 1.6.2 Create storage for chunk text, vector values, source metadata, content hashes, and timestamps.
+- [X] 1.6.2 Create storage for chunk text, vector values, source metadata, content hashes, and timestamps.
+  Done in `supabase_schema.sql` and `migrations/001_create_rag_traceability_schema.sql`: `rag_sources` stores source URL/title/quality metadata, `rag_extracted_documents` stores extraction hashes and timestamps, `rag_chunks` stores chunk text/source metadata/content hashes, and `rag_embeddings` stores vector values, embedding model/dimensions, content hash, and `embedded_at`. `migrations/004_deduplicate_rag_embeddings.sql` adds the content-hash/model uniqueness guard for repeated runs.
 - [ ] 1.6.3 Add indexes required for retrieval performance.
 - [ ] 1.6.4 Add a way to reset local test data safely.
 - [ ] 1.6.5 Verify inserted chunks can be retrieved by source and by semantic similarity.
