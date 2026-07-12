@@ -1,20 +1,42 @@
 # ScholarSource — Agent Contract
 
-## Stack
+This file is the system contract for ScholarSource v2 RAG work: authorship
+boundaries, module layout, required metadata, validation gates, and hard
+rules. Repo orientation — stack, directory structure, commands, environment
+variables — lives in `CLAUDE.md`, which imports this file so both load
+together. Do not duplicate orientation content here.
 
-Backend: Python 3.12, FastAPI, Pydantic v2, Supabase (PostgreSQL + pgvector), Celery + Redis, OpenAI/Anthropic embeddings and LLMs.
-RAG tooling: LangChain for loading, splitting, and retrieval chains; LangGraph for workflow orchestration; Ragas + LangSmith for evals and tracing.
-Frontend: React 19, Vite, Tailwind CSS 3, TypeScript/TSX.
-Infrastructure: Railway (backend), Cloudflare Pages (frontend), Supabase (db + auth), GitHub Actions (CI/CD).
-Quality gates: Ruff for Python linting, import sorting, and formatting; ESLint/Vitest for frontend validation.
+## AI Authorship Boundaries
 
-## Authorship Rules
+The human writes the first version of every module they intend to explain or
+defend in an interview. AI must not first-draft the production implementation
+of these core modules:
 
-The human writes the first version of every core pipeline module: chunker, embedder, vector store client, retriever, reranker, and synthesis prompt.
+- chunker
+- embedder
+- vector store client
+- retriever
+- reranker
+- synthesis prompt
+- source quality policy
+- weak-evidence policy
+- run logging contract
+- LangGraph state schema
 
-AI may generate: boilerplate (Pydantic schemas, route stubs, test fixtures, SQL migrations), utility helpers with no retrieval logic, and frontend UI components.
+AI may first-draft supporting code only when it does not contain core
+retrieval judgment:
 
-AI may not generate the initial production implementation of any module the human intends to explain or defend in an interview.
+- Pydantic request/response schemas after the human defines the fields.
+- FastAPI route stubs after the human defines the behavior.
+- Test fixtures, test factories, and mocks.
+- SQL migration boilerplate after the human defines table fields and
+  constraints.
+- CLI wrappers and inspection scripts.
+- Frontend UI components.
+- Documentation, checklists, and review prompts.
+
+AI may review, explain, debug, or refactor core modules after the human has
+written the first working version and can explain the design.
 
 ## RAG Repo Layout
 
@@ -50,33 +72,6 @@ Database schema and migration files for the RAG pipeline live in two places:
 - `migrations/`: incremental SQL migrations for existing databases.
 
 SQL must be reviewed like application code because it defines citation traceability.
-
-## AI Authorship Boundaries
-
-AI must not first-draft the production implementation of these core modules:
-
-- chunker
-- embedder
-- vector store client
-- retriever
-- reranker
-- synthesis prompt
-- source quality policy
-- weak-evidence policy
-- run logging contract
-- LangGraph state schema
-
-AI may first-draft supporting code only when it does not contain core retrieval judgment:
-
-- Pydantic request/response schemas after the human defines the fields.
-- FastAPI route stubs after the human defines the behavior.
-- Test fixtures, test factories, and mocks.
-- SQL migration boilerplate after the human defines table fields and constraints.
-- CLI wrappers and inspection scripts.
-- Frontend UI components.
-- Documentation, checklists, and review prompts.
-
-AI may review, explain, debug, or refactor core modules after the human has written the first working version and can explain the design.
 
 ## Required RAG Metadata
 
@@ -170,10 +165,10 @@ cd web && npm run lint
 cd web && npm run test:run
 ```
 
-Before merging any RAG retrieval, reranking, synthesis, or prompt change, also run the eval suite once it exists:
+Before merging any RAG retrieval, reranking, synthesis, or prompt change, also run the eval suite:
 
 ```bash
-uv run --extra dev run-evals
+uv run --extra dev python evals/run_evals.py
 ```
 
 If a validation gate is known to fail because of existing unrelated debt, record the failing command, the first failing error, and why it is unrelated to the change. Do not mark new pipeline work complete if it weakens citation traceability, run logging, source quality checks, or weak-evidence handling.
