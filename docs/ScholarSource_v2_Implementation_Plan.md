@@ -392,8 +392,10 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   Done in `supabase_schema.sql` and `migrations/001_create_rag_traceability_schema.sql`: `rag_sources` stores source URL/title/quality metadata, `rag_extracted_documents` stores extraction hashes and timestamps, `rag_chunks` stores chunk text/source metadata/content hashes, and `rag_embeddings` stores vector values, embedding model/dimensions, content hash, and `embedded_at`. `migrations/004_deduplicate_rag_embeddings.sql` adds the content-hash/model uniqueness guard for repeated runs.
 - [X] 1.6.3 Add indexes required for retrieval performance.
   Done in `migrations/005_add_rag_retrieval_performance_indexes.sql` and `supabase_schema.sql`: source inspection is covered by `(source_id, chunk_index)`, model-filtered semantic retrieval/debug paths are covered by `(embedding_model, embedded_at DESC)`, lexical search remains covered by the `rag_chunks` full-text GIN index, and semantic ordering remains covered by the existing HNSW vector index.
-- [ ] 1.6.4 Add a way to reset local test data safely.
-- [ ] 1.6.5 Verify inserted chunks can be retrieved by source and by semantic similarity.
+- [X] 1.6.4 Add a way to reset local test data safely.
+  Done in `backend/rag/vector_store/client.py`: `SupabaseVectorStore.delete_source()` removes one source by `normalized_url`, relying on the reviewed cascade constraints to clear that source's extracted documents, chunks, and embeddings without wiping unrelated local RAG data.
+- [X] 1.6.5 Verify inserted chunks can be retrieved by source and by semantic similarity.
+  Done in `tests/rag/test_vector_store.py`: the vector-store test inserts a source, extracted document, chunks, and embeddings, then verifies source-ordered chunk inspection through `chunks_for_source()` and similarity-ranked retrieval through `semantic_search()`.
 
 ### Reference: SQL Migration 002 — Search Functions
 
