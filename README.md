@@ -1,642 +1,329 @@
 # ScholarSource
 
-Find high-quality study resources aligned with your textbook for Google
-NotebookLM.
+Find high-quality study resources aligned with a course or textbook for use in
+Google NotebookLM.
 
-ScholarSource is a web application that helps students discover curated
-educational resources that complement their course textbooks. By analyzing your
-book's structure and topics, ScholarSource finds open textbooks, course
-materials, and learning resources you can add to Google NotebookLM to create
-comprehensive study materials.
+ScholarSource is a full-stack application that accepts course URLs, textbook
+details, ISBNs, PDFs, or topic lists and returns relevant educational resources.
+The project is currently evolving from a CrewAI search workflow into a
+controlled retrieval-augmented generation (RAG) pipeline.
 
----
+## Version Status
 
-## Purpose
+Two versions currently coexist in this repository:
 
-Students often struggle to find supplementary learning materials that align
-with their specific textbook. ScholarSource automates this process by:
+- **v1 is the production application.** It uses four sequential CrewAI agents
+  to analyze course material, discover resources, validate them, and format a
+  study guide.
+- **v2 is under active development on the `rag-v2` branch.** It replaces the
+  nondeterministic agent-driven search flow with a testable, traceable RAG
+  pipeline under `backend/rag/`.
 
-1. **Analyzing textbook structure** - Extracts topics, concepts, and
-   organization from course materials or book metadata.
-2. **Discovering aligned resources** - Searches for 5-7 high-quality, legally
-   accessible resources that match the textbook's content structure.
-3. **Validating quality** - Ensures resources are free, legal,
-   NotebookLM-compatible, and from reputable sources.
-4. **Presenting actionable results** - Provides resources ready to import into
-   Google NotebookLM.
+The v2 rewrite began after five baseline runs showed that identical inputs
+could produce different search plans, source sets, and final recommendations.
+The goal is not to eliminate all model variation. It is to control retrieval,
+preserve citation traceability, measure quality, and make failures explainable.
 
----
+## V2 Progress
+
+### Completed
+
+- Recorded and compared five v1 baseline runs.
+- Defined citation, source-quality, weak-evidence, and run-logging contracts.
+- Added LangSmith tracing and verified model-call timing and token visibility.
+- Implemented deterministic query generation and source collection.
+- Added source-quality policies with explicit rejection reasons.
+- Implemented text extraction with metadata preservation, caching, and failure
+  handling.
+- Implemented metadata-preserving chunking with stable ordering.
+- Implemented OpenAI embeddings with content-hash deduplication.
+- Added Supabase pgvector storage, HNSW and metadata indexes, source deletion,
+  and similarity-query verification.
+- Seeded seven golden cases spanning STEM, humanities, and weak-evidence traps.
+
+### Next
+
+1. Build the semantic retrieval service and return traceable similarity scores.
+2. Add weak-evidence thresholds and tests for irrelevant queries.
+3. Implement hybrid retrieval and reranking while preserving both retrieval
+   and rerank scores.
+4. Generate evidence-grounded answers with stored titles, URLs, and chunk IDs.
+5. Expand the golden set and add scored retrieval and generation regression
+   gates.
+6. Add LangGraph orchestration only after the linear pipeline is stable,
+   repeatable, and evaluated.
+
+The current eval runner validates the golden-case schema. It does not yet score
+the RAG pipeline. Ragas and LangGraph are planned work, not current runtime
+dependencies.
+
+See the
+[v2 implementation plan](docs/ScholarSource_v2_Implementation_Plan.md),
+[v2 learning plan](docs/ScholarSourcev2Learning%20Plan.md), and
+[project contract](AGENTS.md) for the detailed roadmap and engineering rules.
+
+## V2 Architecture
+
+```text
+Student input
+    -> deterministic query generation
+    -> candidate source collection
+    -> source-quality checks
+    -> text extraction
+    -> metadata-preserving chunking
+    -> embedding and deduplication
+    -> Supabase pgvector storage
+    -> semantic retrieval                 [next]
+    -> hybrid retrieval and reranking     [planned]
+    -> cited evidence-only synthesis      [planned]
+    -> scored regression evals            [planned]
+    -> LangGraph orchestration            [deferred]
+```
+
+Every final v2 citation must map back to a stored chunk with a source ID, title,
+and verified URL. If fewer than three credible sources are retrieved, or the
+best chunks are weakly relevant, the pipeline must return a weak-evidence
+response instead of a confident recommendation list.
+
+## Local Supabase Development
+
+V2 database work defaults to the Supabase CLI stack running locally in Docker.
+This provides local Postgres, pgvector, Auth, PostgREST, Studio, and API keys
+without writing experimental sources, chunks, embeddings, or run logs to the
+hosted development or production projects.
+
+The local Supabase HTTP API is normally available at
+`http://127.0.0.1:54321`. `SUPABASE_URL` must point to that HTTP API, not to a
+raw Postgres connection string.
+
+```bash
+supabase start
+supabase status
+supabase db reset
+```
+
+Do not use `supabase db reset --linked` for local RAG development. It targets a
+linked hosted project.
+
+Follow [the local Supabase setup guide](docs/supabase_rag_local_setup.md) for
+initialization, environment values, schema loading, resets, and safety checks.
+
+## Technology
+
+| Area | Technology |
+| --- | --- |
+| API | FastAPI, Pydantic |
+| Current production AI flow | CrewAI |
+| V2 RAG | Python, LangChain OpenAI, LangSmith |
+| Embeddings | OpenAI `text-embedding-3-small` |
+| Database and vector search | Supabase PostgreSQL with pgvector |
+| Background jobs | Celery and Redis |
+| Authentication | Supabase Auth and JWT |
+| Frontend | React, Vite, Tailwind CSS |
+| Testing | pytest, Vitest, React Testing Library, MSW |
+| Deployment | Railway, Cloudflare Pages, Supabase |
+
+Dependency versions are pinned in `pyproject.toml`, `uv.lock`, and
+`web/package-lock.json`.
 
 ## Project Structure
 
 ```text
-scholar_source/
-|-- backend/                 # FastAPI backend API
-|   |-- main.py              # API endpoints
-|   |-- models.py            # Pydantic request/response models
-|   |-- jobs.py              # Job management
-|   |-- crew_runner.py       # CrewAI execution wrapper
-|   |-- rate_limiter.py      # Rate limiting
-|   `-- markdown_parser.py   # Parse crew output to JSON
-|-- web/                     # React + Vite frontend
-|   |-- src/
-|   |   |-- pages/
-|   |   |   `-- HomePage.jsx
-|   |   |-- components/
-|   |   |   `-- ResultsTable.jsx
-|   |   `-- api/
-|   |       `-- client.js
-|   `-- package.json
-|-- src/scholar_source/      # CrewAI multi-agent system
-|   |-- crew.py              # Agent and task definitions
-|   `-- config/
-|       |-- agents.yaml      # Agent configurations
-|       `-- tasks.yaml       # Task descriptions
-|-- tests/                   # Test suite
-|-- docs/                    # Documentation
-|   |-- scholar_source_SDD.md
-|   `-- scholar_source_TDD.md
-|-- migrations/              # Incremental database migrations
-`-- supabase_schema.sql      # Database schema
+scholar-source/
+|-- backend/                  # FastAPI API and Celery worker
+|   `-- rag/                  # v2 RAG pipeline
+|       |-- sources/          # query generation and source quality
+|       |-- extraction/       # fetching, extraction, and caching
+|       |-- chunking/         # chunk boundaries and metadata
+|       |-- embeddings/       # provider calls and deduplication
+|       |-- vector_store/     # Supabase pgvector persistence
+|       |-- retrieval/        # semantic retrieval [next]
+|       |-- reranking/        # reranking [planned]
+|       |-- synthesis/        # cited synthesis [planned]
+|       |-- runs/             # structured run logs [planned]
+|       `-- orchestration/    # LangGraph wiring [deferred]
+|-- src/scholar_source/       # v1 CrewAI system
+|-- web/                      # React and Vite frontend
+|-- tests/                    # unit, integration, and RAG tests
+|-- evals/                    # golden cases and eval runner
+|-- migrations/              # incremental database migrations
+|-- docs/                     # architecture, plans, and setup guides
+|-- supabase_schema.sql       # fresh-database schema
+|-- justfile                  # local task aliases
+`-- pyproject.toml            # Python dependencies and app version
 ```
 
----
+## Prerequisites
 
-## Security Features
-
-ScholarSource implements enterprise-grade security measures:
-
-- **Authentication Required** - All API endpoints require valid Supabase JWT
-  tokens.
-- **Input Validation** - Comprehensive validation and sanitization of all user
-  inputs.
-- **Prompt Injection Protection** - Multi-layer detection of malicious prompt
-  patterns.
-- **Row-Level Security (RLS)** - Users can only access their own jobs and data.
-- **XSS Prevention** - HTML escaping in email notifications.
-- **Dependency Pinning** - All dependencies pinned to specific versions.
-- **Rate Limiting** - Protection against abuse and DoS attacks.
-
----
+- Python 3.10 through 3.12
+- [uv](https://docs.astral.sh/uv/)
+- Node.js 18 or newer and npm 9 or newer
+- Redis for asynchronous v1 jobs, or synchronous mode for local development
+- Docker and the Supabase CLI for local v2 database work
+- OpenAI and Serper API keys
 
 ## Installation
 
-### Prerequisites
-
-- **Python** >=3.10 <3.13
-- **Node.js** >=18 and npm
-- **Supabase** account (free tier available)
-
-### Backend Setup
-
-1. **Create and activate a Python virtual environment** (recommended):
-
-   ```bash
-   # Create virtual environment
-   python3 -m venv .venv
-
-   # Activate virtual environment
-   # On macOS/Linux:
-   source .venv/bin/activate
-   # On Windows:
-   # .venv\Scripts\activate
-   ```
-
-2. **Install Python dependencies:**
-
-   ```bash
-   # Make sure virtual environment is activated
-   # Upgrade pip to latest version
-   pip install --upgrade pip
-
-   # Install all backend dependencies from requirements.txt
-   pip install -r requirements.txt
-   ```
-
-   Backend dependencies installed:
-
-   - `crewai[tools]>=0.120.1` - Multi-agent orchestration framework with tools
-   - `fastapi>=0.115.0` - Modern web framework for building APIs
-   - `uvicorn[standard]>=0.30.0` - ASGI server for running FastAPI
-   - `supabase>=2.0.0` - Supabase Python client for database operations
-   - `pydantic[email]>=2.0.0` - Data validation using Python type annotations
-   - `slowapi>=0.1.9` - Rate limiting middleware for FastAPI
-   - `python-multipart>=0.0.9` - Support for form data parsing
-   - `python-dotenv>=1.0.0` - Load environment variables from .env file
-   - `resend>=0.8.0` - Email service integration
-   - `lancedb<0.26` - Vector database (used by CrewAI)
-
-   Verify installation:
-
-   ```bash
-   # Check that key packages are installed
-   python -c "import fastapi, crewai, supabase; print('Dependencies installed')"
-   ```
-
-3. **Set up environment variables**:
-
-   Copy the example file and fill in your credentials:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   Required variables:
-
-   ```bash
-   # OpenAI API (required)
-   OPENAI_API_KEY=your_openai_api_key_here
-
-   # Serper API (required for web search)
-   SERPER_API_KEY=your_serper_api_key_here
-
-   # Supabase Database (required)
-   SUPABASE_URL=https://your-project-id.supabase.co
-   SUPABASE_ANON_KEY=your_supabase_anon_key_here
-
-   # Supabase JWT Secret (required for authentication)
-   # Get from: Supabase Dashboard > Settings > API > JWT Secret
-   SUPABASE_JWT_SECRET=your_supabase_jwt_secret_here
-
-   # Optional: Cache TTL configuration
-   COURSE_ANALYSIS_TTL_DAYS=30
-   RESOURCE_RESULTS_TTL_DAYS=7
-
-   # Optional: Redis for multi-instance rate limiting
-   REDIS_URL=redis://...  # Only needed if scaling to 2+ instances
-
-   # Optional: extra allowed origins for CORS + CSRF (comma-separated)
-   # Appended to the built-in production/dev lists.
-   # Use for staging or tunnel URLs.
-   EXTRA_ALLOWED_ORIGINS=https://staging.example.com
-   ```
-
-   Getting your Supabase credentials:
-
-   1. Go to [Supabase Dashboard](https://app.supabase.com)
-   2. Select your project
-   3. Go to **Settings > API**
-   4. Copy:
-      - **Project URL** -> `SUPABASE_URL`
-      - **anon/public key** -> `SUPABASE_ANON_KEY`
-      - **JWT Secret** -> `SUPABASE_JWT_SECRET` (scroll down to find it)
-
-4. **Set up Supabase database:**
-   - Create a new [Supabase](https://supabase.com) project
-   - For a fresh database, run `supabase_schema.sql` in the Supabase SQL
-     Editor
-   - For an existing database, apply incremental SQL files from `migrations/`
-   - This creates the current `jobs` table plus v2 RAG traceability tables for
-     sources, extracted documents, chunks, embeddings, and run logs
-   - Older databases may still contain a legacy `course_cache` table; the
-     current backend does not reference it
-
-### Frontend Setup
-
-1. **Navigate to web directory:**
-
-   ```bash
-   cd web
-   ```
-
-2. **Install Node dependencies:**
-
-   ```bash
-   # Install all frontend dependencies from package.json
-   npm install
-   ```
-
-   Frontend dependencies installed:
-
-   Production dependencies:
-
-   - `react^19.2.0` - UI framework for building user interfaces
-   - `react-dom^19.2.0` - React DOM bindings for rendering
-
-   Development dependencies:
-
-   - `vite^7.2.4` - Fast build tool and dev server
-   - `@vitejs/plugin-react^5.1.1` - Vite plugin for React
-   - `tailwindcss^3.4.19` - Utility-first CSS framework
-   - `postcss^8.5.6` - CSS post-processor
-   - `autoprefixer^10.4.23` - CSS vendor prefixing
-   - `vitest^1.0.0` - Fast unit test framework
-   - `@testing-library/react^16.3.1` - React component testing utilities
-   - `@testing-library/jest-dom^6.1.0` - Custom Jest matchers for DOM
-   - `@testing-library/user-event^14.5.0` - User interaction simulation
-   - `msw^2.0.0` - API mocking library for tests
-   - `eslint^9.39.1` - JavaScript linter
-   - `jsdom^23.0.0` - DOM implementation for Node.js (testing)
-
-   Verify installation:
-
-   ```bash
-   # Check that key packages are installed
-   npm list react vite tailwindcss
-   ```
-
-3. **Create environment file**:
-
-   Copy the example file and fill in your credentials:
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-   **Required variables** (`web/.env.local`):
-
-   ```bash
-   # Backend API URL
-   VITE_API_URL=http://localhost:8000
-
-   # Supabase credentials (same as backend)
-   VITE_SUPABASE_URL=https://your-project-id.supabase.co
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
-   ```
-
-   Note: these must match your backend Supabase credentials for authentication
-   to work.
-
----
-
-## Authentication Setup
-
-ScholarSource requires user authentication for all operations. Users must sign
-up and log in before submitting jobs.
-
-### First-Time Setup
-
-1. **Start both backend and frontend** (see "Running the Application" below)
-
-2. **Create your first user account:**
-   - Open <http://localhost:5173> in your browser
-   - You'll see the login/signup page
-   - Click **Sign Up** tab
-   - Enter your email and password
-   - Check your email for the confirmation link if email confirmation is
-     enabled in Supabase
-   - Log in with your credentials
-
-3. **Verify authentication is working:**
-   - After logging in, you should see the course input form
-   - Submit a test job to ensure everything works
-   - Your jobs are private and only visible to you
-
-### Managing Users
-
-Creating test users for development:
+Install the Python project and development dependencies:
 
 ```bash
-# Option 1: Via the web UI (recommended)
-# Just use the signup form at http://localhost:5173
-
-# Option 2: Via Supabase Dashboard
-# Go to Authentication > Users > Add User
+uv sync --extra dev
 ```
 
-Disabling email confirmation for local development:
-
-1. Go to **Supabase Dashboard > Authentication > Providers > Email**
-2. Toggle off "Confirm email"
-3. Users can sign up without email verification
-
-Resetting passwords:
-
-- Users can use the "Forgot Password" link (if implemented)
-- Or reset via **Supabase Dashboard > Authentication > Users > [User] > Reset
-  Password**
-
-### Security Best Practices
-
-- **Never share JWT secrets** - Keep `SUPABASE_JWT_SECRET` private
-- **Use strong passwords** - Supabase enforces minimum password requirements
-- **Enable email confirmation in production** - Prevents fake accounts
-- **Monitor authentication logs** - Check Supabase Dashboard > Authentication
-  logs
-- **Rotate API keys regularly** - Especially if compromised
-
----
-
-## Running the Application
-
-### Development Mode
-
-#### Option 1: With Redis (Recommended for Production-like Setup)
-
-Terminal 1 - start backend:
+Install frontend dependencies:
 
 ```bash
-# From project root
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+cd web
+npm install
+cd ..
 ```
 
-Backend will be available at <http://localhost:8000>.
-
-Terminal 2 - start Celery worker:
+Create local environment files:
 
 ```bash
-# From project root
+cp .env.example .env.local
+cp web/.env.example web/.env.local
+```
+
+The backend loads `.env.local` by default when `ENVIRONMENT=local`. Keep all
+real keys out of version control.
+
+For v2 work, replace the placeholder Supabase values with the local values
+printed by `supabase status -o env`. The backend and frontend must use keys from
+the same Supabase instance so authentication tokens can be verified.
+
+### Important Backend Variables
+
+| Variable | Purpose |
+| --- | --- |
+| `ENVIRONMENT` | Selects `.env.local`, `.env.dev`, or `.env.prod` |
+| `OPENAI_API_KEY` | v1 model calls and v2 embeddings |
+| `SERPER_API_KEY` | v1 and v2 source discovery |
+| `IN_LOCAL_SUPABASE_MODE` | Allows the local Supabase development path |
+| `SUPABASE_URL` | Supabase HTTP API URL |
+| `SUPABASE_ANON_KEY` | Browser-safe Supabase key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side RAG storage and run logging |
+| `SUPABASE_JWT_SECRET` | Backend JWT verification |
+| `DATABASE_URL` | Optional direct PostgreSQL access |
+| `REDIS_URL` | Celery queue and distributed rate limiting |
+| `SYNC_MODE` | Runs v1 jobs in-process when set to `true` |
+| `ALLOW_IN_MEMORY_RATE_LIMIT` | Allows local rate limiting without Redis |
+| `LANGSMITH_API_KEY` | LangSmith tracing |
+| `LANGSMITH_PROJECT` | Trace project name |
+
+See `.env.example` and `web/.env.example` for the complete configuration.
+
+## Running the Current Application
+
+The web application still executes the v1 CrewAI flow. The v2 pipeline is not
+yet connected to the public API or frontend.
+
+With Redis running, start the API, worker, and frontend in separate terminals:
+
+```bash
+uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+```bash
 ./scripts/start_worker.sh
-
-# Or manually:
-celery -A backend.celery_app worker \
-  --loglevel=info \
-  --queues=crew_jobs,default \
-  --concurrency=2
 ```
 
-The worker processes jobs from the task queue. **Required** for job execution.
-
-Terminal 3 - start frontend:
-
 ```bash
-# From web/ directory
 cd web
 npm run dev
 ```
 
-Frontend will be available at <http://localhost:5173>.
+For simpler local v1 development without Redis, set these values in
+`.env.local` and do not start the worker:
 
-#### Option 2: Without Redis (Simpler Local Development)
-
-If you don't want to run Redis locally, you can use **synchronous mode** where
-tasks run in-process:
-
-Set environment variables:
-
-```bash
-export SYNC_MODE=true
-export ALLOW_IN_MEMORY_RATE_LIMIT=true  # For rate limiting without Redis
+```env
+SYNC_MODE=true
+ALLOW_IN_MEMORY_RATE_LIMIT=true
 ```
 
-Terminal 1 - start backend:
+The frontend runs at <http://localhost:5173> and the API runs at
+<http://localhost:8000>.
 
-```bash
-# From project root
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Terminal 2 - start frontend:
-
-```bash
-# From web/ directory
-cd web
-npm run dev
-```
-
-Note: in sync mode, the API blocks during task execution and is not
-suitable for production. For production, use Redis with Celery workers.
-
-Alternative: use a free cloud Redis service instead:
-
-- [Upstash Redis](https://upstash.com/) (free: 10K commands/day)
-- [Redis Cloud](https://redis.com/try-free/) (free: 30MB)
-- **Railway Redis** (if using Railway)
-
-Just set `REDIS_URL` and remove `SYNC_MODE`.
-
-### Verify Installation
-
-Check backend health:
+Check API health:
 
 ```bash
 curl http://localhost:8000/api/health
 ```
 
-Should return:
+The response includes the canonical application version from `pyproject.toml`:
 
 ```json
 {
   "status": "healthy",
-  "version": "0.1.0",
+  "version": "1.2.0",
   "database": "skipped"
 }
 ```
 
-## Versioning And Releases
+## Current V1 Request Flow
 
-ScholarSource uses Semantic Versioning. The canonical app version lives in
-`pyproject.toml`.
-
-- `PATCH` for bug fixes and internal cleanup
-- `MINOR` for backward-compatible features
-- `MAJOR` for breaking changes
-
-Implementation details:
-
-- The backend reads the app version from package metadata, with a
-  `pyproject.toml` fallback for local development.
-- The frontend gets the same version at build time through Vite as
-  `import.meta.env.VITE_APP_VERSION`.
-- If you want `web/package.json` metadata to match, run
-  `python3 scripts/sync_web_package_version.py` or
-  `cd web && npm run sync-version`.
-
-Release workflow:
-
-1. Update `version` in `pyproject.toml`.
-2. Sync the frontend package metadata:
-   `python3 scripts/sync_web_package_version.py`
-3. Update `CHANGELOG.md` if you are maintaining one.
-4. Run tests and build checks.
-5. Commit the release changes with a release commit.
-6. Create an annotated git tag for the same version.
-7. Push the branch and the tag.
-
-Example:
-
-```bash
-python3 scripts/sync_web_package_version.py
-git commit -am "Release v0.2.0"
-git tag -a v0.2.0 -m "Release v0.2.0"
-git push origin main
-git push origin v0.2.0
+```text
+Frontend -> POST /api/submit
+         -> create an authenticated Supabase job
+         -> enqueue a Celery task, or run synchronously
+         -> poll GET /api/status/{job_id}
+         -> display the completed resource guide
 ```
 
-Check frontend:
+Authenticated users can submit jobs, inspect their status, cancel them, and
+upload PDFs. Root and health endpoints are public.
 
-Open <http://localhost:5173> in your browser. You should see the course input
-form.
+## Validation
 
----
+Run the full project checks before merging:
 
-## Required API Keys
+```bash
+uv run --extra dev ruff check .
+uv run --extra dev ruff format --check .
+uv run --extra dev pytest tests/ -x
+cd web && npm run lint
+cd web && npm run test:run
+uv run --extra dev run-evals
+```
 
-### OpenAI API Key
+If `just` is installed, `just validate` runs the same sequence. The eval command
+currently validates the golden-case contract; scored RAG quality gates are
+planned for Phase 3.
 
-- **Purpose:** LLM inference for AI agents (GPT-4o, GPT-4o-mini)
-- **Get it:** [OpenAI API keys](https://platform.openai.com/api-keys)
-- **Cost:** Pay-per-use (GPT-4o is expensive, GPT-4o-mini is cheaper)
-- **Required:** Yes
+## Security and Traceability
 
-### Serper API Key
-
-- **Purpose:** Web search for resource discovery
-- **Get it:** [Serper API key](https://serper.dev/api-key)
-- **Cost:** Pay-per-use (cheaper than Google Custom Search)
-- **Required:** Yes
-
-### Supabase Credentials
-
-- **Purpose:** PostgreSQL database for job persistence and caching
-- **Get it:** Create a project at [Supabase](https://supabase.com)
-- **Cost:** Free tier available (500MB database, 50K MAU)
-- **Required:** Yes
-- **What you need:**
-  - `SUPABASE_URL`: Project URL (e.g., `https://xxxxx.supabase.co`)
-  - `SUPABASE_KEY`: Anon key from project settings
-
----
-
-## Environment Variables Reference
-
-### Backend (.env)
-
-| Variable | Required | Description | Default |
-| --- | --- | --- | --- |
-| `OPENAI_API_KEY` | Yes | OpenAI API key for LLM inference | - |
-| `SERPER_API_KEY` | Yes | Serper API key for web search | - |
-| `SUPABASE_URL` | Yes | Supabase project URL | - |
-| `SUPABASE_ANON_KEY` | Yes | Supabase anon/public key | - |
-| `SUPABASE_JWT_SECRET` | Yes | Supabase JWT secret for token verification | - |
-| `REDIS_URL` | Conditional | Redis queue/rate limit URL | Local Redis |
-| `SYNC_MODE` | No | Run tasks synchronously without Redis | `false` |
-| `ALLOW_IN_MEMORY_RATE_LIMIT` | No | Use in-memory rate limiting | `false` |
-| `COURSE_ANALYSIS_TTL_DAYS` | No | Cache TTL for course analysis (days) | 30 |
-| `RESOURCE_RESULTS_TTL_DAYS` | No | Cache TTL for full results (days) | 7 |
-| `EXTRA_ALLOWED_ORIGINS` | No | Extra CORS/CSRF origins | - |
-| `RESEND_API_KEY` | No | Email notification service API key | - |
-| `RESEND_FROM_EMAIL` | No | From email address for notifications | - |
-
-### Frontend (web/.env.local)
-
-| Variable | Required | Description | Default |
-| --- | --- | --- | --- |
-| `VITE_API_URL` | Yes | Backend API URL | - |
-| `VITE_SUPABASE_URL` | Yes | Supabase project URL | - |
-| `VITE_SUPABASE_ANON_KEY` | Yes | Supabase anon key | - |
-
-Note:
-
-- `REDIS_URL` is required for production deployments. Get a free Redis instance
-  from [Redis Cloud](https://redis.com/try-free/) or
-  [Upstash](https://upstash.com/).
-- For local development without Redis, set `SYNC_MODE=true` and
-  `ALLOW_IN_MEMORY_RATE_LIMIT=true`. This runs tasks synchronously in-process
-  and is not suitable for production.
-
----
-
-## How It Works
-
-1. **User submits course/book information** via the web form
-2. **Backend creates a background job** and returns a job ID
-3. **CrewAI multi-agent system executes** (2-5 minutes):
-   - Analyzes textbook structure
-   - Discovers aligned resources
-   - Validates resource quality
-   - Formats results
-4. **Frontend polls for status** every 2 seconds
-5. **Results displayed** when complete, ready to import into NotebookLM
-
----
+- Supabase JWT authentication and per-user job ownership
+- Row-level security policies for persisted user data
+- CORS and CSRF origin validation
+- Input validation, prompt-injection checks, and SSRF-aware URL validation
+- Redis-backed rate limiting in distributed environments
+- PDF extension, MIME type, magic-byte, and size validation
+- V2 source-quality rejection reasons and verified source URLs
+- V2 content hashes, embedding-model identifiers, and citation metadata
+- No synthesis call when retrieved evidence is empty
 
 ## Deployment
 
-### Deployment Choices
+The current frontend deploys to Cloudflare Pages. The FastAPI web process and
+Celery worker deploy to Railway, with Supabase for authentication and database
+storage and Redis for queueing and rate limiting.
 
-ScholarSource is designed to be deployed on the following platforms:
-
-- **Frontend**: **Cloudflare Pages** (Free tier)
-  - Unlimited bandwidth
-  - Global CDN
-  - Automatic HTTPS
-  - Easy GitHub integration
-
-- **Backend**: **Railway** (~$5/month)
-  - No request timeouts (critical for long-running AI jobs)
-  - Always-on service (no cold starts)
-  - Simple deployment process
-  - Automatic HTTPS
-
-- **Database**: **Supabase PostgreSQL** (Free tier / $25/month Pro)
-  - Free tier: 500MB database, 50K monthly active users
-  - Better tooling than Railway's database add-on
-  - Built-in authentication ready for future features
-
-### Preparing for Railway Deployment
-
-Important: Railway requires a `requirements.txt` file for Python
-dependencies, but this project uses `pyproject.toml` for dependency management.
-
-Convert pyproject.toml to requirements.txt:
-
-```bash
-# Option 1: Using pip-tools (recommended)
-pip install pip-tools
-pip-compile pyproject.toml -o requirements.txt
-
-# Option 2: Using pip directly
-pip install -e .
-pip freeze > requirements.txt
-
-# Option 3: Manual conversion
-# Extract dependencies from pyproject.toml and create requirements.txt
-# The requirements.txt file is already included in the repository
-```
-
-Note: The `requirements.txt` file is already included in this repository
-and kept in sync with `pyproject.toml`. If you modify dependencies in
-`pyproject.toml`, regenerate `requirements.txt` before deploying to Railway.
-
-Railway deployment steps:
-
-1. **Create Procfile** (already included in repository):
-
-   ```text
-   web: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
-   ```
-
-2. **Connect GitHub repository** to Railway
-
-3. **Set environment variables** in Railway dashboard:
-   - `OPENAI_API_KEY`
-   - `SERPER_API_KEY`
-   - `SUPABASE_URL`
-   - `SUPABASE_KEY` (or `SUPABASE_ANON_KEY`)
-   - `EXTRA_ALLOWED_ORIGINS` for staging or custom domains, if any
-
-4. **Railway auto-detects** Python and installs from `requirements.txt`
-
-Cloudflare Pages deployment steps:
-
-1. **Connect GitHub repository** to Cloudflare Pages
-
-2. **Build settings:**
-   - Build command: `npm run build`
-   - Build output directory: `web/dist`
-   - Root directory: `web`
-
-3. **Environment variables:**
-   - `VITE_API_URL` = Your Railway backend URL
-
-For detailed deployment instructions, see `docs/Deployment_Plan.md`.
-
----
+See [the deployment plan](docs/Deployment_Plan.md) for environment variables,
+process configuration, and deployment checks.
 
 ## Documentation
 
-- **System Design Document:** `docs/scholar_source_SDD.md` - High-level
-  architecture and design rationale
-- **Technical Design Document:** `docs/scholar_source_TDD.md` - Detailed
-  implementation specifications
-- **Testing Guide:** `docs/TESTING_GUIDE.md` - Testing documentation
-- **Deployment Plan:** `docs/Deployment_Plan.md` - Step-by-step deployment guide
-
----
+- [V2 implementation plan](docs/ScholarSource_v2_Implementation_Plan.md)
+- [V2 learning plan](docs/ScholarSourcev2Learning%20Plan.md)
+- [Local Supabase RAG setup](docs/supabase_rag_local_setup.md)
+- [RAG eval documentation](evals/README.md)
+- [API documentation](docs/api.md)
+- [System design document](docs/scholar_source_SDD.md)
+- [Technical design document](docs/scholar_source_TDD.md)
+- [Testing guide](docs/TESTING_GUIDE.md)
+- [Deployment plan](docs/Deployment_Plan.md)
 
 ## License
 
-This project is built with CrewAI. See
-[CrewAI GitHub](https://github.com/joaomdmoura/crewai) for framework license
-details.
+No standalone license file is currently included in this repository. Third-party
+dependencies remain subject to their respective licenses.
