@@ -85,3 +85,9 @@ web/.env.development
 *.dump
 *.sql.backup
 
+# Local Supabase CLI state
+supabase/
+
+# Manual backup files
+*.backup
+
