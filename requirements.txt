@@ -17,7 +17,7 @@ PyJWT==2.13.0
 cryptography==48.0.0
 
 # PDF parsing for TOC extraction
-pypdf>=6.10.2,<7.0.0
+pypdf>=6.13.3,<7.0.0
 
 # File type validation via magic bytes
 filetype==1.2.0
