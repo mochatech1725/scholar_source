@@ -6,6 +6,8 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from backend.rag.config import RagSettings
+from backend.rag.embeddings import RagEmbedder
 from backend.rag.hashing import sha256_text
 from backend.rag.models import (
     ChunkRecord,
@@ -24,6 +26,19 @@ class FakeResponse:
 
     def execute(self) -> FakeResponse:
         return self
+
+
+class KnownQueryEmbeddings:
+    def __init__(self, query_vectors: dict[str, list[float]]) -> None:
+        self._query_vectors = query_vectors
+        self.queries: list[str] = []
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        raise AssertionError(f"Unexpected document embedding request: {texts}")
+
+    def embed_query(self, text: str) -> list[float]:
+        self.queries.append(text)
+        return self._query_vectors[text]
 
 
 class FakeSupabaseClient:
@@ -285,6 +300,70 @@ def test_inserted_chunks_can_be_retrieved_by_source_and_semantic_similarity() ->
     assert [hit.semantic_score for hit in semantic_hits] == pytest.approx([1.0, 0.0])
     assert all(hit.lexical_score is None for hit in semantic_hits)
     assert len(semantic_hits) == 2
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_chunk_index"),
+    [
+        ("Which direction does the gradient point?", 0),
+        ("What does curl measure in a vector field?", 1),
+        ("How is divergence related to outward flux?", 2),
+    ],
+)
+def test_known_queries_retrieve_expected_source_chunks(query: str, expected_chunk_index: int) -> None:
+    client = FakeSupabaseClient()
+    store = SupabaseVectorStore(client=client)
+    source_id = store.upsert_source(_source())
+    document_id = store.insert_extracted_document(_document(source_id))
+    chunks = [
+        _chunk(source_id, document_id, 0, "Gradient points in the direction of steepest increase."),
+        _chunk(source_id, document_id, 1, "Curl measures local rotation in a vector field."),
+        _chunk(source_id, document_id, 2, "Divergence measures net outward flux."),
+    ]
+    chunk_vectors = [
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+    ]
+    chunk_ids = store.upsert_chunks(chunks)
+    store.insert_embeddings(
+        [
+            EmbeddingRecord(
+                chunk_id=chunk_id,
+                content_hash=chunk.content_hash,
+                embedding_model=chunk.embedding_model,
+                embedding_dimensions=3,
+                embedding=vector,
+            )
+            for chunk_id, chunk, vector in zip(chunk_ids, chunks, chunk_vectors, strict=True)
+        ]
+    )
+    query_vectors = {
+        "Which direction does the gradient point?": [0.9, 0.1, 0.0],
+        "What does curl measure in a vector field?": [0.1, 0.9, 0.0],
+        "How is divergence related to outward flux?": [0.0, 0.1, 0.9],
+    }
+    provider = KnownQueryEmbeddings(query_vectors)
+    embedder = RagEmbedder(
+        settings=RagSettings(embedding_dimensions=3),
+        embeddings=provider,
+    )
+
+    query_embedding = embedder.embed_query(query)
+    hits = store.semantic_search(
+        query_embedding,
+        limit=1,
+        embedding_model="text-embedding-3-small",
+    )
+
+    assert provider.queries == [query]
+    assert len(hits) == 1
+    assert hits[0].chunk_id == chunk_ids[expected_chunk_index]
+    assert hits[0].source_id == source_id
+    assert hits[0].chunk_index == expected_chunk_index
+    assert hits[0].content == chunks[expected_chunk_index].content
+    assert hits[0].semantic_score is not None
+    assert hits[0].semantic_score > 0.99
 
 
 def test_search_hits_preserve_stored_chunk_citation_metadata() -> None:

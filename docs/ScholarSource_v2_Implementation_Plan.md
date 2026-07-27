@@ -431,7 +431,11 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   content hash. Required citation strings reject empty values, and
   `tests/rag/test_vector_store.py` verifies both search paths preserve the
   stored citation metadata unchanged.
-- [ ] 1.7.5 Verify known queries retrieve expected source chunks.
+- [x] 1.7.5 Verify known queries retrieve expected source chunks.
+  Done in `tests/rag/test_vector_store.py`: parameterized known-query cases
+  pass through `RagEmbedder.embed_query()` and semantic search, then verify
+  gradient, curl, and divergence queries return the expected stored chunk ID,
+  source ID, chunk index, content, and a strong similarity score.
 - [ ] 1.7.6 Verify irrelevant queries do not return confident looking weak results.
 
 ### Reference: Retrieval (`backend/rag/retrieval/service.py`)
