@@ -187,7 +187,7 @@ class SupabaseVectorStore:
         return len(response.data)
 
     def semantic_search(self, query_embedding: list[float], *, limit: int, embedding_model: str) -> list[RetrievalHit]:
-        """Search chunks by cosine similarity through the pgvector RPC."""
+        """Return chunks with their cosine similarity scores from pgvector."""
         # `match_rag_chunks` is a PostgreSQL function exposed through Supabase RPC.
         response = self._client.rpc(
             "match_rag_chunks",

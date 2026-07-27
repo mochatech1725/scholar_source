@@ -420,7 +420,11 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   pgvector RPC with the configured embedding model and top-k limit.
   `tests/rag/test_vector_store.py` verifies similarity ordering and result
   truncation.
-- [ ] 1.7.3 Return similarity scores with retrieved chunks.
+- [x] 1.7.3 Return similarity scores with retrieved chunks.
+  Done in `backend/rag/vector_store/client.py`: every semantic-search row is
+  converted to a `RetrievalHit` whose `semantic_score` preserves the cosine
+  similarity returned by `match_rag_chunks`. `tests/rag/test_vector_store.py`
+  verifies that every returned chunk carries its corresponding score.
 - [ ] 1.7.4 Preserve enough metadata to cite every retrieved chunk.
 - [ ] 1.7.5 Verify known queries retrieve expected source chunks.
 - [ ] 1.7.6 Verify irrelevant queries do not return confident looking weak results.

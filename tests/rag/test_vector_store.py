@@ -262,8 +262,9 @@ def test_inserted_chunks_can_be_retrieved_by_source_and_semantic_similarity() ->
     ]
     assert semantic_hits[0].chunk_id == chunk_ids[1]
     assert semantic_hits[0].content == chunks[1].content
-    assert semantic_hits[0].semantic_score == pytest.approx(1.0)
     assert [hit.chunk_id for hit in semantic_hits] == [chunk_ids[1], chunk_ids[0]]
+    assert [hit.semantic_score for hit in semantic_hits] == pytest.approx([1.0, 0.0])
+    assert all(hit.lexical_score is None for hit in semantic_hits)
     assert len(semantic_hits) == 2
 
 
