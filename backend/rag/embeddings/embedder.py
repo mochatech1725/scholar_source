@@ -21,6 +21,9 @@ class EmbeddingProvider(Protocol):
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """Return one embedding vector for each input text."""
 
+    def embed_query(self, text: str) -> list[float]:
+        """Return one embedding vector for a query."""
+
 
 class ExistingEmbeddingIndex(Protocol):
     """Lookup interface for hashes that already have stored embeddings."""
@@ -29,8 +32,8 @@ class ExistingEmbeddingIndex(Protocol):
         """Return content hashes already embedded for the given model."""
 
 
-class ChunkEmbedder:
-    """Create embedding records for persisted chunks."""
+class RagEmbedder:
+    """Embed persisted chunks and user queries in one vector space."""
 
     def __init__(
         self,
@@ -82,6 +85,16 @@ class ChunkEmbedder:
             for chunk, vector in zip(pending_chunks, vectors, strict=True)
         ]
 
+    def embed_query(self, query: str) -> list[float]:
+        """Embed a user query with the stored-chunk model and dimensions."""
+        normalized_query = query.strip()
+        if not normalized_query:
+            raise EmbeddingError("Query must not be empty.")
+
+        vector = self._embeddings.embed_query(normalized_query)
+        self._validate_dimensions([vector])
+        return vector
+
     def _pending_unique_chunks(self, chunks: Sequence[ChunkRecord]) -> list[ChunkRecord]:
         existing_hashes: set[str] = set()
         if self._existing_index is not None:
@@ -103,6 +116,9 @@ class ChunkEmbedder:
         if len(chunks) != len(vectors):
             raise EmbeddingError(f"Embedding count {len(vectors)} does not match chunk count {len(chunks)}.")
 
+        self._validate_dimensions(vectors)
+
+    def _validate_dimensions(self, vectors: Sequence[list[float]]) -> None:
         bad_sizes = {len(vector) for vector in vectors if len(vector) != self._settings.embedding_dimensions}
         if bad_sizes:
             raise EmbeddingError(

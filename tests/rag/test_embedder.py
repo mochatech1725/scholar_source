@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 
 from backend.rag.config import RagSettings
-from backend.rag.embeddings import ChunkEmbedder
+from backend.rag.embeddings import RagEmbedder
 from backend.rag.errors import EmbeddingError
 from backend.rag.hashing import sha256_text
 from backend.rag.models import ChunkRecord
@@ -13,10 +13,15 @@ class FakeEmbeddings:
     def __init__(self, vectors: list[list[float]]) -> None:
         self.vectors = vectors
         self.texts: list[str] = []
+        self.query: str | None = None
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         self.texts = texts
         return self.vectors
+
+    def embed_query(self, text: str) -> list[float]:
+        self.query = text
+        return self.vectors[0]
 
 
 class FakeExistingIndex:
@@ -52,7 +57,7 @@ def test_embed_chunks_generates_embedding_records_for_persisted_chunks() -> None
     chunks = [_chunk("first chunk about vectors"), _chunk("second chunk about matrices")]
     provider = FakeEmbeddings([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
 
-    records = ChunkEmbedder(settings=settings, embeddings=provider).embed_chunks(chunks)
+    records = RagEmbedder(settings=settings, embeddings=provider).embed_chunks(chunks)
 
     assert provider.texts == [chunk.content for chunk in chunks]
     assert [record.chunk_id for record in records] == [chunk.chunk_id for chunk in chunks]
@@ -72,7 +77,7 @@ def test_embed_chunks_deduplicates_identical_content_in_batch() -> None:
     unique = _chunk("different explanation about determinants")
     provider = FakeEmbeddings([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
 
-    records = ChunkEmbedder(settings=settings, embeddings=provider).embed_chunks([duplicate_a, duplicate_b, unique])
+    records = RagEmbedder(settings=settings, embeddings=provider).embed_chunks([duplicate_a, duplicate_b, unique])
 
     assert provider.texts == [duplicate_a.content, unique.content]
     assert [record.chunk_id for record in records] == [duplicate_a.chunk_id, unique.chunk_id]
@@ -89,7 +94,7 @@ def test_embed_chunks_skips_hashes_embedded_by_previous_run() -> None:
     provider = FakeEmbeddings([[0.4, 0.5, 0.6]])
     existing_index = FakeExistingIndex({unchanged.content_hash})
 
-    records = ChunkEmbedder(
+    records = RagEmbedder(
         settings=settings,
         embeddings=provider,
         existing_index=existing_index,
@@ -110,7 +115,7 @@ def test_embed_chunks_returns_empty_when_all_hashes_were_embedded_by_previous_ru
     provider = FakeEmbeddings([])
     existing_index = FakeExistingIndex({chunk.content_hash for chunk in chunks})
 
-    records = ChunkEmbedder(
+    records = RagEmbedder(
         settings=settings,
         embeddings=provider,
         existing_index=existing_index,
@@ -128,7 +133,7 @@ def test_embed_chunks_logs_embedding_model_used(caplog: pytest.LogCaptureFixture
     provider = FakeEmbeddings([[0.1, 0.2, 0.3]])
 
     with caplog.at_level("INFO", logger="backend.rag.embeddings.embedder"):
-        ChunkEmbedder(settings=settings, embeddings=provider).embed_chunks([_chunk("logged chunk")])
+        RagEmbedder(settings=settings, embeddings=provider).embed_chunks([_chunk("logged chunk")])
 
     record = next(item for item in caplog.records if item.message == "Generating embeddings")
     assert record.embedding_model == settings.embedding_model
@@ -140,7 +145,7 @@ def test_embed_chunks_logs_embedding_model_used(caplog: pytest.LogCaptureFixture
 
 def test_embed_chunks_requires_persisted_chunks_for_traceability() -> None:
     provider = FakeEmbeddings([[0.1, 0.2, 0.3]])
-    embedder = ChunkEmbedder(settings=RagSettings(embedding_dimensions=3), embeddings=provider)
+    embedder = RagEmbedder(settings=RagSettings(embedding_dimensions=3), embeddings=provider)
 
     with pytest.raises(EmbeddingError, match="persisted before embedding"):
         embedder.embed_chunks([_chunk("unpersisted chunk", persisted=False)])
@@ -149,7 +154,7 @@ def test_embed_chunks_requires_persisted_chunks_for_traceability() -> None:
 def test_embed_chunks_rejects_provider_count_mismatch() -> None:
     chunks = [_chunk("first"), _chunk("second")]
     provider = FakeEmbeddings([[0.1, 0.2, 0.3]])
-    embedder = ChunkEmbedder(settings=RagSettings(embedding_dimensions=3), embeddings=provider)
+    embedder = RagEmbedder(settings=RagSettings(embedding_dimensions=3), embeddings=provider)
 
     with pytest.raises(EmbeddingError, match="Embedding count 1 does not match chunk count 2"):
         embedder.embed_chunks(chunks)
@@ -157,7 +162,7 @@ def test_embed_chunks_rejects_provider_count_mismatch() -> None:
 
 def test_embed_chunks_rejects_wrong_vector_dimensions() -> None:
     provider = FakeEmbeddings([[0.1, 0.2]])
-    embedder = ChunkEmbedder(settings=RagSettings(embedding_dimensions=3), embeddings=provider)
+    embedder = RagEmbedder(settings=RagSettings(embedding_dimensions=3), embeddings=provider)
 
     with pytest.raises(EmbeddingError, match="Expected 3-dim vectors"):
         embedder.embed_chunks([_chunk("short vector")])
@@ -165,7 +170,39 @@ def test_embed_chunks_rejects_wrong_vector_dimensions() -> None:
 
 def test_embed_chunks_returns_empty_list_for_empty_input() -> None:
     provider = FakeEmbeddings([])
-    embedder = ChunkEmbedder(settings=RagSettings(embedding_dimensions=3), embeddings=provider)
+    embedder = RagEmbedder(settings=RagSettings(embedding_dimensions=3), embeddings=provider)
 
     assert embedder.embed_chunks([]) == []
     assert provider.texts == []
+
+
+def test_embed_query_uses_same_embedding_space_as_chunks() -> None:
+    settings = RagSettings(
+        embedding_model="text-embedding-3-small-test-version",
+        embedding_dimensions=3,
+    )
+    provider = FakeEmbeddings([[0.1, 0.2, 0.3]])
+    embedder = RagEmbedder(settings=settings, embeddings=provider)
+
+    vector = embedder.embed_query("  eigenvectors and eigenvalues  ")
+
+    assert provider.query == "eigenvectors and eigenvalues"
+    assert vector == [0.1, 0.2, 0.3]
+
+
+def test_embed_query_rejects_empty_query() -> None:
+    provider = FakeEmbeddings([[0.1, 0.2, 0.3]])
+    embedder = RagEmbedder(settings=RagSettings(embedding_dimensions=3), embeddings=provider)
+
+    with pytest.raises(EmbeddingError, match="Query must not be empty"):
+        embedder.embed_query("   ")
+
+    assert provider.query is None
+
+
+def test_embed_query_rejects_wrong_vector_dimensions() -> None:
+    provider = FakeEmbeddings([[0.1, 0.2]])
+    embedder = RagEmbedder(settings=RagSettings(embedding_dimensions=3), embeddings=provider)
+
+    with pytest.raises(EmbeddingError, match="Expected 3-dim vectors"):
+        embedder.embed_query("eigenvectors")

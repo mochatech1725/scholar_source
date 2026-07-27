@@ -1,5 +1,5 @@
 """Embedding helpers for the ScholarSource RAG pipeline."""
 
-from backend.rag.embeddings.embedder import ChunkEmbedder, EmbeddingProvider, ExistingEmbeddingIndex
+from backend.rag.embeddings.embedder import EmbeddingProvider, ExistingEmbeddingIndex, RagEmbedder
 
-__all__ = ["ChunkEmbedder", "EmbeddingProvider", "ExistingEmbeddingIndex"]
+__all__ = ["EmbeddingProvider", "ExistingEmbeddingIndex", "RagEmbedder"]

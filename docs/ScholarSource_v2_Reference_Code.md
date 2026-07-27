@@ -1062,7 +1062,7 @@ from backend.rag.models import ChunkRecord, EmbeddingRecord
 from backend.rag.vector_store.client import SupabaseVectorStore
 
 
-class ChunkEmbedder:
+class RagEmbedder:
     """Embed new chunk content, skipping content already embedded."""
 
     def __init__(
@@ -1874,7 +1874,7 @@ from __future__ import annotations
 from backend.rag.chunking.chunker import chunk_document
 from backend.rag.config import DEFAULT_SETTINGS, RagSettings
 from backend.rag.extraction.extractor import SourceExtractor
-from backend.rag.embeddings.embedder import ChunkEmbedder
+from backend.rag.embeddings.embedder import RagEmbedder
 from backend.rag.models import (
     ExtractionStatus,
     PipelineResult,
@@ -1929,7 +1929,7 @@ def run_rag_pipeline(
         extractor = SourceExtractor(settings)
         all_chunk_ids: list[str] = []
         with logger.step(run_id, "extract_chunk_embed") as out:
-            embedder = ChunkEmbedder(store, settings)
+            embedder = RagEmbedder(store, settings)
             embedded_count = 0
             skipped_count = 0
             for source in accepted:

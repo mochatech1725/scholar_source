@@ -409,7 +409,11 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 
 *Reference: Vector Database and Document Retrieval (Manning liveProject, Matteus Tanha).*
 
-- [ ] 1.7.1 Convert the user query into the same embedding space as stored chunks.
+- [x] 1.7.1 Convert the user query into the same embedding space as stored chunks.
+  Done in `backend/rag/embeddings/embedder.py`: `RagEmbedder.embed_query()`
+  uses the same configured provider, embedding model, and dimension contract
+  as stored chunk embeddings, while rejecting blank queries and
+  wrong-dimension provider responses.
 - [ ] 1.7.2 Retrieve the top matching chunks.
 - [ ] 1.7.3 Return similarity scores with retrieved chunks.
 - [ ] 1.7.4 Preserve enough metadata to cite every retrieved chunk.
