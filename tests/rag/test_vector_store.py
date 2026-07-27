@@ -263,6 +263,8 @@ def test_inserted_chunks_can_be_retrieved_by_source_and_semantic_similarity() ->
     assert semantic_hits[0].chunk_id == chunk_ids[1]
     assert semantic_hits[0].content == chunks[1].content
     assert semantic_hits[0].semantic_score == pytest.approx(1.0)
+    assert [hit.chunk_id for hit in semantic_hits] == [chunk_ids[1], chunk_ids[0]]
+    assert len(semantic_hits) == 2
 
 
 def test_delete_source_resets_one_local_test_source_and_cascading_rows() -> None:

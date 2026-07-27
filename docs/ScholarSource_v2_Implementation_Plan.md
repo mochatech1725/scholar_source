@@ -414,7 +414,12 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   uses the same configured provider, embedding model, and dimension contract
   as stored chunk embeddings, while rejecting blank queries and
   wrong-dimension provider responses.
-- [ ] 1.7.2 Retrieve the top matching chunks.
+- [x] 1.7.2 Retrieve the top matching chunks.
+  Done in `backend/rag/vector_store/client.py`:
+  `SupabaseVectorStore.semantic_search()` calls the `match_rag_chunks`
+  pgvector RPC with the configured embedding model and top-k limit.
+  `tests/rag/test_vector_store.py` verifies similarity ordering and result
+  truncation.
 - [ ] 1.7.3 Return similarity scores with retrieved chunks.
 - [ ] 1.7.4 Preserve enough metadata to cite every retrieved chunk.
 - [ ] 1.7.5 Verify known queries retrieve expected source chunks.
