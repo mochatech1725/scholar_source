@@ -41,6 +41,25 @@ class FakeSupabaseClient:
         return FakeTableQuery(self, table_name)
 
     def rpc(self, function_name: str, params: dict[str, Any]) -> FakeResponse:
+        if function_name == "search_rag_chunks_lexical":
+            query_terms = params["query_text"].lower().split()
+            rows = [
+                {
+                    "chunk_id": chunk["id"],
+                    "source_id": chunk["source_id"],
+                    "url": chunk["url"],
+                    "title": chunk["title"],
+                    "chunk_index": chunk["chunk_index"],
+                    "content": chunk["content"],
+                    "content_hash": chunk["content_hash"],
+                    "lexical_score": sum(term in chunk["content"].lower() for term in query_terms),
+                }
+                for chunk in self.tables["rag_chunks"]
+                if any(term in chunk["content"].lower() for term in query_terms)
+            ]
+            rows.sort(key=lambda row: row["lexical_score"], reverse=True)
+            return FakeResponse(rows[: params["match_limit"]])
+
         if function_name != "match_rag_chunks":
             raise AssertionError(f"Unexpected RPC: {function_name}")
 
@@ -266,6 +285,42 @@ def test_inserted_chunks_can_be_retrieved_by_source_and_semantic_similarity() ->
     assert [hit.semantic_score for hit in semantic_hits] == pytest.approx([1.0, 0.0])
     assert all(hit.lexical_score is None for hit in semantic_hits)
     assert len(semantic_hits) == 2
+
+
+def test_search_hits_preserve_stored_chunk_citation_metadata() -> None:
+    client = FakeSupabaseClient()
+    store = SupabaseVectorStore(client=client)
+    source_id = store.upsert_source(_source())
+    document_id = store.insert_extracted_document(_document(source_id))
+    chunk = _chunk(source_id, document_id, 0, "Gradient points toward steepest increase.")
+    chunk_id = store.upsert_chunks([chunk])[0]
+    store.insert_embeddings(
+        [
+            EmbeddingRecord(
+                chunk_id=chunk_id,
+                content_hash=chunk.content_hash,
+                embedding_model=chunk.embedding_model,
+                embedding_dimensions=3,
+                embedding=[1.0, 0.0, 0.0],
+            )
+        ]
+    )
+
+    semantic_hit = store.semantic_search(
+        [1.0, 0.0, 0.0],
+        limit=1,
+        embedding_model="text-embedding-3-small",
+    )[0]
+    lexical_hit = store.lexical_search("gradient", limit=1)[0]
+
+    for hit in (semantic_hit, lexical_hit):
+        assert hit.chunk_id == chunk_id
+        assert hit.source_id == source_id
+        assert hit.url == chunk.url
+        assert hit.title == chunk.title
+        assert hit.chunk_index == chunk.chunk_index
+        assert hit.content == chunk.content
+        assert hit.content_hash == chunk.content_hash
 
 
 def test_delete_source_resets_one_local_test_source_and_cascading_rows() -> None:

@@ -425,7 +425,12 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   converted to a `RetrievalHit` whose `semantic_score` preserves the cosine
   similarity returned by `match_rag_chunks`. `tests/rag/test_vector_store.py`
   verifies that every returned chunk carries its corresponding score.
-- [ ] 1.7.4 Preserve enough metadata to cite every retrieved chunk.
+- [x] 1.7.4 Preserve enough metadata to cite every retrieved chunk.
+  Done through the search RPCs and `RetrievalHit`: semantic and lexical hits
+  retain the stored chunk ID, source ID, URL, title, chunk index, content, and
+  content hash. Required citation strings reject empty values, and
+  `tests/rag/test_vector_store.py` verifies both search paths preserve the
+  stored citation metadata unchanged.
 - [ ] 1.7.5 Verify known queries retrieve expected source chunks.
 - [ ] 1.7.6 Verify irrelevant queries do not return confident looking weak results.
 

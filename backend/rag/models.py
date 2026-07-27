@@ -85,11 +85,11 @@ class EmbeddingRecord(RagModel):
 class RetrievalHit(RagModel):
     chunk_id: UUID
     source_id: UUID
-    url: str
-    title: str
+    url: str = Field(min_length=1)
+    title: str = Field(min_length=1)
     chunk_index: int = Field(ge=0)
     content: str = Field(min_length=1)
-    content_hash: str
+    content_hash: str = Field(min_length=1)
     semantic_score: float | None = None
     lexical_score: float | None = None
 
