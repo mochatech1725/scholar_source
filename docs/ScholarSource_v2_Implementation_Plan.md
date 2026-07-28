@@ -436,7 +436,11 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   pass through `RagEmbedder.embed_query()` and semantic search, then verify
   gradient, curl, and divergence queries return the expected stored chunk ID,
   source ID, chunk index, content, and a strong similarity score.
-- [ ] 1.7.6 Verify irrelevant queries do not return confident looking weak results.
+- [x] 1.7.6 Verify irrelevant queries do not return confident looking weak results.
+  Done in `tests/rag/test_vector_store.py`: an irrelevant gardening query is
+  embedded orthogonally to the stored vector-calculus chunks, and the test
+  verifies every returned top-k result retains a semantic score below the
+  configured minimum-evidence threshold rather than appearing confident.
 
 ### Reference: Retrieval (`backend/rag/retrieval/service.py`)
 

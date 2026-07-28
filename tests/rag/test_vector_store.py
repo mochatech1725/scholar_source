@@ -366,6 +366,55 @@ def test_known_queries_retrieve_expected_source_chunks(query: str, expected_chun
     assert hits[0].semantic_score > 0.99
 
 
+def test_irrelevant_query_returns_only_below_threshold_semantic_scores() -> None:
+    settings = RagSettings(embedding_dimensions=4)
+    client = FakeSupabaseClient()
+    store = SupabaseVectorStore(client=client)
+    source_id = store.upsert_source(_source())
+    document_id = store.insert_extracted_document(_document(source_id))
+    chunks = [
+        _chunk(source_id, document_id, 0, "Gradient points in the direction of steepest increase."),
+        _chunk(source_id, document_id, 1, "Curl measures local rotation in a vector field."),
+        _chunk(source_id, document_id, 2, "Divergence measures net outward flux."),
+    ]
+    chunk_ids = store.upsert_chunks(chunks)
+    store.insert_embeddings(
+        [
+            EmbeddingRecord(
+                chunk_id=chunk_id,
+                content_hash=chunk.content_hash,
+                embedding_model=chunk.embedding_model,
+                embedding_dimensions=4,
+                embedding=vector,
+            )
+            for chunk_id, chunk, vector in zip(
+                chunk_ids,
+                chunks,
+                [
+                    [1.0, 0.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0],
+                ],
+                strict=True,
+            )
+        ]
+    )
+    query = "How do I prune a backyard apple tree?"
+    provider = KnownQueryEmbeddings({query: [0.0, 0.0, 0.0, 1.0]})
+    embedder = RagEmbedder(settings=settings, embeddings=provider)
+
+    hits = store.semantic_search(
+        embedder.embed_query(query),
+        limit=settings.retrieval_limit,
+        embedding_model=settings.embedding_model,
+    )
+
+    assert provider.queries == [query]
+    assert len(hits) == len(chunks)
+    assert all(hit.semantic_score is not None for hit in hits)
+    assert all(hit.semantic_score < settings.min_semantic_score for hit in hits if hit.semantic_score is not None)
+
+
 def test_search_hits_preserve_stored_chunk_citation_metadata() -> None:
     client = FakeSupabaseClient()
     store = SupabaseVectorStore(client=client)
