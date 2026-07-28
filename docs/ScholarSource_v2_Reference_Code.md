@@ -2,7 +2,9 @@
 
 This companion file holds the concrete reference snippets for `docs/ScholarSource_v2_Implementation_Plan.md`. The implementation plan stays focused on the build order, learning goals, verification steps, and decision records.
 
-Use this file as review material after writing your own first version of core RAG modules, unless you intentionally decide to waive that authorship rule for a specific support module.
+Use this file as implementation and review material. Apply or adapt its examples
+to the surrounding code, then verify behavior with focused tests and the
+project validation gates.
 
 ---
 

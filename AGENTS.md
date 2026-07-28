@@ -1,42 +1,20 @@
 # ScholarSource — Agent Contract
 
-This file is the system contract for ScholarSource v2 RAG work: authorship
-boundaries, module layout, required metadata, validation gates, and hard
-rules. Repo orientation — stack, directory structure, commands, environment
+This file is the system contract for ScholarSource v2 RAG work: implementation
+authority, module layout, required metadata, validation gates, and hard rules.
+Repo orientation — stack, directory structure, commands, environment
 variables — lives in `CLAUDE.md`, which imports this file so both load
 together. Do not duplicate orientation content here.
 
-## AI Authorship Boundaries
+## Implementation Authority
 
-The human writes the first version of every module they intend to explain or
-defend in an interview. AI must not first-draft the production implementation
-of these core modules:
+AI may implement, test, review, explain, debug, and refactor every ScholarSource
+module, including core RAG modules and retrieval-policy decisions. Follow the
+module boundaries, metadata requirements, validation gates, and hard rules in
+this contract for all generated changes.
 
-- chunker
-- embedder
-- vector store client
-- retriever
-- reranker
-- synthesis prompt
-- source quality policy
-- weak-evidence policy
-- run logging contract
-- LangGraph state schema
-
-AI may first-draft supporting code only when it does not contain core
-retrieval judgment:
-
-- Pydantic request/response schemas after the human defines the fields.
-- FastAPI route stubs after the human defines the behavior.
-- Test fixtures, test factories, and mocks.
-- SQL migration boilerplate after the human defines table fields and
-  constraints.
-- CLI wrappers and inspection scripts.
-- Frontend UI components.
-- Documentation, checklists, and review prompts.
-
-AI may review, explain, debug, or refactor core modules after the human has
-written the first working version and can explain the design.
+Keep important design decisions explicit in code, tests, and documentation so
+the system remains understandable, maintainable, and defensible.
 
 ## RAG Repo Layout
 

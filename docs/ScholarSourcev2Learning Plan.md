@@ -1,16 +1,18 @@
 # **ScholarSource v2 — Learning Plan**
 
-Goal: Rebuild ScholarSource as a production-style RAG system. Learn RAG, pgvector, embeddings, evals, and LangGraph by writing the code yourself — using AI as a tutor, not a developer.
+Goal: Rebuild ScholarSource as a production-style RAG system. Learn RAG, pgvector, embeddings, evals, and LangGraph through implementation, review, testing, and explanation, with AI available as a developer and collaborator.
 
 ---
 
 ## **The Core Rule**
 
-You design the module. You write the first version. You ask for review or explanation. You refactor after you understand it.
+Build each module with clear design decisions, tests, documentation, and enough
+understanding to debug and explain it. AI may write the initial implementation
+as well as review, test, explain, debug, and refactor it.
 
-This isn't just a learning preference — it's what makes the project defensible in interviews. Per the "Build a Personal Project" doc: if you can't debug a module live in five minutes of questioning, it shouldn't be on your resume. Every piece of this system should be something you can whiteboard from memory.
-
-Where AI helps: explaining concepts, reviewing your code, debugging with you, answering "why does this work this way." Where AI does not help: writing the first version of any module you plan to claim as your own.
+Interview defensibility comes from understanding the resulting system and its
+tradeoffs. Every important piece should remain something you can whiteboard and
+reason about.
 
 ---
 
@@ -46,7 +48,7 @@ Practice this until it's automatic. You'll need it in every interview.
 
 **Agent \= Model \+ Harness.** The model is maybe 10% of what makes an agent work well. The harness — your system prompts, tools, guardrails, retrieval logic, and observability — is 90%. Most agent failures are configuration failures, not model failures. This is why v1 was inconsistent: the harness wasn't doing its job.
 
-**Set up your harness before you write production code.** Before Phase 1, create an `AGENTS.md` file at the root of the repo. Start with 10 lines: your stack, naming conventions, what AI tools are allowed to generate vs. what you write yourself, and hard rules the agent cannot break (e.g., "never return a source without a URL", "always cite chunk source in the response").
+**Set up your harness before you write production code.** Before Phase 1, create an `AGENTS.md` file at the root of the repo. Start with 10 lines: your stack, naming conventions, implementation boundaries, validation requirements, and hard rules the agent cannot break (e.g., "never return a source without a URL", "always cite chunk source in the response").
 
 **Write evals before you write the agent.** Tests verify deterministic behavior (given this input, return that output). Evals verify non-deterministic behavior (did the agent retrieve relevant sources? is the response grounded in what was retrieved?). A system without evals is always vibe coding, regardless of how clean the code looks.
 
@@ -54,7 +56,7 @@ Practice this until it's automatic. You'll need it in every interview.
 
 **Observability from day one.** LangSmith gives you traces — a full log of every step the system took, with latency and token cost. Start it on day one. This is how you'll diagnose why v1 returned different results: you'll be able to see exactly what the system retrieved and why.
 
-**Start as a "Conductor," not an "Orchestrator."** You want to be in the code, understanding every step, writing the logic yourself. This is the right instinct. The Google doc calls this conductor mode — fine-grained control, real-time understanding. Only move toward orchestrator mode (delegating to agents) in Phase 4, after you deeply understand the non-agentic pipeline.
+**Start as a "Conductor," not an "Orchestrator."** Stay close to the code and understand every step of the pipeline. The Google doc calls this conductor mode — fine-grained control and real-time understanding. Only move toward runtime agent orchestration in Phase 4, after the non-agentic pipeline is stable and explainable.
 
 ### **From "Build a Personal Project"**
 
@@ -92,7 +94,7 @@ The answer determines where Phase 1 focuses first. If retrieval is already consi
 Create `AGENTS.md` in the project root. It should define:
 
 * Stack and conventions
-* What you write vs. what AI can generate
+* Implementation boundaries and validation requirements
 * Hard rules (citation required, no hallucinated URLs, etc.)
 * How modules should be structured
 

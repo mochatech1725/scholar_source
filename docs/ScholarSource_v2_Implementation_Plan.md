@@ -2,7 +2,7 @@
 
 ## Overview
 
-This plan turns the ScholarSource v2 learning plan into an execution checklist. The goal is to rebuild ScholarSource as a production-style RAG system while preserving the most important constraint: you write the implementation first, and AI acts as a tutor, reviewer, debugger, and architecture partner.
+This plan turns the ScholarSource v2 learning plan into an execution checklist. The goal is to rebuild ScholarSource as a production-style RAG system with AI available to implement, test, review, explain, debug, and refine every module.
 
 ScholarSource v2 replaces the current agent-first resource discovery flow with a controlled retrieval pipeline. The system should collect source content, split it into reusable chunks, embed those chunks, store them in a vector-enabled database, retrieve the most relevant evidence for a student query, rerank the evidence, and synthesize a cited study resource guide. Orchestration is added only after the basic pipeline is stable, tested, observable, and repeatable.
 
@@ -28,9 +28,8 @@ sections they support. See "How to Use the Reference Code Sections" below.
 
 ## Guiding Rules
 
-- You write the first version of each core module yourself.
-- AI may explain concepts, review code, debug errors, suggest tests, and help compare design options.
-- AI should not generate the initial production implementation for modules you want to defend in interviews.
+- AI may implement, test, review, explain, debug, and refactor every module.
+- Important implementation decisions and tradeoffs must remain explicit and explainable.
 - Every core behavior needs a short explanation you can give from memory.
 - Every phase ends with a working artifact, not just notes.
 - Every new abstraction should have a measurable reason to exist.
@@ -49,17 +48,10 @@ sections link to concrete code examples in
 `docs/ScholarSource_v2_Reference_Code.md`. The companion file is reference
 material, not proof that the code has been applied to the repo.
 
-The guiding rules above still say you write the first version of every core
-module: chunker, embedder, vector store client, retriever, reranker, and
-synthesis prompt. The reference code is a complete answer key. Two honest ways
-to use it:
-
-1. Write your own first version of each module from the books and your
-   `agentic-rag-tutorial` solutions, then diff against the reference section
-   as a review step. This preserves the interview-defensibility goal.
-2. Consciously waive the authorship rule for specific modules (for example the
-   vector store client, which is mostly plumbing) and paste from the
-   reference.
+The reference code is a complete implementation guide. It may be applied
+directly, adapted to surrounding code, or used for comparison during review.
+Verify applied reference code with focused tests and record meaningful design
+decisions in the implementation plan.
 
 Either way, the *decisions* in the reference sections (embedding model, chunk
 sizing, weak-evidence thresholds, deterministic query generation) are the part
@@ -132,7 +124,7 @@ Interview explanation: the inconsistent results were primarily caused by the `re
 
 ### [x] 0.3 Define the Development Contract
 
-- [x] 0.3.1 Confirm the project rules for what you write and what AI can assist with.
+- [x] 0.3.1 Confirm implementation authority and AI collaboration rules.
 - [x] 0.3.2 Add hard rules for citations, source quality, and hallucinated URLs.
 - [x] 0.3.3 Add hard rules for logging and traceability.
 - [x] 0.3.4 Add hard rules for when a result is too weak to show confidently.
@@ -877,7 +869,7 @@ uv run --extra dev run-evals
 
 ## Review Checkpoints
 
-Use these checkpoints when asking AI for help. The goal is to review your work without replacing your authorship.
+Use these checkpoints to review implementation quality and understanding.
 
 ### Checkpoint A: After Diagnosis
 
@@ -948,11 +940,9 @@ Use these checkpoints when asking AI for help. The goal is to review your work w
 ## Appendix: How This Differs From the Codex Guide
 
 Codex's guide (`docs/ScholarSource_RAG_Backend_Implementation_Guide.docx`)
-took the authorship contract literally: it ships typed contracts, hashing,
-citation utilities, RRF, and `Protocol` interfaces that raise
-`NotImplementedError`, and explicitly defers every core module to you. That is
-a valid reading, and its foundational files (errors, hashing, model shapes)
-are deliberately kept compatible here.
+ships typed contracts, hashing, citation utilities, RRF, and `Protocol`
+interfaces that raise `NotImplementedError`. Its foundational files (errors,
+hashing, model shapes) are deliberately kept compatible here.
 
 The companion reference-code file makes the opposite bet: show the whole thing,
 plus several substantive decisions Codex left open:
@@ -961,7 +951,7 @@ plus several substantive decisions Codex left open:
 | --- | --- | --- |
 | Core modules | Interfaces only, `NotImplementedError` | Full reference implementations |
 | Query generation | Not addressed | Deterministic templates — the direct fix for your Phase 0 root cause |
-| pgvector search | Deferred to human | SQL RPC functions written (`match_rag_chunks`, lexical FTS) |
+| pgvector search | Interface only | SQL RPC functions written (`match_rag_chunks`, lexical FTS) |
 | Lexical path | "later experiment" | Postgres full-text search now, fused with RRF as the reranker |
 | Hallucinated URLs | Citation filtering after the fact | Structural: the LLM only outputs chunk_ids; URLs are joined from storage |
 | Sync vs async | Async interfaces | Sync, matching supabase-py and the Celery worker where this runs |
