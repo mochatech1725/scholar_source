@@ -36,6 +36,12 @@ sections they support. See "How to Use the Reference Code Sections" below.
 - Every retrieved source shown to a user must be traceable to stored evidence.
 - Every generated answer must distinguish retrieved evidence from model synthesis.
 - Determinism, observability, and evals are product features, not cleanup work.
+- Every supported product input must normalize into the same typed v2 learning
+  request before query generation; input type must not select a different
+  retrieval or synthesis implementation.
+- ScholarSource v2 is complete only when topic lists, course pages, general
+  educational page URLs, book URLs, uploaded book PDFs, ISBNs, and book
+  metadata all run through v2 without invoking CrewAI.
 
 ---
 
@@ -188,24 +194,32 @@ This subsection tracks when to use the Manning liveProjects while building Phase
 
 #### Boundary Decision Record (1.1.1)
 
-- **Minimum accepted input:** a topic list, plus optional context fields
-  (course title, level, subject). The context fields are metadata riding
-  along with the topic list — the request already carries `course_name`
-  and `university_name` today — used only to sharpen the deterministic
-  search queries; the pipeline must work with topics alone. The pipeline
-  boundary is topics-in. URL input is supported by a thin pre-step
-  adapter *outside* the boundary: one HTTP fetch of the given course page
-  with HTML cleaning (reusing the section 1.3 extraction machinery), then
-  one structured LLM call that reads the cleaned page text and returns
-  `{course_title, subject, topics}` from whatever syllabus, schedule, or
-  outline content the page contains. No hand-written syllabus parser —
-  course page structures vary too much for rules; the LLM reading the
-  cleaned page is the parser. v2 minimum is single-page extraction only;
-  a one-hop follow of a syllabus link found on the page is a later
-  enhancement, added only if real course pages prove too thin in
-  practice. The adapter is built late in Phase 1, after the core path
-  works with hand-fed topic lists. ISBN, PDF, and book-title inputs stay
-  on the CrewAI path for now.
+- **Accepted product inputs:** a topic list; a course page; a general
+  educational page URL; a book URL, including a direct PDF URL; an uploaded
+  book PDF; an ISBN-10 or ISBN-13; or book metadata such as title and author.
+  Optional course, chapter, section, institution, level, subject, and resource
+  preference fields remain supported.
+- **Canonical v2 boundary:** every accepted product input first passes through
+  a deterministic adapter selected from validated request fields. Each adapter
+  produces one typed normalized learning request containing the input kind,
+  normalized identifiers, title, author or institution when applicable,
+  subject, topics, chapters or sections, user constraints, provenance for every
+  derived field, normalization warnings, and confidence. Topic lists mostly
+  pass through unchanged. URLs and PDFs reuse the same fetch and extraction
+  machinery used elsewhere in v2, then a single schema-constrained extraction
+  call derives the learning outline. ISBN input resolves bibliographic metadata
+  and available table-of-contents or subject data through a replaceable,
+  cached metadata provider before using the same structured extraction step.
+  The downstream boundary is therefore normalized-learning-request-in, not
+  topic-list-only.
+- **Normalization limits:** adapters may derive only learning context and
+  search topics; they do not generate recommended resources or citations.
+  A scanned or image-only PDF must use an explicitly configured OCR path or
+  return a transparent unsupported-document error. ISBN lookup must report
+  insufficient metadata rather than inventing chapters or topics. User-provided
+  book content is processed only as needed to derive the learning outline and
+  must not be exposed as a recommended source unless it independently passes
+  the normal source-quality and citation rules.
 - **Minimum accepted output:** the same envelope the frontend already
   renders — a completed job with `results` (a list of resources with type,
   title, source, URL, description) and `raw_output` (the markdown study
@@ -220,62 +234,71 @@ This subsection tracks when to use the Manning liveProjects while building Phase
 - **Frontend behavior that stays unchanged:** all of it. Same submit form,
   same 2-second status polling, same results table and NotebookLM copy
   flow. v2 is invisible to `web/`.
-- **Backend flow that gets bypassed:** dispatch happens at the existing
-  seam in `backend/crew_runner.py`, controlled by a `RAG_PIPELINE_ENABLED`
-  environment flag. With the flag on, supported input types (topic list;
-  later URL via the adapter) route to `backend/rag/pipeline.py`; input
-  types the RAG path does not yet handle fall through to the CrewAI crew,
-  so no legal frontend input ever errors. With the flag off, behavior is
-  identical to today everywhere.
+- **Backend migration and final state:** during development, v1 may remain
+  available only as an explicit rollback path while individual v2 adapters are
+  completed. There is no per-input permanent CrewAI fallback. Production
+  cutover requires every accepted input type to pass its v2 contract and eval
+  cases; then all submissions route to `backend/rag/pipeline.py`, the CrewAI
+  dispatch is removed, and CrewAI dependencies, configuration, tasks, and
+  tests are deleted. An adapter failure returns a structured normalization
+  error and never silently reroutes the request through v1.
 
 #### Numbered Pipeline Flow (1.1.2)
 
 ```text
 1. User input
-   topic list + optional course context
+   topics | course/page URL | book URL | uploaded PDF | ISBN | book metadata
    |
    v
-2. URL-to-topics adapter, when the user submits a course URL
-   fetch page once -> clean HTML -> structured LLM topic extraction
+2. Input validation and adapter selection
+   validate fields -> classify explicit input kind -> preserve user constraints
    |
    v
-3. Deterministic query generation
+3. Normalize into one typed learning request
+   topics: normalize directly
+   page/book URL: fetch HTML or PDF -> extract text and metadata
+   uploaded PDF: validate -> extract text, or OCR when configured
+   ISBN: canonicalize -> cached metadata/contents lookup
+   extracted material -> schema-constrained title/subject/topic derivation
+   |
+   v
+4. Deterministic query generation
    render stable search queries for each topic
    |
    v
-4. Source collection
+5. Source collection
    run Serper searches -> deduplicate normalized URLs
    |
    v
-5. Source quality policy
+6. Source quality policy
    accept/reject candidates -> persist accepted source records
    |
    v
-6. Extraction
+7. Extraction
    fetch accepted HTML/PDF sources -> clean text -> hash extracted text
    |
    v
-7. Chunking
+8. Chunking
    split text into ordered overlapping chunks with source metadata
    |
    v
-8. Embedding and vector storage
+9. Embedding and vector storage
    embed missing chunks -> store chunks/vectors in Supabase pgvector
    |
    v
-9. Retrieval
+10. Retrieval
    run semantic + lexical search per topic over stored chunks
    |
    v
-10. Reranking and weak-evidence check
+11. Reranking and weak-evidence check
     fuse scores -> rank hits -> select evidence or flag weak evidence
     |
     v
-11. Cited synthesis
+12. Cited synthesis
     send only selected chunk evidence to synthesis -> draft guide by chunk ID
     |
     v
-12. Citation resolution and job completion
+13. Citation resolution and job completion
     join titles/URLs from stored metadata -> return `results` + `raw_output`
 ```
 
@@ -537,14 +560,66 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 
 Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_v2_Reference_Code.md#reference-tests-to-write-first-testsrag).
 
-### 1.10 Phase Completion Criteria
+### 1.10 Unified Input Normalization
 
-- [ ] 1.10.1 One input can complete the full path from query to cited answer.
-- [ ] 1.10.2 The answer is based on stored chunks, not live only search output.
-- [ ] 1.10.3 Every cited recommendation maps back to source metadata.
-- [ ] 1.10.4 You can explain each pipeline step from memory.
-- [ ] 1.10.5 You have at least one manual test case that proves the pipeline works end to end.
-- [ ] 1.10.6 You can articulate the retrieval evaluation metrics from *Hybrid Search and Retrieval Evaluation* (precision, recall, MRR, NDCG, groundedness) for your own pipeline's results, even informally.
+- [ ] 1.10.1 Define a typed normalized learning request and per-field
+  provenance model shared by every input adapter.
+- [ ] 1.10.2 Add an adapter dispatcher that selects the input path from
+  validated request fields and rejects ambiguous conflicting primary inputs.
+- [ ] 1.10.3 Add a direct adapter for topic lists and optional course, subject,
+  chapter, section, and preference context.
+- [ ] 1.10.4 Add a URL adapter for course pages and general educational pages
+  that detects HTML versus PDF content, reuses v2 extraction, and derives a
+  structured learning outline.
+- [ ] 1.10.5 Add a book URL adapter that handles catalog or publisher pages,
+  readable book pages, and direct PDF URLs without treating the submitted book
+  as an automatically approved recommendation.
+- [ ] 1.10.6 Add an uploaded-PDF adapter that preserves upload ownership,
+  validates file type and size, extracts text with page provenance, and returns
+  a structured error for encrypted, corrupt, or image-only files when OCR is
+  unavailable.
+- [ ] 1.10.7 Decide whether OCR is required for the v2 launch based on
+  representative uploaded-book fixtures; if required, document the provider or
+  local library, limits, cost, privacy behavior, and fallback policy before
+  implementation.
+- [ ] 1.10.8 Add an ISBN adapter that validates and canonicalizes ISBN-10 and
+  ISBN-13, resolves cached bibliographic and available table-of-contents or
+  subject metadata behind a provider interface, records provider provenance,
+  and fails transparently when the ISBN does not provide enough learning
+  context.
+- [ ] 1.10.9 Add a book-metadata adapter for title and optional author,
+  edition, chapter, and section fields.
+- [ ] 1.10.10 Use schema-constrained, deterministic extraction for unstructured
+  HTML, PDF, and ISBN metadata, and validate that every derived topic is
+  supported by the adapter's extracted input evidence.
+- [ ] 1.10.11 Hash and cache normalization results using the canonical primary
+  input, relevant context fields, adapter version, extraction prompt version,
+  and provider or OCR version.
+- [ ] 1.10.12 Store normalized input, adapter kind, derived-field provenance,
+  warnings, confidence, and structured failure state in the run log without
+  retaining unnecessary raw user-provided book content.
+- [ ] 1.10.13 Add unit, integration, and end-to-end fixtures for a topic list,
+  course page, general page, book page, direct book PDF URL, uploaded text PDF,
+  ISBN-10, ISBN-13, and book title/author input, plus scanned, encrypted,
+  corrupt, inaccessible, ambiguous, and insufficient-metadata failures.
+- [ ] 1.10.14 Verify all successful adapters produce the same normalized model
+  and enter the same query generation, retrieval, reranking, and synthesis
+  functions.
+
+### 1.11 Phase Completion Criteria
+
+- [ ] 1.11.1 Every accepted input type can complete the full v2 path from
+  normalization to cited answer without CrewAI.
+- [ ] 1.11.2 The answer is based on stored chunks, not live only search output.
+- [ ] 1.11.3 Every cited recommendation maps back to source metadata.
+- [ ] 1.11.4 You can explain each pipeline step from memory.
+- [ ] 1.11.5 You have at least one manual test case per accepted input type
+  proving the shared pipeline works end to end.
+- [ ] 1.11.6 You can articulate the retrieval evaluation metrics from *Hybrid
+  Search and Retrieval Evaluation* (precision, recall, MRR, NDCG,
+  groundedness) for your own pipeline's results, even informally.
+- [ ] 1.11.7 Adapter failures are visible and structured, and no failed or
+  unsupported input silently routes through v1.
 
 ---
 
@@ -561,6 +636,8 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 - [ ] 2.1.3 Document any step that intentionally allows variation.
 - [ ] 2.1.4 Ensure query generation uses stable settings.
 - [ ] 2.1.5 Ensure synthesis uses stable settings unless there is a clear reason not to.
+- [ ] 2.1.6 Version input adapters and structured extraction prompts so the
+  same cached source input produces the same normalized learning request.
 
 ### 2.2 Source and Extraction Cache
 
@@ -590,6 +667,8 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 - [ ] 2.4.8 Log total latency and major step timings.
 - [ ] 2.4.9 Log token usage and provider cost when available.
 - [ ] 2.4.10 Log failure states in a structured way.
+- [ ] 2.4.11 Log input kind, adapter version, canonical input identifier,
+  normalization provenance, warnings, and confidence.
 
 ### Reference: Run Logging (`backend/rag/runs/logger.py`)
 
@@ -634,6 +713,12 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 - [ ] 3.1.5 For each case, list key concepts that should appear in the answer.
 - [ ] 3.1.6 Include at least three cases where good sources are hard to find.
 - [ ] 3.1.7 Include at least three cases where low-quality sources are tempting.
+- [ ] 3.1.8 Include successful golden cases for every accepted input type:
+  topics, course page, general page, book page, direct PDF URL, uploaded PDF,
+  ISBN, and book metadata.
+- [ ] 3.1.9 Include normalization failure cases for scanned or invalid PDFs,
+  inaccessible URLs, unknown ISBNs, insufficient ISBN metadata, and ambiguous
+  multi-input submissions.
 
 ### 3.2 Retrieval Evaluation
 
@@ -764,11 +849,20 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 
 ### 5.1 Backend Integration
 
-- [ ] 5.1.1 Decide the backend integration approach: how v2 jobs are submitted, how job status is stored, and whether v1 and v2 run side by side during migration.
+- [ ] 5.1.1 Route the existing job submission contract through the v2 input
+  adapter dispatcher and linear pipeline while preserving the public request
+  and response envelopes.
 - [ ] 5.1.2 Preserve authentication requirements.
 - [ ] 5.1.3 Preserve rate limiting requirements.
 - [ ] 5.1.4 Preserve job ownership checks.
 - [ ] 5.1.5 Return structured failure messages to the frontend.
+- [ ] 5.1.6 Keep any temporary v1 rollback switch explicit and global; never
+  use CrewAI as a silent per-input fallback.
+- [ ] 5.1.7 Run contract and eval gates for every accepted input type, switch
+  production submission fully to v2, and verify production run logs identify
+  only v2 adapter and pipeline steps.
+- [ ] 5.1.8 Remove CrewAI dispatch, agents, tasks, dependencies, environment
+  variables, and obsolete tests after full v2 cutover.
 
 ### 5.2 Frontend Flow
 
@@ -801,11 +895,13 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 
 ### 5.5 Phase Completion Criteria
 
-- [ ] 5.5.1 A signed-in user can submit a v2 request from the frontend.
+- [ ] 5.5.1 A signed-in user can submit every supported input type through v2
+  from the frontend.
 - [ ] 5.5.2 The user can watch progress without refreshing.
 - [ ] 5.5.3 The final response includes usable citations.
 - [ ] 5.5.4 Expected error states are visible and understandable.
 - [ ] 5.5.5 The flow works on desktop and mobile.
+- [ ] 5.5.6 No production request imports, dispatches, or executes CrewAI code.
 
 ---
 
@@ -825,6 +921,8 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 - [ ] 6.1.6 Check production environment variables.
 - [ ] 6.1.7 Check rate limits and provider quotas.
 - [ ] 6.1.8 Verify deployment health checks.
+- [ ] 6.1.9 Run at least one production smoke test for every accepted input
+  type and confirm each run uses the v2 adapter and pipeline.
 
 ### 6.2 User Feedback
 
@@ -878,6 +976,8 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 - [ ] Build semantic retrieval.
 - [ ] Build reranking.
 - [ ] Build cited synthesis.
+- [ ] Build the canonical normalized learning request.
+- [ ] Build and test topic, URL, book URL, PDF, ISBN, and book metadata input adapters.
 - [ ] Add run logging.
 - [ ] Add run comparison.
 - [ ] Build the golden eval set.
@@ -887,6 +987,7 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 - [ ] Add stateful orchestration and fallback routing.
 - [ ] Connect the v2 flow to the backend job system.
 - [ ] Connect the v2 flow to the frontend.
+- [ ] Cut every accepted input type over to v2 and remove CrewAI.
 - [ ] Test desktop, mobile, errors, and empty states.
 - [ ] Ship to real users.
 - [ ] Document metrics, lessons, and next steps.
@@ -907,9 +1008,11 @@ checkpoints:
 | 7 | `retrieval/service.py`; verify known queries hit expected chunks | 1.7 | start Book 2 (1.0.3) |
 | 8 | `reranking/reranker.py` (RRF + weak evidence) | 1.8 | Book 2 (1.0.4) |
 | 9 | `synthesis/` (prompt + synthesizer + grounding tests) | 1.9 | Book 3 (1.0.5–1.0.6) |
-| 10 | `runs/logger.py`, `pipeline.py`; run one topic end to end five times | 1.10, 2.4 | — |
-| 11 | `evals/metrics.py` + golden case scoring | 3.2–3.4 | DeepLearning.AI evals course |
-| 12 | LangGraph orchestration, only if evals justify it | 4.x | Book 4 (4.0.3) |
+| 10 | `input_adapters/` + normalized learning request; verify topics, course/page URL, book URL, uploaded/direct PDF, ISBN, and book metadata produce the same downstream contract | 1.10 | — |
+| 11 | `runs/logger.py`, `pipeline.py`; run every accepted input type end to end and one cached input five times | 1.11, 2.4 | — |
+| 12 | `evals/metrics.py` + golden case scoring across all input adapters | 3.1–3.4 | DeepLearning.AI evals course |
+| 13 | Backend cutover to v2 and removal of CrewAI | 5.1 | — |
+| 14 | LangGraph orchestration, only if evals justify it | 4.x | Book 4 (4.0.3) |
 
 Environment: no new secrets. The pipeline needs `OPENAI_API_KEY`,
 `SERPER_API_KEY`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` (the store
@@ -985,7 +1088,11 @@ Use these checkpoints to review implementation quality and understanding.
 
 ## Definition of Done for ScholarSource v2
 
-- [ ] The system can return cited study resources for real student inputs.
+- [ ] The system can return cited study resources from topic lists, course
+  pages, general educational page URLs, book URLs, uploaded book PDFs, ISBNs,
+  and book metadata.
+- [ ] Every accepted input normalizes into the same typed learning request and
+  traverses the same v2 retrieval, reranking, and synthesis pipeline.
 - [ ] Retrieved evidence is stored and traceable.
 - [ ] Repeated cached runs produce stable top evidence.
 - [ ] The eval suite runs locally.
@@ -995,6 +1102,8 @@ Use these checkpoints to review implementation quality and understanding.
 - [ ] The README explains the rewrite and current metrics.
 - [ ] At least one real user feedback cycle has produced a shipped improvement.
 - [ ] You can explain and debug every major part of the pipeline.
+- [ ] CrewAI code, dependencies, configuration, and runtime paths have been
+  removed from the production application.
 
 ---
 
