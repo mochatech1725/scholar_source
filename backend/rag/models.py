@@ -83,6 +83,8 @@ class EmbeddingRecord(RagModel):
 
 
 class RetrievalHit(RagModel):
+    """Stored chunk with raw, retrieval-path-specific similarity scores."""
+
     chunk_id: UUID
     source_id: UUID
     url: str = Field(min_length=1)
@@ -95,6 +97,8 @@ class RetrievalHit(RagModel):
 
 
 class SelectedEvidence(RagModel):
+    """Retrieved chunk with an independent final relevance score and rank."""
+
     chunk_id: UUID
     source_id: UUID
     url: str
@@ -103,8 +107,13 @@ class SelectedEvidence(RagModel):
     content: str = Field(min_length=1)
     semantic_score: float | None = None
     lexical_score: float | None = None
-    rerank_score: float
-    evidence_rank: int = Field(ge=1)
+    rerank_score: float = Field(
+        description="Final relevance score; not comparable to raw retrieval scores.",
+    )
+    evidence_rank: int = Field(
+        ge=1,
+        description="One-based final relevance position after reranking.",
+    )
 
 
 class RecommendationDraft(RagModel):

@@ -68,6 +68,32 @@ def test_scores_chunks_from_both_original_need_rankings() -> None:
     assert [item.evidence_rank for item in evidence] == list(range(1, len(evidence) + 1))
 
 
+def test_final_relevance_ranking_is_separate_from_retrieval_similarity() -> None:
+    semantic_nearest_id = "00000000-0000-4000-8000-000000000001"
+    multi_path_id = "00000000-0000-4000-8000-000000000002"
+
+    evidence = rerank_evidence(
+        [
+            _hit(semantic_nearest_id, semantic_score=0.96),
+            _hit(multi_path_id, semantic_score=0.81),
+        ],
+        [_hit(multi_path_id, lexical_score=0.74)],
+        settings=SETTINGS,
+    )
+
+    assert [str(item.chunk_id) for item in evidence[:2]] == [
+        multi_path_id,
+        semantic_nearest_id,
+    ]
+    assert evidence[0].semantic_score == 0.81
+    assert evidence[0].lexical_score == 0.74
+    assert evidence[0].evidence_rank == 1
+    assert evidence[1].semantic_score == 0.96
+    assert evidence[1].lexical_score is None
+    assert evidence[1].evidence_rank == 2
+    assert evidence[0].rerank_score > evidence[1].rerank_score
+
+
 def test_scoring_preserves_zero_raw_scores_and_citation_metadata() -> None:
     chunk_id = "00000000-0000-4000-8000-000000000001"
 

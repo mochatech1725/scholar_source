@@ -449,7 +449,14 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   selected chunk. `tests/rag/test_reranker.py` verifies the exact fused scores,
   ordering, evidence limit, citation metadata, and preservation of zero-valued
   raw retrieval scores.
-- [ ] 1.8.2 Separate retrieval similarity from final relevance ranking.
+- [x] 1.8.2 Separate retrieval similarity from final relevance ranking.
+  Done in `backend/rag/models.py` and
+  `backend/rag/reranking/reranker.py`: `RetrievalHit` carries raw,
+  retrieval-path-specific `semantic_score` and `lexical_score` values, while
+  `SelectedEvidence` adds the independent RRF `rerank_score` and final
+  one-based `evidence_rank`. `tests/rag/test_reranker.py` verifies that the
+  chunk with the highest semantic similarity can have a lower final relevance
+  rank when another chunk is supported by both retrieval paths.
 - [ ] 1.8.3 Keep the original retrieval score for debugging.
 - [ ] 1.8.4 Keep the rerank score for debugging.
 - [ ] 1.8.5 Verify reranking changes order when the nearest chunk is not the most useful chunk.
