@@ -544,7 +544,14 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   is rejected before synthesis. `tests/rag/test_synthesizer.py` verifies empty
   and below-threshold refusal paths, weak-answer softening, and the no-call
   guarantees.
-- [ ] 1.9.4 Include source titles and URLs in the final response.
+- [x] 1.9.4 Include source titles and URLs in the final response.
+  Done in `backend/rag/synthesis/synthesizer.py`: after validating the model's
+  chunk-only citations, synthesis joins each recommendation to the
+  authoritative title and verified URL on its selected evidence record. The
+  model never receives or produces URLs, and the final guide also records the
+  cited chunk and source IDs. `tests/rag/test_synthesizer.py` verifies the
+  returned title and URL match stored evidence and remain absent from the LLM
+  prompt.
 - [ ] 1.9.5 Avoid presenting unsupported claims as facts.
 - [ ] 1.9.6 Verify the answer can be traced back to stored chunks.
 

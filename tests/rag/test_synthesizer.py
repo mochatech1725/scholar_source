@@ -82,7 +82,48 @@ def test_synthesizer_generates_a_structured_study_guide() -> None:
         status_reason=None,
     )
 
-    assert guide == expected
+    assert guide.overview == expected.overview
+    assert guide.recommendations[0].resource_title == expected.recommendations[0].resource_title
+    assert guide.recommendations[0].cited_chunk_ids == [evidence[0].chunk_id]
+    assert guide.weak_evidence_status is WeakEvidenceStatus.STRONG
+
+
+def test_final_response_resolves_source_title_and_url_from_selected_evidence() -> None:
+    evidence = [
+        _evidence(
+            "00000000-0000-4000-8000-000000000001",
+            title="Stored Vector Calculus Notes",
+            content="The gradient points in the direction of steepest increase.",
+            evidence_rank=1,
+        )
+    ]
+    draft = StudyGuideDraft(
+        overview="Use the selected notes.",
+        recommendations=[
+            RecommendationDraft(
+                resource_title="Gradient Review",
+                why_useful="It explains gradient direction.",
+                how_to_use="Read the explanation and work the example.",
+                supporting_chunk_ids=[str(evidence[0].chunk_id)],
+            )
+        ],
+    )
+    synthesizer, mock_llm = _synthesizer_with(draft)
+
+    guide = synthesizer.synthesize(
+        "gradient vectors",
+        evidence,
+        status=WeakEvidenceStatus.STRONG,
+        status_reason=None,
+    )
+
+    recommendation = guide.recommendations[0]
+    assert recommendation.source_title == evidence[0].title
+    assert recommendation.url == evidence[0].url
+    assert recommendation.cited_chunk_ids == [evidence[0].chunk_id]
+    assert guide.cited_source_ids == [evidence[0].source_id]
+    messages = mock_llm.with_structured_output.return_value.invoke.call_args.args[0]
+    assert evidence[0].url not in messages[1][1]
 
 
 def test_model_receives_only_the_selected_evidence() -> None:
