@@ -8,8 +8,8 @@ from uuid import UUID
 import pytest
 
 from backend.rag.config import RagSettings
-from backend.rag.models import RetrievalHit
-from backend.rag.reranking.reranker import rerank_evidence
+from backend.rag.models import RetrievalHit, SelectedEvidence, WeakEvidenceStatus
+from backend.rag.reranking.reranker import assess_evidence, rerank_evidence
 
 SETTINGS = RagSettings(rrf_k=60, evidence_limit=6)
 
@@ -191,3 +191,139 @@ def test_scoring_respects_the_configured_evidence_limit() -> None:
 
     assert len(evidence) == settings.evidence_limit
     assert evidence[0].chunk_id == semantic_hits[0].chunk_id
+
+
+def test_semantic_only_hits_below_the_configured_floor_are_excluded() -> None:
+    below_floor_id = "00000000-0000-4000-8000-000000000001"
+    at_floor_id = "00000000-0000-4000-8000-000000000002"
+    settings = replace(SETTINGS, min_semantic_score=0.25)
+
+    evidence = rerank_evidence(
+        [
+            _hit(below_floor_id, semantic_score=0.249),
+            _hit(at_floor_id, semantic_score=0.25),
+        ],
+        [],
+        settings=settings,
+    )
+
+    assert [str(item.chunk_id) for item in evidence] == [at_floor_id]
+    assert evidence[0].evidence_rank == 1
+
+
+def test_lexical_hits_remain_eligible_below_the_semantic_floor() -> None:
+    chunk_id = "00000000-0000-4000-8000-000000000001"
+    settings = replace(SETTINGS, min_semantic_score=0.25)
+
+    evidence = rerank_evidence(
+        [_hit(chunk_id, semantic_score=0.1)],
+        [_hit(chunk_id, lexical_score=0.0)],
+        settings=settings,
+    )
+
+    assert len(evidence) == 1
+    assert evidence[0].semantic_score == 0.1
+    assert evidence[0].lexical_score == 0.0
+
+
+def test_evidence_assessment_requires_three_strong_semantic_chunks() -> None:
+    settings = replace(
+        SETTINGS,
+        weak_semantic_score=0.35,
+        min_strong_evidence=3,
+    )
+    strong_hits = [
+        _hit(
+            f"00000000-0000-4000-8000-{index:012d}",
+            semantic_score=score,
+        )
+        for index, score in enumerate((0.35, 0.42, 0.51), start=1)
+    ]
+    evidence = rerank_evidence(strong_hits, [], settings=settings)
+
+    status, reason = assess_evidence(evidence, settings=settings)
+
+    assert status is WeakEvidenceStatus.STRONG
+    assert reason is None
+
+
+def test_evidence_assessment_marks_too_few_strong_chunks_as_weak() -> None:
+    settings = replace(
+        SETTINGS,
+        weak_semantic_score=0.35,
+        min_strong_evidence=3,
+    )
+    evidence = rerank_evidence(
+        [
+            _hit(
+                "00000000-0000-4000-8000-000000000001",
+                semantic_score=0.4,
+            ),
+            _hit(
+                "00000000-0000-4000-8000-000000000002",
+                semantic_score=0.3,
+            ),
+        ],
+        [],
+        settings=settings,
+    )
+
+    status, reason = assess_evidence(evidence, settings=settings)
+
+    assert status is WeakEvidenceStatus.WEAK
+    assert reason is not None
+    assert "Only 1 chunk" in reason
+    assert "3 required" in reason
+
+
+def test_usable_but_below_strong_semantic_threshold_is_weak() -> None:
+    settings = replace(
+        SETTINGS,
+        min_semantic_score=0.25,
+        weak_semantic_score=0.35,
+    )
+    evidence = rerank_evidence(
+        [
+            _hit(
+                "00000000-0000-4000-8000-000000000001",
+                semantic_score=0.3,
+            ),
+        ],
+        [],
+        settings=settings,
+    )
+
+    status, reason = assess_evidence(evidence, settings=settings)
+
+    assert status is WeakEvidenceStatus.WEAK
+    assert reason is not None
+    assert "Only 0 chunks" in reason
+
+
+def test_evidence_assessment_marks_no_usable_evidence_as_insufficient() -> None:
+    status, reason = assess_evidence([], settings=SETTINGS)
+
+    assert status is WeakEvidenceStatus.INSUFFICIENT
+    assert reason == "No evidence passed retrieval thresholds."
+
+
+def test_evidence_assessment_marks_lexical_only_evidence_as_weak() -> None:
+    evidence = [
+        SelectedEvidence(
+            chunk_id=UUID("00000000-0000-4000-8000-000000000001"),
+            source_id=UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+            url="https://example.edu/vector-calculus",
+            title="Vector Calculus Notes",
+            chunk_index=0,
+            content="A worked example of the gradient.",
+            semantic_score=None,
+            lexical_score=0.0,
+            rerank_score=_rrf_contribution(1),
+            evidence_rank=1,
+        )
+    ]
+
+    status, reason = assess_evidence(evidence, settings=SETTINGS)
+
+    assert status is WeakEvidenceStatus.WEAK
+    assert reason is not None

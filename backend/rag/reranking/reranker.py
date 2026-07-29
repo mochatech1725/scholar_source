@@ -6,7 +6,7 @@ from collections import defaultdict
 from uuid import UUID
 
 from backend.rag.config import RagSettings
-from backend.rag.models import RetrievalHit, SelectedEvidence
+from backend.rag.models import RetrievalHit, SelectedEvidence, WeakEvidenceStatus
 
 
 def rerank_evidence(
@@ -33,6 +33,12 @@ def rerank_evidence(
         fused_scores.items(),
         key=lambda item: (-item[1], str(item[0])),
     )
+    usable_scores: list[tuple[UUID, float]] = []
+    for chunk_id, rerank_score in ordered_scores:
+        hit = hits_by_id[chunk_id]
+        if _is_usable_hit(hit, settings=settings):
+            usable_scores.append((chunk_id, rerank_score))
+
     return [
         _to_selected_evidence(
             hits_by_id[chunk_id],
@@ -40,10 +46,52 @@ def rerank_evidence(
             evidence_rank=evidence_rank,
         )
         for evidence_rank, (chunk_id, rerank_score) in enumerate(
-            ordered_scores[: settings.evidence_limit],
+            usable_scores[: settings.evidence_limit],
             start=1,
         )
     ]
+
+
+def assess_evidence(
+    evidence: list[SelectedEvidence],
+    *,
+    settings: RagSettings,
+) -> tuple[WeakEvidenceStatus, str | None]:
+    """Classify whether selected evidence can support a confident answer."""
+    if not evidence:
+        return (
+            WeakEvidenceStatus.INSUFFICIENT,
+            "No evidence passed retrieval thresholds.",
+        )
+
+    strong_count = sum(
+        item.semantic_score is not None and item.semantic_score >= settings.weak_semantic_score for item in evidence
+    )
+    if strong_count >= settings.min_strong_evidence:
+        return WeakEvidenceStatus.STRONG, None
+
+    chunk_label = "chunk" if strong_count == 1 else "chunks"
+    return (
+        WeakEvidenceStatus.WEAK,
+        (
+            f"Only {strong_count} {chunk_label} met the strong semantic score "
+            f"threshold of {settings.weak_semantic_score}; "
+            f"{settings.min_strong_evidence} required for a confident answer."
+        ),
+    )
+
+
+def _is_usable_hit(hit: RetrievalHit, *, settings: RagSettings) -> bool:
+    """Keep lexical hits and semantic hits that meet the configured floor.
+
+    RRF scores encode rank agreement, not absolute relevance, so the semantic
+    retrieval score is the appropriate calibrated cutoff. Lexical hits remain
+    eligible because their score scale is query-dependent and is not directly
+    comparable with cosine similarity.
+    """
+    if hit.lexical_score is not None:
+        return True
+    return hit.semantic_score is not None and hit.semantic_score >= settings.min_semantic_score
 
 
 def _merge_hit_scores(

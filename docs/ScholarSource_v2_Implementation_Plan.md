@@ -476,7 +476,17 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   a worked-example chunk appears in both semantic and lexical retrieval.
   RRF promotes the worked example and the test verifies its final score and
   rank exceed the nearest-only chunk without losing either raw score.
-- [ ] 1.8.6 Define what score is too weak to include.
+- [x] 1.8.6 Define what score is too weak to include.
+  Done in `backend/rag/config.py` and
+  `backend/rag/reranking/reranker.py`: a semantic-only hit below cosine
+  similarity `0.25` is excluded as noise, while lexical hits remain eligible
+  because full-text scores are query-dependent and cannot share that cutoff.
+  Evidence is strong only when at least three selected chunks meet semantic
+  similarity `0.35`; fewer strong chunks produce a weak-evidence status, and
+  no usable chunks produce an insufficient-evidence status. These are initial
+  policy values to tune against the Phase 3 eval set, not universal constants.
+  `tests/rag/test_reranker.py` verifies both threshold boundaries, lexical
+  eligibility, rank compaction after filtering, and all evidence statuses.
 
 ### Reference: Reranking (`backend/rag/reranking/reranker.py`)
 
