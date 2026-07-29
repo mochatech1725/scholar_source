@@ -8,8 +8,19 @@ from langchain_openai import ChatOpenAI
 
 from backend.rag.config import RagSettings
 from backend.rag.errors import SynthesisError
-from backend.rag.models import SelectedEvidence, StudyGuideDraft
+from backend.rag.models import SelectedEvidence, StudyGuideDraft, WeakEvidenceStatus
 from backend.rag.synthesis.prompt import SYSTEM_PROMPT, build_user_message
+
+INSUFFICIENT_MESSAGE = (
+    "ScholarSource could not find enough trustworthy material on this topic "
+    "to build a study guide. Try a more specific topic, or provide a course "
+    "page or textbook to search from."
+)
+
+WEAK_PREFIX = (
+    "Evidence for this topic was limited, so treat these suggestions as "
+    "starting points rather than a complete study plan."
+)
 
 
 class StructuredSynthesisModel(Protocol):
@@ -50,10 +61,18 @@ class EvidenceSynthesizer:
         self,
         topic: str,
         evidence: list[SelectedEvidence],
+        *,
+        status: WeakEvidenceStatus,
+        status_reason: str | None,
     ) -> StudyGuideDraft:
-        """Generate a guide from selected evidence, never from empty context."""
-        if not evidence:
-            raise SynthesisError("Cannot synthesize a study guide without selected evidence.")
+        """Generate a guide or return a transparent insufficient-evidence response."""
+        if status is WeakEvidenceStatus.NOT_EVALUATED:
+            raise SynthesisError("Evidence must be assessed before synthesis.")
+        if status is WeakEvidenceStatus.INSUFFICIENT or not evidence:
+            return StudyGuideDraft(
+                overview=INSUFFICIENT_MESSAGE,
+                limitations=status_reason or "No usable evidence was retrieved.",
+            )
 
         draft = self._structured_llm.invoke(
             [
@@ -64,7 +83,27 @@ class EvidenceSynthesizer:
         if not isinstance(draft, StudyGuideDraft):
             raise SynthesisError("Synthesis did not return a structured study guide.")
         self._validate_citations(draft, evidence)
+        if status is WeakEvidenceStatus.WEAK:
+            return draft.model_copy(
+                update={
+                    "overview": f"{WEAK_PREFIX}\n\n{draft.overview}",
+                    "limitations": self._weak_limitations(
+                        draft.limitations,
+                        status_reason=status_reason,
+                    ),
+                }
+            )
         return draft
+
+    @staticmethod
+    def _weak_limitations(
+        draft_limitations: str,
+        *,
+        status_reason: str | None,
+    ) -> str:
+        """Preserve both the deterministic retrieval warning and model caveats."""
+        parts = [part for part in (status_reason, draft_limitations) if part]
+        return "\n\n".join(parts)
 
     @staticmethod
     def _validate_citations(

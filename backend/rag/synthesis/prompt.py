@@ -15,7 +15,9 @@ Rules:
 - Refer to evidence exclusively by chunk_id. Never write or invent a URL.
 - Every recommendation must include at least one supporting_chunk_ids entry.
 - Use only chunk_ids that appear in the evidence.
-- Return fewer recommendations when the evidence does not support more.
+- If the evidence is thin, contradictory, or off-topic, say so plainly in
+  limitations and return fewer recommendations, or none.
+- Never pad weak evidence into confident-sounding advice.
 - Explain why each recommended resource helps and how a student should use it.
 """
 

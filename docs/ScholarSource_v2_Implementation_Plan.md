@@ -514,7 +514,13 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   enforcement structural rather than relying on prompt compliance alone.
   `tests/rag/test_synthesizer.py` verifies both uncited recommendations and
   citations outside the selected evidence are rejected.
-- [ ] 1.9.3 Refuse or soften the answer when retrieved evidence is insufficient.
+- [x] 1.9.3 Refuse or soften the answer when retrieved evidence is insufficient.
+  Done in `backend/rag/synthesis/synthesizer.py`: insufficient evidence returns
+  a transparent limitation without invoking the LLM, weak evidence receives a
+  deterministic caution plus the reranker's reason, and unevaluated evidence
+  is rejected before synthesis. `tests/rag/test_synthesizer.py` verifies empty
+  and below-threshold refusal paths, weak-answer softening, and the no-call
+  guarantees.
 - [ ] 1.9.4 Include source titles and URLs in the final response.
 - [ ] 1.9.5 Avoid presenting unsupported claims as facts.
 - [ ] 1.9.6 Verify the answer can be traced back to stored chunks.

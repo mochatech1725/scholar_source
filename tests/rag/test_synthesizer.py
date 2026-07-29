@@ -14,9 +14,14 @@ from backend.rag.models import (
     RecommendationDraft,
     SelectedEvidence,
     StudyGuideDraft,
+    WeakEvidenceStatus,
 )
 from backend.rag.synthesis.prompt import SYSTEM_PROMPT, format_evidence_context
-from backend.rag.synthesis.synthesizer import EvidenceSynthesizer
+from backend.rag.synthesis.synthesizer import (
+    INSUFFICIENT_MESSAGE,
+    WEAK_PREFIX,
+    EvidenceSynthesizer,
+)
 
 
 def _evidence(
@@ -70,7 +75,12 @@ def test_synthesizer_generates_a_structured_study_guide() -> None:
     )
     synthesizer, _mock_llm = _synthesizer_with(expected)
 
-    guide = synthesizer.synthesize("gradient vectors", evidence)
+    guide = synthesizer.synthesize(
+        "gradient vectors",
+        evidence,
+        status=WeakEvidenceStatus.STRONG,
+        status_reason=None,
+    )
 
     assert guide == expected
 
@@ -92,7 +102,12 @@ def test_model_receives_only_the_selected_evidence() -> None:
     )
     synthesizer, mock_llm = _synthesizer_with(StudyGuideDraft(overview="Selected evidence guide."))
 
-    synthesizer.synthesize("gradients", selected)
+    synthesizer.synthesize(
+        "gradients",
+        selected,
+        status=WeakEvidenceStatus.STRONG,
+        status_reason=None,
+    )
 
     messages = mock_llm.with_structured_output.return_value.invoke.call_args.args[0]
     assert messages[0] == ("system", SYSTEM_PROMPT)
@@ -160,16 +175,111 @@ def test_synthesizer_rejects_citations_outside_selected_evidence() -> None:
         SynthesisError,
         match="not present in selected evidence",
     ):
-        synthesizer.synthesize("gradients", evidence)
+        synthesizer.synthesize(
+            "gradients",
+            evidence,
+            status=WeakEvidenceStatus.STRONG,
+            status_reason=None,
+        )
 
 
-def test_empty_evidence_never_calls_the_llm() -> None:
+@pytest.mark.parametrize(
+    ("evidence", "status"),
+    [
+        ([], WeakEvidenceStatus.INSUFFICIENT),
+        (
+            [
+                _evidence(
+                    "00000000-0000-4000-8000-000000000001",
+                    title="Below-threshold Notes",
+                    content="Content that did not pass the evidence assessment.",
+                    evidence_rank=1,
+                )
+            ],
+            WeakEvidenceStatus.INSUFFICIENT,
+        ),
+    ],
+)
+def test_insufficient_evidence_returns_limitation_without_calling_llm(
+    evidence: list[SelectedEvidence],
+    status: WeakEvidenceStatus,
+) -> None:
     synthesizer, mock_llm = _synthesizer_with(StudyGuideDraft(overview="This must not be returned."))
 
-    with pytest.raises(
-        SynthesisError,
-        match="without selected evidence",
-    ):
-        synthesizer.synthesize("gradients", [])
+    guide = synthesizer.synthesize(
+        "gradients",
+        evidence,
+        status=status,
+        status_reason="No evidence passed retrieval thresholds.",
+    )
+
+    mock_llm.with_structured_output.return_value.invoke.assert_not_called()
+    assert guide.overview == INSUFFICIENT_MESSAGE
+    assert guide.recommendations == []
+    assert guide.limitations == "No evidence passed retrieval thresholds."
+
+
+def test_empty_evidence_is_insufficient_even_when_status_is_strong() -> None:
+    synthesizer, mock_llm = _synthesizer_with(StudyGuideDraft(overview="This must not be returned."))
+
+    guide = synthesizer.synthesize(
+        "gradients",
+        [],
+        status=WeakEvidenceStatus.STRONG,
+        status_reason=None,
+    )
+
+    mock_llm.with_structured_output.return_value.invoke.assert_not_called()
+    assert guide.overview == INSUFFICIENT_MESSAGE
+    assert guide.limitations == "No usable evidence was retrieved."
+
+
+def test_weak_evidence_softens_the_generated_guide() -> None:
+    evidence = [
+        _evidence(
+            "00000000-0000-4000-8000-000000000001",
+            title="Limited Notes",
+            content="One useful but incomplete explanation of gradients.",
+            evidence_rank=1,
+        )
+    ]
+    draft = StudyGuideDraft(
+        overview="Use these notes to begin reviewing gradients.",
+        limitations="The notes do not include worked examples.",
+    )
+    synthesizer, mock_llm = _synthesizer_with(draft)
+
+    guide = synthesizer.synthesize(
+        "gradients",
+        evidence,
+        status=WeakEvidenceStatus.WEAK,
+        status_reason="Only 1 chunk met the strong semantic score threshold.",
+    )
+
+    mock_llm.with_structured_output.return_value.invoke.assert_called_once()
+    assert guide.overview == f"{WEAK_PREFIX}\n\n{draft.overview}"
+    assert guide.limitations == (
+        "Only 1 chunk met the strong semantic score threshold.\n\nThe notes do not include worked examples."
+    )
+
+
+def test_unevaluated_evidence_is_rejected_without_calling_llm() -> None:
+    evidence = [
+        _evidence(
+            "00000000-0000-4000-8000-000000000001",
+            title="Unevaluated Notes",
+            content="Evidence that has not passed the evidence assessment.",
+            evidence_rank=1,
+        )
+    ]
+    synthesizer, mock_llm = _synthesizer_with(StudyGuideDraft(overview="This must not be returned."))
+
+    with pytest.raises(SynthesisError, match="must be assessed"):
+        synthesizer.synthesize(
+            "gradients",
+            evidence,
+            status=WeakEvidenceStatus.NOT_EVALUATED,
+            status_reason=None,
+        )
 
     mock_llm.with_structured_output.return_value.invoke.assert_not_called()
