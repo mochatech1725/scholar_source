@@ -442,7 +442,13 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 
 *Reference: Hybrid Search and Retrieval Evaluation (Manning liveProject, Matteus Tanha). The course uses BM25 fused with reciprocal rank fusion rather than a cross encoder, but it satisfies the same requirement below.*
 
-- [ ] 1.8.1 Score retrieved chunks against the original user need.
+- [x] 1.8.1 Score retrieved chunks against the original user need.
+  Done in `backend/rag/reranking/reranker.py`: `rerank_evidence()` applies
+  reciprocal rank fusion to semantic and lexical rankings produced for the
+  same original user need, yielding a deterministic relevance score for each
+  selected chunk. `tests/rag/test_reranker.py` verifies the exact fused scores,
+  ordering, evidence limit, citation metadata, and preservation of zero-valued
+  raw retrieval scores.
 - [ ] 1.8.2 Separate retrieval similarity from final relevance ranking.
 - [ ] 1.8.3 Keep the original retrieval score for debugging.
 - [ ] 1.8.4 Keep the rerank score for debugging.
