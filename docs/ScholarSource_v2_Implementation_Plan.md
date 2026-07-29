@@ -470,7 +470,12 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   its final RRF score and one-based evidence rank in serialized debug output.
   `tests/rag/test_reranker.py` verifies the serialized score equals the exact
   contribution from both retrieval paths.
-- [ ] 1.8.5 Verify reranking changes order when the nearest chunk is not the most useful chunk.
+- [x] 1.8.5 Verify reranking changes order when the nearest chunk is not the most useful chunk.
+  Done in `tests/rag/test_reranker.py`: a focused usefulness scenario gives
+  the semantically nearest definition chunk the highest raw similarity, while
+  a worked-example chunk appears in both semantic and lexical retrieval.
+  RRF promotes the worked example and the test verifies its final score and
+  rank exceed the nearest-only chunk without losing either raw score.
 - [ ] 1.8.6 Define what score is too weak to include.
 
 ### Reference: Reranking (`backend/rag/reranking/reranker.py`)

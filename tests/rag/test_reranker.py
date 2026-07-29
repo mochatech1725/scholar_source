@@ -22,6 +22,7 @@ def _rrf_contribution(rank: int) -> float:
 def _hit(
     chunk_id: str,
     *,
+    content: str = "The gradient points in the direction of steepest increase.",
     semantic_score: float | None = None,
     lexical_score: float | None = None,
 ) -> RetrievalHit:
@@ -31,7 +32,7 @@ def _hit(
         url="https://example.edu/vector-calculus",
         title="Vector Calculus Notes",
         chunk_index=0,
-        content="The gradient points in the direction of steepest increase.",
+        content=content,
         content_hash=f"hash-{chunk_id}",
         semantic_score=semantic_score,
         lexical_score=lexical_score,
@@ -92,6 +93,44 @@ def test_final_relevance_ranking_is_separate_from_retrieval_similarity() -> None
     assert evidence[1].lexical_score is None
     assert evidence[1].evidence_rank == 2
     assert evidence[0].rerank_score > evidence[1].rerank_score
+
+
+def test_reranking_promotes_the_more_useful_multi_path_chunk() -> None:
+    semantic_nearest_id = "00000000-0000-4000-8000-000000000001"
+    useful_chunk_id = "00000000-0000-4000-8000-000000000002"
+    semantic_nearest_content = "A gradient is a vector made from partial derivatives."
+    useful_content = "Use the gradient to find the direction of steepest increase in this worked example."
+
+    evidence = rerank_evidence(
+        [
+            _hit(
+                semantic_nearest_id,
+                content=semantic_nearest_content,
+                semantic_score=0.97,
+            ),
+            _hit(
+                useful_chunk_id,
+                content=useful_content,
+                semantic_score=0.83,
+            ),
+        ],
+        [
+            _hit(
+                useful_chunk_id,
+                content=useful_content,
+                lexical_score=0.76,
+            ),
+        ],
+        settings=SETTINGS,
+    )
+
+    assert evidence[0].chunk_id == UUID(useful_chunk_id)
+    assert evidence[0].content == useful_content
+    assert evidence[0].semantic_score < evidence[1].semantic_score
+    assert evidence[0].lexical_score == 0.76
+    assert evidence[0].rerank_score > evidence[1].rerank_score
+    assert evidence[1].chunk_id == UUID(semantic_nearest_id)
+    assert evidence[1].content == semantic_nearest_content
 
 
 def test_scoring_preserves_zero_raw_scores_and_citation_metadata() -> None:
