@@ -496,7 +496,14 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 
 *Reference: Prompt Engineering for Context-Aware Q&A (Manning liveProject, Matteus Tanha).*
 
-- [ ] 1.9.1 Generate a final study guide from only the selected evidence.
+- [x] 1.9.1 Generate a final study guide from only the selected evidence.
+  Implemented in `backend/rag/synthesis/prompt.py` and
+  `backend/rag/synthesis/synthesizer.py`: the structured synthesis call receives
+  only the student topic and ordered `SelectedEvidence` context blocks. The
+  prompt explicitly prohibits external knowledge, excludes stored URLs from
+  model context, and rejects empty evidence before any LLM call.
+  `tests/rag/test_synthesizer.py` verifies structured output, selected-only
+  context, stable evidence order, URL exclusion, and the empty-evidence guard.
 - [ ] 1.9.2 Require every recommendation to include a source citation.
 - [ ] 1.9.3 Refuse or soften the answer when retrieved evidence is insufficient.
 - [ ] 1.9.4 Include source titles and URLs in the final response.
