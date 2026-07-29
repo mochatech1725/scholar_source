@@ -16,6 +16,16 @@ this contract for all generated changes.
 Keep important design decisions explicit in code, tests, and documentation so
 the system remains understandable, maintainable, and defensible.
 
+## Implementation Request Source
+
+When the user asks to implement a numbered feature or step (for example,
+“implement 1.8.3”), resolve that request against
+`docs/ScholarSource_v2_Implementation_Plan.md`. Read the complete plan and the
+referenced implementation material before editing, then implement the named
+item, its tests, its documentation/checklist update, and the applicable
+validation gates. Use a different source only when the user explicitly names
+one.
+
 ## RAG Repo Layout
 
 RAG pipeline code should live under `backend/rag/`.
