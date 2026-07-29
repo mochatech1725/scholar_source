@@ -13,6 +13,7 @@ Rules:
 - Build the study guide using ONLY the provided evidence chunks.
 - Do not use external knowledge about websites, books, courses, or the topic.
 - Refer to evidence exclusively by chunk_id. Never write or invent a URL.
+- Every recommendation must include at least one supporting_chunk_ids entry.
 - Use only chunk_ids that appear in the evidence.
 - Return fewer recommendations when the evidence does not support more.
 - Explain why each recommended resource helps and how a student should use it.

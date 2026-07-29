@@ -128,7 +128,10 @@ class RecommendationDraft(RagModel):
     resource_title: str
     why_useful: str
     how_to_use: str
-    supporting_chunk_ids: list[str] = Field(default_factory=list)
+    supporting_chunk_ids: list[str] = Field(
+        min_length=1,
+        description="Selected evidence chunk IDs that support this recommendation.",
+    )
 
 
 class StudyGuideDraft(RagModel):

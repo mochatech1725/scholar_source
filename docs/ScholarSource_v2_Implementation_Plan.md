@@ -504,7 +504,16 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   model context, and rejects empty evidence before any LLM call.
   `tests/rag/test_synthesizer.py` verifies structured output, selected-only
   context, stable evidence order, URL exclusion, and the empty-evidence guard.
-- [ ] 1.9.2 Require every recommendation to include a source citation.
+- [x] 1.9.2 Require every recommendation to include a source citation.
+  Done in `backend/rag/models.py`,
+  `backend/rag/synthesis/prompt.py`, and
+  `backend/rag/synthesis/synthesizer.py`: every model-facing recommendation
+  must contain at least one supporting chunk ID, the synthesis prompt states
+  the same requirement explicitly, and the synthesizer rejects any chunk ID
+  that was not present in the selected evidence. This keeps citation
+  enforcement structural rather than relying on prompt compliance alone.
+  `tests/rag/test_synthesizer.py` verifies both uncited recommendations and
+  citations outside the selected evidence are rejected.
 - [ ] 1.9.3 Refuse or soften the answer when retrieved evidence is insufficient.
 - [ ] 1.9.4 Include source titles and URLs in the final response.
 - [ ] 1.9.5 Avoid presenting unsupported claims as facts.

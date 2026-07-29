@@ -63,4 +63,17 @@ class EvidenceSynthesizer:
         )
         if not isinstance(draft, StudyGuideDraft):
             raise SynthesisError("Synthesis did not return a structured study guide.")
+        self._validate_citations(draft, evidence)
         return draft
+
+    @staticmethod
+    def _validate_citations(
+        draft: StudyGuideDraft,
+        evidence: list[SelectedEvidence],
+    ) -> None:
+        """Reject recommendations that cite anything outside selected evidence."""
+        selected_chunk_ids = {str(item.chunk_id) for item in evidence}
+        for recommendation in draft.recommendations:
+            unknown_chunk_ids = set(recommendation.supporting_chunk_ids) - selected_chunk_ids
+            if unknown_chunk_ids:
+                raise SynthesisError("Synthesis cited chunk IDs that were not present in selected evidence.")

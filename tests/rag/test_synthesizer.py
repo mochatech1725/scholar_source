@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 from uuid import UUID
 
 import pytest
+from pydantic import ValidationError
 
 from backend.rag.config import RagSettings
 from backend.rag.errors import SynthesisError
@@ -121,6 +122,45 @@ def test_context_preserves_selected_evidence_order() -> None:
     context = format_evidence_context(evidence)
 
     assert context.index(str(evidence[0].chunk_id)) < context.index(str(evidence[1].chunk_id))
+
+
+def test_recommendation_requires_at_least_one_source_citation() -> None:
+    with pytest.raises(ValidationError):
+        RecommendationDraft(
+            resource_title="Uncited Notes",
+            why_useful="It claims to explain gradients.",
+            how_to_use="Read it.",
+            supporting_chunk_ids=[],
+        )
+
+
+def test_synthesizer_rejects_citations_outside_selected_evidence() -> None:
+    evidence = [
+        _evidence(
+            "00000000-0000-4000-8000-000000000001",
+            title="Selected Notes",
+            content="Selected evidence about gradients.",
+            evidence_rank=1,
+        )
+    ]
+    draft = StudyGuideDraft(
+        overview="A guide with an unsupported citation.",
+        recommendations=[
+            RecommendationDraft(
+                resource_title="Unsupported Notes",
+                why_useful="It claims to explain gradients.",
+                how_to_use="Read it.",
+                supporting_chunk_ids=["00000000-0000-4000-8000-000000000099"],
+            )
+        ],
+    )
+    synthesizer, _mock_llm = _synthesizer_with(draft)
+
+    with pytest.raises(
+        SynthesisError,
+        match="not present in selected evidence",
+    ):
+        synthesizer.synthesize("gradients", evidence)
 
 
 def test_empty_evidence_never_calls_the_llm() -> None:
