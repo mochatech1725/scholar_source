@@ -5,6 +5,7 @@ This module contains helper functions that are used across multiple modules.
 """
 
 from pathlib import Path
+
 from scholar_source.constants import CREW_OUTPUT_FILENAME
 
 

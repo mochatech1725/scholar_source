@@ -4,16 +4,17 @@ Integration tests for authentication (Phase 6).
 Tests authentication middleware, JWT verification, and access control.
 """
 
+from datetime import datetime, timedelta
+
 import jwt
 import pytest
-from datetime import datetime, timedelta
-from fastapi.testclient import TestClient
 
 
 @pytest.fixture
 def valid_jwt_token():
     """Generate a valid JWT token for testing."""
     import os
+
     # Use a test secret
     secret = os.getenv("SUPABASE_JWT_SECRET", "test-secret-key-for-testing-only")
 
@@ -22,7 +23,7 @@ def valid_jwt_token():
         "email": "test@example.com",
         "aud": "authenticated",
         "exp": datetime.utcnow() + timedelta(hours=1),
-        "iat": datetime.utcnow()
+        "iat": datetime.utcnow(),
     }
 
     token = jwt.encode(payload, secret, algorithm="HS256")
@@ -33,6 +34,7 @@ def valid_jwt_token():
 def expired_jwt_token():
     """Generate an expired JWT token for testing."""
     import os
+
     secret = os.getenv("SUPABASE_JWT_SECRET", "test-secret-key-for-testing-only")
 
     payload = {
@@ -40,7 +42,7 @@ def expired_jwt_token():
         "email": "test@example.com",
         "aud": "authenticated",
         "exp": datetime.utcnow() - timedelta(hours=1),  # Expired
-        "iat": datetime.utcnow() - timedelta(hours=2)
+        "iat": datetime.utcnow() - timedelta(hours=2),
     }
 
     token = jwt.encode(payload, secret, algorithm="HS256")
@@ -55,7 +57,7 @@ def invalid_jwt_token():
         "email": "test@example.com",
         "aud": "authenticated",
         "exp": datetime.utcnow() + timedelta(hours=1),
-        "iat": datetime.utcnow()
+        "iat": datetime.utcnow(),
     }
 
     # Sign with wrong secret
@@ -67,6 +69,7 @@ def invalid_jwt_token():
 def different_user_token():
     """Generate a JWT token for a different user."""
     import os
+
     secret = os.getenv("SUPABASE_JWT_SECRET", "test-secret-key-for-testing-only")
 
     payload = {
@@ -74,7 +77,7 @@ def different_user_token():
         "email": "other@example.com",
         "aud": "authenticated",
         "exp": datetime.utcnow() + timedelta(hours=1),
-        "iat": datetime.utcnow()
+        "iat": datetime.utcnow(),
     }
 
     token = jwt.encode(payload, secret, algorithm="HS256")
@@ -131,9 +134,7 @@ class TestJWTValidation:
         assert response.status_code != 401
         assert response.status_code in [200, 201, 400, 422, 500]  # Not auth error
 
-    def test_submit_with_expired_token_returns_401(
-        self, client, sample_course_input, expired_jwt_token, mock_supabase
-    ):
+    def test_submit_with_expired_token_returns_401(self, client, sample_course_input, expired_jwt_token, mock_supabase):
         """POST /api/submit with expired token should return 401."""
         headers = {"Authorization": f"Bearer {expired_jwt_token}"}
         response = client.post("/api/submit", json=sample_course_input, headers=headers)
@@ -145,18 +146,14 @@ class TestJWTValidation:
         detail = detail.lower()
         assert "expired" in detail or "unauthorized" in detail or "invalid" in detail
 
-    def test_submit_with_invalid_token_returns_401(
-        self, client, sample_course_input, invalid_jwt_token, mock_supabase
-    ):
+    def test_submit_with_invalid_token_returns_401(self, client, sample_course_input, invalid_jwt_token, mock_supabase):
         """POST /api/submit with invalid token should return 401."""
         headers = {"Authorization": f"Bearer {invalid_jwt_token}"}
         response = client.post("/api/submit", json=sample_course_input, headers=headers)
 
         assert response.status_code == 401
 
-    def test_submit_with_malformed_token_returns_401(
-        self, client, sample_course_input, mock_supabase
-    ):
+    def test_submit_with_malformed_token_returns_401(self, client, sample_course_input, mock_supabase):
         """POST /api/submit with malformed token should return 401."""
         headers = {"Authorization": "Bearer not-a-valid-jwt-token"}
         response = client.post("/api/submit", json=sample_course_input, headers=headers)
@@ -172,9 +169,7 @@ class TestJWTValidation:
 
         assert response.status_code == 401
 
-    def test_submit_with_wrong_auth_header_format_returns_401(
-        self, client, sample_course_input, mock_supabase
-    ):
+    def test_submit_with_wrong_auth_header_format_returns_401(self, client, sample_course_input, mock_supabase):
         """POST /api/submit with wrong header format should return 401."""
         headers = {"Authorization": "Basic dXNlcjpwYXNz"}  # Basic auth instead of Bearer
         response = client.post("/api/submit", json=sample_course_input, headers=headers)
@@ -185,9 +180,7 @@ class TestJWTValidation:
 class TestUserIsolation:
     """Test that users can only access their own resources."""
 
-    def test_user_can_access_own_job(
-        self, client, valid_jwt_token, mock_supabase, sample_job_data
-    ):
+    def test_user_can_access_own_job(self, client, valid_jwt_token, mock_supabase, sample_job_data):
         """User should be able to access their own job."""
         # Create job for user
         job_data = sample_job_data.copy()
@@ -237,9 +230,7 @@ class TestUserIsolation:
 class TestAuthorizationHeader:
     """Test Authorization header parsing."""
 
-    def test_case_insensitive_bearer(
-        self, client, sample_course_input, valid_jwt_token, mock_supabase
-    ):
+    def test_case_insensitive_bearer(self, client, sample_course_input, valid_jwt_token, mock_supabase):
         """'Bearer' keyword should be case-insensitive."""
         # Try different cases
         for prefix in ["Bearer", "bearer", "BEARER"]:
@@ -250,9 +241,7 @@ class TestAuthorizationHeader:
             # Note: FastAPI/backend may or may not be case-sensitive, adjust as needed
             assert response.status_code != 403  # Should at least try to authenticate
 
-    def test_extra_spaces_in_auth_header(
-        self, client, sample_course_input, valid_jwt_token, mock_supabase
-    ):
+    def test_extra_spaces_in_auth_header(self, client, sample_course_input, valid_jwt_token, mock_supabase):
         """Authorization header should handle extra spaces gracefully."""
         headers = {"Authorization": f"Bearer  {valid_jwt_token}"}  # Extra space
         response = client.post("/api/submit", json=sample_course_input, headers=headers)
@@ -260,9 +249,7 @@ class TestAuthorizationHeader:
         # Should either work or return proper 401, not 500
         assert response.status_code != 500
 
-    def test_empty_authorization_header_returns_401(
-        self, client, sample_course_input, mock_supabase
-    ):
+    def test_empty_authorization_header_returns_401(self, client, sample_course_input, mock_supabase):
         """Empty Authorization header should return 401."""
         headers = {"Authorization": ""}
         response = client.post("/api/submit", json=sample_course_input, headers=headers)
@@ -290,6 +277,7 @@ class TestTokenPayload:
     def test_token_without_sub_claim_rejected(self, client, sample_course_input, mock_supabase):
         """Token without 'sub' claim should be rejected."""
         import os
+
         secret = os.getenv("SUPABASE_JWT_SECRET", "test-secret-key-for-testing-only")
 
         # Create token without 'sub' claim
@@ -297,7 +285,7 @@ class TestTokenPayload:
             "email": "test@example.com",
             "aud": "authenticated",
             "exp": datetime.utcnow() + timedelta(hours=1),
-            "iat": datetime.utcnow()
+            "iat": datetime.utcnow(),
             # Missing 'sub'
         }
 
@@ -310,6 +298,7 @@ class TestTokenPayload:
     def test_token_with_wrong_audience_rejected(self, client, sample_course_input, mock_supabase):
         """Token with wrong audience should be rejected."""
         import os
+
         secret = os.getenv("SUPABASE_JWT_SECRET", "test-secret-key-for-testing-only")
 
         payload = {
@@ -317,7 +306,7 @@ class TestTokenPayload:
             "email": "test@example.com",
             "aud": "wrong-audience",  # Wrong audience
             "exp": datetime.utcnow() + timedelta(hours=1),
-            "iat": datetime.utcnow()
+            "iat": datetime.utcnow(),
         }
 
         token = jwt.encode(payload, secret, algorithm="HS256")
@@ -365,7 +354,7 @@ class TestCORSWithAuth:
         headers = {
             "Origin": "http://localhost:3000",
             "Access-Control-Request-Method": "POST",
-            "Access-Control-Request-Headers": "content-type,authorization"
+            "Access-Control-Request-Headers": "content-type,authorization",
         }
 
         response = client.options("/api/submit", headers=headers)

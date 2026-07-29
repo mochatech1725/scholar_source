@@ -10,12 +10,14 @@ Uses Redis for distributed rate limiting across multiple instances.
 """
 
 import os
-from backend.env_loader import load_environment
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+
 from fastapi import Request
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from starlette.responses import JSONResponse
+
+from backend.env_loader import load_environment
 
 # Load environment variables
 load_environment()
@@ -31,18 +33,11 @@ if SYNC_MODE:
 
 if REDIS_URL:
     # Production: Use Redis for shared rate limiting across instances
-    limiter = Limiter(
-        key_func=get_remote_address,
-        storage_uri=REDIS_URL,
-        default_limits=["1000/hour"]
-    )
+    limiter = Limiter(key_func=get_remote_address, storage_uri=REDIS_URL, default_limits=["1000/hour"])
     print("✅ Rate limiting: Redis (multi-instance mode)")
 elif ALLOW_IN_MEMORY:
     # Development/Testing: Use in-memory storage (only when explicitly allowed or in SYNC_MODE)
-    limiter = Limiter(
-        key_func=get_remote_address,
-        default_limits=["1000/hour"]
-    )
+    limiter = Limiter(key_func=get_remote_address, default_limits=["1000/hour"])
     if SYNC_MODE:
         print("⚠️  Rate limiting: In-memory (SYNC_MODE - single instance)")
     else:
@@ -88,9 +83,7 @@ def rate_limit_handler(request: Request, exc: RateLimitExceeded):
             "error": "Rate limit exceeded",
             "message": f"Too many requests. Please try again in {retry_after} seconds.",
             "retry_after": retry_after,
-            "limit": exc.detail
+            "limit": exc.detail,
         },
-        headers={
-            "Retry-After": str(retry_after)
-        }
+        headers={"Retry-After": str(retry_after)},
     )

@@ -6,7 +6,8 @@ This is a defense-in-depth measure to prevent cross-origin POST requests
 even without authentication/session management.
 """
 
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
+
 from backend.logging_config import get_logger
 from backend.origins import allowed_origins
 
@@ -63,15 +64,11 @@ def validate_origin(request: Request) -> None:
                 return
 
     # Origin missing or not in allowlist — reject the request.
-    logger.warning(
-        f"Origin validation failed - Origin: {origin}, "
-        f"Method: {request.method}, Path: {request.url.path}"
-    )
+    logger.warning(f"Origin validation failed - Origin: {origin}, Method: {request.method}, Path: {request.url.path}")
     raise HTTPException(
         status_code=403,
         detail={
             "error": "Invalid origin",
-            "message": "Request origin not allowed. This request must come from an authorized domain."
-        }
+            "message": "Request origin not allowed. This request must come from an authorized domain.",
+        },
     )
-

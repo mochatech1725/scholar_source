@@ -5,11 +5,8 @@ Tests the parsing of CrewAI markdown output into structured resources.
 """
 
 import pytest
-from backend.markdown_parser import (
-    parse_markdown_to_resources,
-    _filter_excluded_domains,
-    _contains_error
-)
+
+from backend.markdown_parser import _contains_error, _filter_excluded_domains, parse_markdown_to_resources
 
 
 class TestParseMarkdownToResources:
@@ -28,14 +25,14 @@ class TestParseMarkdownToResources:
 - **What it covers:** Complete lecture series
 """
         result = parse_markdown_to_resources(markdown)
-        resources = result['resources']
+        resources = result["resources"]
 
         assert len(resources) == 2
-        assert resources[0]['title'] == 'OpenStax Textbook'
-        assert resources[0]['type'] == 'Textbook'
-        assert 'openstax.org' in resources[0]['url']
-        assert resources[1]['title'] == 'MIT OCW Lectures'
-        assert resources[1]['type'] == 'Video'
+        assert resources[0]["title"] == "OpenStax Textbook"
+        assert resources[0]["type"] == "Textbook"
+        assert "openstax.org" in resources[0]["url"]
+        assert resources[1]["title"] == "MIT OCW Lectures"
+        assert resources[1]["type"] == "Video"
 
     def test_parse_with_textbook_info(self):
         """Should extract textbook information from markdown."""
@@ -47,11 +44,11 @@ class TestParseMarkdownToResources:
 - **What it covers:** Something
 """
         result = parse_markdown_to_resources(markdown)
-        textbook = result['textbook_info']
+        textbook = result["textbook_info"]
 
         assert textbook is not None
-        assert 'Calculus' in textbook.get('title', '')
-        assert 'Stewart' in textbook.get('author', '')
+        assert "Calculus" in textbook.get("title", "")
+        assert "Stewart" in textbook.get("author", "")
 
     def test_filter_error_resources(self):
         """Should exclude resources with ERROR in description."""
@@ -69,11 +66,11 @@ class TestParseMarkdownToResources:
 - **What it covers:** Failed to connect
 """
         result = parse_markdown_to_resources(markdown)
-        resources = result['resources']
+        resources = result["resources"]
 
         # Should only have 1 valid resource (error ones filtered out)
         assert len(resources) == 1
-        assert resources[0]['url'] == 'https://example.com/valid'
+        assert resources[0]["url"] == "https://example.com/valid"
 
     def test_exclude_specific_domains(self):
         """Should filter out excluded domains."""
@@ -90,15 +87,12 @@ class TestParseMarkdownToResources:
 - **Link:** https://openstax.org/books
 - **What it covers:** Free textbooks
 """
-        result = parse_markdown_to_resources(
-            markdown,
-            excluded_sites="mit.edu, khanacademy.org"
-        )
-        resources = result['resources']
+        result = parse_markdown_to_resources(markdown, excluded_sites="mit.edu, khanacademy.org")
+        resources = result["resources"]
 
         # Should only have OpenStax (MIT and Khan excluded)
         assert len(resources) == 1
-        assert 'openstax.org' in resources[0]['url']
+        assert "openstax.org" in resources[0]["url"]
 
     def test_parse_link_sections_fallback(self):
         """Should fall back to link section parsing if numbered format not found."""
@@ -112,7 +106,7 @@ class TestParseMarkdownToResources:
 - Excellent practical approach
 """
         result = parse_markdown_to_resources(markdown)
-        resources = result['resources']
+        resources = result["resources"]
 
         # Should extract at least one resource
         assert len(resources) > 0
@@ -125,7 +119,7 @@ Check out these resources:
 - [Resource B](https://example.com/b)
 """
         result = parse_markdown_to_resources(markdown)
-        resources = result['resources']
+        resources = result["resources"]
 
         # Should extract links
         assert len(resources) >= 2
@@ -133,10 +127,10 @@ Check out these resources:
     def test_empty_markdown_returns_empty_list(self):
         """Should return empty list for empty markdown."""
         result = parse_markdown_to_resources("")
-        resources = result['resources']
+        resources = result["resources"]
 
         assert resources == []
-        assert result['textbook_info'] is None
+        assert result["textbook_info"] is None
 
     def test_no_textbook_info_returns_none(self):
         """Should return None for textbook_info if not present."""
@@ -147,7 +141,7 @@ Check out these resources:
 """
         result = parse_markdown_to_resources(markdown)
 
-        assert result['textbook_info'] is None
+        assert result["textbook_info"] is None
 
 
 class TestFilterExcludedDomains:
@@ -157,32 +151,32 @@ class TestFilterExcludedDomains:
         """Should filter out single excluded domain."""
         resources = [
             {"url": "https://mit.edu/course", "title": "MIT"},
-            {"url": "https://stanford.edu/course", "title": "Stanford"}
+            {"url": "https://stanford.edu/course", "title": "Stanford"},
         ]
 
         filtered = _filter_excluded_domains(resources, "mit.edu")
 
         assert len(filtered) == 1
-        assert "stanford.edu" in filtered[0]['url']
+        assert "stanford.edu" in filtered[0]["url"]
 
     def test_filter_multiple_domains(self):
         """Should filter out multiple excluded domains."""
         resources = [
             {"url": "https://mit.edu/course", "title": "MIT"},
             {"url": "https://stanford.edu/course", "title": "Stanford"},
-            {"url": "https://berkeley.edu/course", "title": "Berkeley"}
+            {"url": "https://berkeley.edu/course", "title": "Berkeley"},
         ]
 
         filtered = _filter_excluded_domains(resources, "mit.edu, stanford.edu")
 
         assert len(filtered) == 1
-        assert "berkeley.edu" in filtered[0]['url']
+        assert "berkeley.edu" in filtered[0]["url"]
 
     def test_filter_with_whitespace(self):
         """Should handle whitespace in excluded_sites string."""
         resources = [
             {"url": "https://mit.edu/course", "title": "MIT"},
-            {"url": "https://stanford.edu/course", "title": "Stanford"}
+            {"url": "https://stanford.edu/course", "title": "Stanford"},
         ]
 
         filtered = _filter_excluded_domains(resources, "  mit.edu  ,  stanford.edu  ")
@@ -193,7 +187,7 @@ class TestFilterExcludedDomains:
         """Should filter case-insensitively."""
         resources = [
             {"url": "https://MIT.EDU/course", "title": "MIT"},
-            {"url": "https://stanford.edu/course", "title": "Stanford"}
+            {"url": "https://stanford.edu/course", "title": "Stanford"},
         ]
 
         filtered = _filter_excluded_domains(resources, "mit.edu")
@@ -204,20 +198,17 @@ class TestFilterExcludedDomains:
         """Should match partial domain strings."""
         resources = [
             {"url": "https://ocw.mit.edu/course", "title": "MIT OCW"},
-            {"url": "https://stanford.edu/course", "title": "Stanford"}
+            {"url": "https://stanford.edu/course", "title": "Stanford"},
         ]
 
         filtered = _filter_excluded_domains(resources, "mit")
 
         assert len(filtered) == 1
-        assert "stanford.edu" in filtered[0]['url']
+        assert "stanford.edu" in filtered[0]["url"]
 
     def test_empty_excluded_sites_returns_all(self):
         """Should return all resources if excluded_sites is empty."""
-        resources = [
-            {"url": "https://example1.com", "title": "R1"},
-            {"url": "https://example2.com", "title": "R2"}
-        ]
+        resources = [{"url": "https://example1.com", "title": "R1"}, {"url": "https://example2.com", "title": "R2"}]
 
         filtered = _filter_excluded_domains(resources, "")
 
@@ -225,10 +216,7 @@ class TestFilterExcludedDomains:
 
     def test_whitespace_only_excluded_sites_returns_all(self):
         """Should return all resources if excluded_sites is whitespace only."""
-        resources = [
-            {"url": "https://example1.com", "title": "R1"},
-            {"url": "https://example2.com", "title": "R2"}
-        ]
+        resources = [{"url": "https://example1.com", "title": "R1"}, {"url": "https://example2.com", "title": "R2"}]
 
         filtered = _filter_excluded_domains(resources, "   ")
 
@@ -238,35 +226,33 @@ class TestFilterExcludedDomains:
 class TestContainsError:
     """Test error detection in resource fields."""
 
-    @pytest.mark.parametrize("url,title,description,should_contain_error", [
-        # No errors
-        ("https://example.com", "Valid Title", "Valid description", False),
-
-        # ERROR: prefix (case-insensitive) — indicator is 'ERROR:'
-        ("https://ERROR.com", "Title", "Description", False),        # no colon after ERROR
-        ("https://example.com", "ERROR: Failed", "Description", True),
-        ("https://example.com", "Title", "ERROR: Could not fetch", True),
-
-        # 'error' alone without colon does not match 'ERROR:'
-        ("https://error.com/page", "Title", "Description", False),
-        ("https://example.com", "error in title", "Description", False),
-        ("https://example.com", "Title", "error in description", False),
-
-        # 'failed to' pattern (case-insensitive)
-        ("https://example.com", "Title", "Failed to connect", True),
-        ("https://example.com", "Failed request", "Description", False),   # 'failed to' not present
-        ("https://example.com", "Title", "Request failure detected", False),  # 'failed to' not present
-
-        # 'Could not fetch' pattern — only exact phrase matches
-        ("https://example.com", "Title", "Could not fetch resource", True),
-        ("https://example.com", "Could not load", "Description", False),   # 'could not fetch' not present
-        ("https://example.com", "Title", "Cannot access page", False),     # no indicator matches
-
-        # Edge cases
-        ("", "", "", False),
-        ("https://example.com", "", "", False),
-        ("https://example.com", "Normal Title", "", False),
-    ])
+    @pytest.mark.parametrize(
+        "url,title,description,should_contain_error",
+        [
+            # No errors
+            ("https://example.com", "Valid Title", "Valid description", False),
+            # ERROR: prefix (case-insensitive) — indicator is 'ERROR:'
+            ("https://ERROR.com", "Title", "Description", False),  # no colon after ERROR
+            ("https://example.com", "ERROR: Failed", "Description", True),
+            ("https://example.com", "Title", "ERROR: Could not fetch", True),
+            # 'error' alone without colon does not match 'ERROR:'
+            ("https://error.com/page", "Title", "Description", False),
+            ("https://example.com", "error in title", "Description", False),
+            ("https://example.com", "Title", "error in description", False),
+            # 'failed to' pattern (case-insensitive)
+            ("https://example.com", "Title", "Failed to connect", True),
+            ("https://example.com", "Failed request", "Description", False),  # 'failed to' not present
+            ("https://example.com", "Title", "Request failure detected", False),  # 'failed to' not present
+            # 'Could not fetch' pattern — only exact phrase matches
+            ("https://example.com", "Title", "Could not fetch resource", True),
+            ("https://example.com", "Could not load", "Description", False),  # 'could not fetch' not present
+            ("https://example.com", "Title", "Cannot access page", False),  # no indicator matches
+            # Edge cases
+            ("", "", "", False),
+            ("https://example.com", "", "", False),
+            ("https://example.com", "Normal Title", "", False),
+        ],
+    )
     def test_contains_error_patterns(self, url, title, description, should_contain_error):
         """Should detect error indicators in resource fields."""
         result = _contains_error(url, title, description)
@@ -288,8 +274,8 @@ class TestEdgeCases:
         # Should not raise exception
         result = parse_markdown_to_resources(malformed)
         assert isinstance(result, dict)
-        assert 'resources' in result
-        assert isinstance(result['resources'], list)
+        assert "resources" in result
+        assert isinstance(result["resources"], list)
 
     def test_none_excluded_sites(self):
         """Should handle None excluded_sites parameter."""
@@ -299,24 +285,26 @@ class TestEdgeCases:
 - **What it covers:** Something
 """
         result = parse_markdown_to_resources(markdown, excluded_sites=None)
-        resources = result['resources']
+        resources = result["resources"]
 
         assert len(resources) == 1
 
     def test_very_long_markdown(self):
         """Should handle very long markdown content."""
         # Generate 100 resources
-        markdown = "\n".join([
-            f"""
+        markdown = "\n".join(
+            [
+                f"""
 **{i}. Resource {i}**
 - **Link:** https://example{i}.com
 - **What it covers:** Topic {i}
 """
-            for i in range(1, 101)
-        ])
+                for i in range(1, 101)
+            ]
+        )
 
         result = parse_markdown_to_resources(markdown)
-        resources = result['resources']
+        resources = result["resources"]
 
         # Should parse all resources
         assert len(resources) >= 90  # Allow some tolerance for parsing
@@ -333,10 +321,10 @@ class TestEdgeCases:
 - **What it covers:** Tópicos de física
 """
         result = parse_markdown_to_resources(markdown)
-        resources = result['resources']
+        resources = result["resources"]
 
         assert len(resources) == 2
-        assert '数学' in resources[0]['title']
+        assert "数学" in resources[0]["title"]
 
     def test_special_characters_in_urls(self):
         """Should handle special characters in URLs."""
@@ -350,8 +338,8 @@ class TestEdgeCases:
 - **What it covers:** Something else
 """
         result = parse_markdown_to_resources(markdown)
-        resources = result['resources']
+        resources = result["resources"]
 
         assert len(resources) == 2
-        assert 'param=value' in resources[0]['url']
-        assert '#section-2' in resources[1]['url']
+        assert "param=value" in resources[0]["url"]
+        assert "#section-2" in resources[1]["url"]

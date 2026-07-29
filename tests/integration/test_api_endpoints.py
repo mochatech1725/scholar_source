@@ -4,9 +4,9 @@ Integration tests for FastAPI endpoints.
 Tests all API endpoints with mock dependencies.
 """
 
+from datetime import UTC
+
 import pytest
-import time
-from fastapi.testclient import TestClient
 
 
 class TestHealthEndpoint:
@@ -52,10 +52,7 @@ class TestSubmitEndpoint:
 
     def test_submit_valid_course_url(self, client, mock_supabase, mock_crew_success):
         """Should accept valid course URL and return job_id."""
-        payload = {
-            "course_url": "https://ocw.mit.edu/courses/math",
-            "course_name": "Mathematics"
-        }
+        payload = {"course_url": "https://ocw.mit.edu/courses/math", "course_name": "Mathematics"}
         response = client.post("/api/submit", json=payload)
 
         assert response.status_code == 200
@@ -66,12 +63,7 @@ class TestSubmitEndpoint:
 
     def test_submit_valid_nested_course_input(self, client, mock_supabase, mock_crew_success):
         """Should accept the nested payload shape sent by the frontend."""
-        payload = {
-            "course_input": {
-                "course_url": "https://ocw.mit.edu/courses/math",
-                "course_name": "Mathematics"
-            }
-        }
+        payload = {"course_input": {"course_url": "https://ocw.mit.edu/courses/math", "course_name": "Mathematics"}}
         response = client.post("/api/submit", json=payload)
 
         assert response.status_code == 200
@@ -81,10 +73,7 @@ class TestSubmitEndpoint:
 
     def test_submit_valid_book_info(self, client, mock_supabase, mock_crew_success):
         """Should accept valid book title and author."""
-        payload = {
-            "book_title": "Introduction to Algorithms",
-            "book_author": "Cormen"
-        }
+        payload = {"book_title": "Introduction to Algorithms", "book_author": "Cormen"}
         response = client.post("/api/submit", json=payload)
 
         assert response.status_code == 200
@@ -113,7 +102,7 @@ class TestSubmitEndpoint:
         """Should accept desired_resource_types list."""
         payload = {
             "course_url": "https://example.com",
-            "desired_resource_types": ["textbooks", "practice_problem_sets"]
+            "desired_resource_types": ["textbooks", "practice_problem_sets"],
         }
         response = client.post("/api/submit", json=payload)
 
@@ -121,10 +110,7 @@ class TestSubmitEndpoint:
 
     def test_submit_with_excluded_sites(self, client, mock_supabase, mock_crew_success):
         """Should accept excluded_sites string."""
-        payload = {
-            "course_url": "https://example.com",
-            "excluded_sites": "khanacademy.org, coursera.org"
-        }
+        payload = {"course_url": "https://example.com", "excluded_sites": "khanacademy.org, coursera.org"}
         response = client.post("/api/submit", json=payload)
 
         assert response.status_code == 200
@@ -183,7 +169,7 @@ class TestStatusEndpoint:
 
     def test_get_status_completed_job(self, client, mock_supabase):
         """Should return completed status with results."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         # Create completed job directly in mock database
         job_id = "11111111-1111-4111-8111-111111111111"
@@ -198,16 +184,16 @@ class TestStatusEndpoint:
                     "title": "Test Resource",
                     "source": "Test Source",
                     "url": "https://example.com",
-                    "description": "Test description"
+                    "description": "Test description",
                 }
             ],
             "metadata": {"resource_count": 1},
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "completed_at": datetime.now(UTC).isoformat(),
             "inputs": {"course_url": "https://example.com"},
             "search_title": "Test Course",
             "raw_output": None,
-            "error": None
+            "error": None,
         }
 
         response = client.get(f"/api/status/{job_id}")
@@ -220,7 +206,7 @@ class TestStatusEndpoint:
 
     def test_get_status_failed_job(self, client, mock_supabase):
         """Should return failed status with error message."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         job_id = "22222222-2222-4222-8222-222222222222"
         mock_supabase.jobs_data[job_id] = {
@@ -231,11 +217,11 @@ class TestStatusEndpoint:
             "error": "CrewAI execution error",
             "results": [],
             "metadata": {},
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "completed_at": None,
             "inputs": {"course_url": "https://example.com"},
             "search_title": "Test Course",
-            "raw_output": None
+            "raw_output": None,
         }
 
         response = client.get(f"/api/status/{job_id}")
@@ -279,7 +265,7 @@ class TestCancelEndpoint:
 
     def test_cancel_already_completed_job(self, client, mock_supabase):
         """Should handle cancelling already completed job."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         job_id = "33333333-3333-4333-8333-333333333333"
         mock_supabase.jobs_data[job_id] = {
@@ -289,12 +275,12 @@ class TestCancelEndpoint:
             "status_message": "Job completed",
             "results": [],
             "metadata": {},
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "completed_at": datetime.now(UTC).isoformat(),
             "inputs": {"course_url": "https://example.com"},
             "search_title": "Test Course",
             "raw_output": None,
-            "error": None
+            "error": None,
         }
 
         response = client.post(f"/api/cancel/{job_id}")
@@ -342,10 +328,7 @@ class TestCORSHeaders:
 
     def test_cors_allows_localhost(self, client):
         """Should allow requests from localhost."""
-        response = client.get(
-            "/api/health",
-            headers={"Origin": "http://localhost:5173"}
-        )
+        response = client.get("/api/health", headers={"Origin": "http://localhost:5173"})
 
         assert response.status_code == 200
         # CORS headers should be present in production
@@ -353,10 +336,7 @@ class TestCORSHeaders:
 
     def test_cors_allows_custom_domain(self, client):
         """Should allow requests from configured domain."""
-        response = client.get(
-            "/api/health",
-            headers={"Origin": "https://scholar-source.pages.dev"}
-        )
+        response = client.get("/api/health", headers={"Origin": "https://scholar-source.pages.dev"})
 
         assert response.status_code == 200
 
@@ -366,20 +346,13 @@ class TestErrorHandling:
 
     def test_invalid_json_returns_422(self, client):
         """Should return 422 for invalid JSON."""
-        response = client.post(
-            "/api/submit",
-            data="not valid json",
-            headers={"Content-Type": "application/json"}
-        )
+        response = client.post("/api/submit", data="not valid json", headers={"Content-Type": "application/json"})
 
         assert response.status_code == 422
 
     def test_missing_content_type_returns_422(self, client):
         """Should return 422 for missing content type."""
-        response = client.post(
-            "/api/submit",
-            data='{"course_url": "https://example.com"}'
-        )
+        response = client.post("/api/submit", data='{"course_url": "https://example.com"}')
 
         # FastAPI should handle this
         assert response.status_code in [422, 415]
@@ -398,11 +371,7 @@ class TestInputValidation:
     def test_submit_validates_at_least_one_input(self, client, mock_supabase):
         """Should require at least one input field."""
         # All fields empty
-        payload = {
-            "course_url": "",
-            "book_title": "",
-            "isbn": ""
-        }
+        payload = {"course_url": "", "book_title": "", "isbn": ""}
         response = client.post("/api/submit", json=payload)
 
         assert response.status_code == 400
@@ -419,7 +388,7 @@ class TestInputValidation:
         """Should handle whitespace-only fields as empty."""
         payload = {
             "course_url": "  https://example.com  ",
-            "book_title": "   "  # Whitespace only
+            "book_title": "   ",  # Whitespace only
         }
         response = client.post("/api/submit", json=payload)
 

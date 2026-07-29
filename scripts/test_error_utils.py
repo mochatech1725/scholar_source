@@ -2,16 +2,15 @@
 Unit tests for error transformation utilities.
 Tests that technical errors are properly converted to user-friendly messages.
 """
-from pydantic import ValidationError, BaseModel, Field
-from backend.error_utils import (
-    transform_error_for_user,
-    create_user_error_response,
-    sanitize_error_message
-)
+
+from pydantic import BaseModel, Field, ValidationError
+
+from backend.error_utils import create_user_error_response, sanitize_error_message, transform_error_for_user
 
 
 class TestModel(BaseModel):
     """Test model for Pydantic validation errors."""
+
     api_key: str = Field(..., description="Required API key")
 
 
@@ -120,7 +119,7 @@ def test_sanitize_error_message():
     sanitized = sanitize_error_message(message)
     assert "https://api.example.com" not in sanitized
     # Either [URL] or [REDACTED] is acceptable as long as the URL is hidden
-    assert ("[URL]" in sanitized or "[REDACTED]" in sanitized)
+    assert "[URL]" in sanitized or "[REDACTED]" in sanitized
 
 
 def test_pydantic_error_with_env_var():

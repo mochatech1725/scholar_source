@@ -4,13 +4,12 @@ Unit tests for security utilities.
 Tests input validation, prompt injection detection, URL validation, and domain validation.
 """
 
-import pytest
 from backend.security_utils import (
-    validate_url,
     detect_prompt_injection,
     validate_domain_list,
-    validate_text_input,
     validate_isbn,
+    validate_text_input,
+    validate_url,
 )
 
 
@@ -377,16 +376,12 @@ class TestIntegrationScenarios:
 
     def test_xss_in_topics_list_detected(self):
         """XSS attempt in topics list should be detected"""
-        is_suspicious, _ = detect_prompt_injection(
-            "algorithms, data structures, <script>alert('XSS')</script>"
-        )
+        is_suspicious, _ = detect_prompt_injection("algorithms, data structures, <script>alert('XSS')</script>")
         assert is_suspicious is True
 
     def test_template_injection_in_textbook_detected(self):
         """Template injection in textbook field should be detected"""
-        is_suspicious, _ = detect_prompt_injection(
-            "Introduction to Programming ${env.SECRET_KEY}"
-        )
+        is_suspicious, _ = detect_prompt_injection("Introduction to Programming ${env.SECRET_KEY}")
         assert is_suspicious is True
 
     def test_legitimate_academic_input_passes_all_checks(self):

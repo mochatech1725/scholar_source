@@ -60,6 +60,11 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.per-file-ignores]
+"backend/main.py" = ["B008"]
+"backend/tasks.py" = ["E402"]
+"scripts/test.py" = ["E402"]
+
 [project.scripts]
 scholar_source = "scholar_source.main:run"
 run_crew = "scholar_source.main:run"

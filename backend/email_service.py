@@ -7,8 +7,10 @@ Uses Resend for email delivery.
 
 import html
 import os
-from typing import List, Dict, Any
+from typing import Any
+
 import resend
+
 from backend.env_loader import load_environment
 from backend.logging_config import get_logger
 
@@ -19,12 +21,7 @@ load_environment()
 logger = get_logger(__name__)
 
 
-def send_results_email(
-    to_email: str,
-    search_title: str,
-    resources: List[Dict[str, Any]],
-    job_id: str
-) -> bool:
+def send_results_email(to_email: str, search_title: str, resources: list[dict[str, Any]], job_id: str) -> bool:
     """
     Send results email when job completes.
 
@@ -70,11 +67,7 @@ def send_results_email(
         return False
 
 
-def _build_email_html(
-    search_title: str,
-    resources: List[Dict[str, Any]],
-    job_id: str
-) -> str:
+def _build_email_html(search_title: str, resources: list[dict[str, Any]], job_id: str) -> str:
     """
     Build HTML email content.
 
@@ -100,10 +93,16 @@ def _build_email_html(
 
         # Note: url_raw is used in href attribute (already a URL context)
         # but we still use the escaped version for display text
+        description_html = (
+            f'<div style="margin-top: 8px; color: #4b5563; font-size: 14px;">{description}</div>' if description else ""
+        )
         resources_html += f"""
-        <div style="margin-bottom: 20px; padding: 15px; background-color: #f9fafb; border-left: 4px solid #3b82f6; border-radius: 4px;">
+        <div style="margin-bottom: 20px; padding: 15px; background-color: #f9fafb;
+                    border-left: 4px solid #3b82f6; border-radius: 4px;">
             <div style="margin-bottom: 8px;">
-                <span style="display: inline-block; padding: 4px 8px; background-color: #dbeafe; color: #1e40af; border-radius: 4px; font-size: 12px; font-weight: 600; margin-right: 8px;">
+                <span style="display: inline-block; padding: 4px 8px; background-color: #dbeafe;
+                             color: #1e40af; border-radius: 4px; font-size: 12px;
+                             font-weight: 600; margin-right: 8px;">
                     {resource_type}
                 </span>
                 <strong style="font-size: 16px; color: #1f2937;">{title}</strong>
@@ -116,7 +115,7 @@ def _build_email_html(
             <div style="color: #6b7280; font-size: 14px;">
                 <strong>Source:</strong> {source}
             </div>
-            {f'<div style="margin-top: 8px; color: #4b5563; font-size: 14px;">{description}</div>' if description else ''}
+            {description_html}
         </div>
         """
 
@@ -133,7 +132,9 @@ def _build_email_html(
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Your ScholarSource Results</title>
     </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #1f2937; background-color: #f3f4f6; margin: 0; padding: 0;">
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #1f2937;
+                 background-color: #f3f4f6; margin: 0; padding: 0;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px 30px;">
             <!-- Header -->
             <div style="text-align: center; margin-bottom: 30px;">
@@ -158,10 +159,12 @@ def _build_email_html(
             </div>
 
             <!-- NotebookLM Tip -->
-            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 4px; margin-bottom: 30px;">
+            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b;
+                        padding: 15px; border-radius: 4px; margin-bottom: 30px;">
                 <p style="margin: 0; color: #92400e; font-size: 14px;">
                     💡 <strong>Tip:</strong> Copy the URLs above and paste them into
-                    <a href="https://notebooklm.google.com" style="color: #b45309; text-decoration: none;">Google NotebookLM</a>
+                    <a href="https://notebooklm.google.com"
+                       style="color: #b45309; text-decoration: none;">Google NotebookLM</a>
                     to create flashcards, study guides, and quizzes from these resources.
                 </p>
             </div>

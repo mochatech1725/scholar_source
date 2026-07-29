@@ -6,35 +6,36 @@ Handles job submission and status polling.
 """
 
 import os
+from datetime import UTC, datetime
+from uuid import UUID
 
 import filetype
-from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, UploadFile, File, Body
-from uuid import UUID
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
+
+from backend.auth import AuthenticationError, get_current_user
+from backend.celery_app import app as celery_app
+from backend.crew_runner import run_crew_async, validate_crew_inputs
+from backend.csrf_protection import validate_origin
+from backend.env_loader import load_environment
+from backend.error_utils import transform_error_for_user
+from backend.jobs import create_job, get_job
+from backend.logging_config import configure_logging, get_logger
 from backend.models import (
+    CancelJobResponse,
     CourseInputRequest,
-    JobSubmitResponse,
-    JobStatusResponse,
     HealthResponse,
+    JobStatusResponse,
+    JobSubmitResponse,
     PdfUploadResponse,
     WorkerHealthResponse,
-    CancelJobResponse,
 )
-from backend.jobs import create_job, get_job
-from backend.crew_runner import run_crew_async, validate_crew_inputs
-from backend.logging_config import configure_logging, get_logger
-from backend.rate_limiter import limiter, rate_limit_handler
-from backend.csrf_protection import validate_origin
-from backend.celery_app import app as celery_app
-from backend.error_utils import transform_error_for_user
-from backend.auth import get_current_user, AuthenticationError
 from backend.origins import allowed_origins
-from backend.version import APP_VERSION
+from backend.rate_limiter import limiter, rate_limit_handler
 from backend.uploads import resolve_pdf_upload, save_pdf_upload
-from slowapi.errors import RateLimitExceeded
-from backend.env_loader import load_environment
+from backend.version import APP_VERSION
 
 # Load environment variables
 load_environment()
@@ -42,11 +43,7 @@ load_environment()
 QUEUE_ELAPSED_TIME_THRESHOLD_SECONDS = 30  # Time in seconds before checking worker availability for queued jobs
 
 # Configure centralized logging (console only, no log file)
-configure_logging(
-    log_level=os.getenv("LOG_LEVEL", "INFO"),
-    log_file=None,
-    console_output=True
-)
+configure_logging(log_level=os.getenv("LOG_LEVEL", "INFO"), log_file=None, console_output=True)
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -56,21 +53,20 @@ logger.info("Starting ScholarSource API...")
 app = FastAPI(
     title="ScholarSource API",
     description="Backend API for discovering educational resources aligned with course textbooks",
-    version=APP_VERSION
+    version=APP_VERSION,
 )
 
 # Register rate limiter with app
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
+
 # Register authentication exception handler
 @app.exception_handler(AuthenticationError)
 async def auth_exception_handler(request: Request, exc: AuthenticationError):
     """Handle authentication errors with 401 Unauthorized response."""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"error": exc.detail}
-    )
+    return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -85,69 +81,46 @@ app.add_middleware(
 @app.get("/", tags=["Root"])
 async def root():
     """Root endpoint - API information"""
-    return {
-        "message": "ScholarSource API",
-        "version": APP_VERSION,
-        "docs": "/docs",
-        "health": "/api/health"
-    }
+    return {"message": "ScholarSource API", "version": APP_VERSION, "docs": "/docs", "health": "/api/health"}
 
 
 def check_celery_workers() -> dict:
     """
     Check if Celery workers are running and connected.
-    
+
     Returns:
         dict with 'available' (bool), 'count' (int), and 'workers' (list)
     """
     # Check if running in sync mode
     SYNC_MODE = os.getenv("SYNC_MODE", "false").lower() in ("true", "1", "yes")
-    
+
     if SYNC_MODE:
         # In sync mode, workers are not needed (tasks run in-process)
-        return {
-            "available": True,
-            "count": 1,
-            "workers": ["sync-mode"],
-            "mode": "sync"
-        }
-    
+        return {"available": True, "count": 1, "workers": ["sync-mode"], "mode": "sync"}
+
     if celery_app is None:
         return {
             "available": False,
             "count": 0,
             "workers": [],
-            "error": "Celery app not initialized (SYNC_MODE may be enabled)"
+            "error": "Celery app not initialized (SYNC_MODE may be enabled)",
         }
-    
+
     try:
         # Use Celery's inspect API with a short timeout
         inspector = celery_app.control.inspect(timeout=2.0)
         active_workers = inspector.ping()
-        
+
         if active_workers:
             worker_names = list(active_workers.keys())
-            return {
-                "available": True,
-                "count": len(worker_names),
-                "workers": worker_names
-            }
+            return {"available": True, "count": len(worker_names), "workers": worker_names}
         else:
-            return {
-                "available": False,
-                "count": 0,
-                "workers": []
-            }
+            return {"available": False, "count": 0, "workers": []}
     except (ConnectionError, TimeoutError, OSError) as e:
         # Covers broker-unreachable, ping timeout, and low-level socket errors
         logger.warning(f"Failed to check Celery workers: {e}")
         user_message, _ = transform_error_for_user(e)
-        return {
-            "available": False,
-            "count": 0,
-            "workers": [],
-            "error": user_message
-        }
+        return {"available": False, "count": 0, "workers": [], "error": user_message}
 
 
 @app.get("/api/health", response_model=HealthResponse, tags=["Health"])
@@ -159,28 +132,24 @@ async def health_check():
     """
     # Simplified health check for Railway startup
     # Database check can cause timeout during container startup
-    return {
-        "status": "healthy",
-        "version": APP_VERSION,
-        "database": "skipped"
-    }
+    return {"status": "healthy", "version": APP_VERSION, "database": "skipped"}
 
 
 @app.get("/api/health/workers", response_model=WorkerHealthResponse, tags=["Health"])
 async def worker_health_check():
     """
     Check if Celery workers are available to process jobs.
-    
+
     Returns worker availability status.
     """
     worker_status = check_celery_workers()
-    
+
     if worker_status["available"]:
         return {
             "status": "healthy",
             "workers_available": True,
             "worker_count": worker_status["count"],
-            "workers": worker_status["workers"]
+            "workers": worker_status["workers"],
         }
     else:
         return {
@@ -188,7 +157,7 @@ async def worker_health_check():
             "workers_available": False,
             "worker_count": 0,
             "workers": [],
-            "message": "No Celery workers are currently running. Jobs will be queued but not processed."
+            "message": "No Celery workers are currently running. Jobs will be queued but not processed.",
         }
 
 
@@ -198,7 +167,7 @@ async def submit_job(
     request: Request,
     background_tasks: BackgroundTasks,
     course_input: CourseInputRequest = Body(..., embed=False),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Submit a new job to find educational resources.
@@ -234,16 +203,13 @@ async def submit_job(
     if upload_id:
         try:
             pdf_path = resolve_pdf_upload(user_id, upload_id)
-        except ValueError:
+        except ValueError as error:
             raise HTTPException(
                 status_code=400,
-                detail={"error": "Invalid upload", "message": "Invalid PDF upload ID"}
-            )
+                detail={"error": "Invalid upload", "message": "Invalid PDF upload ID"},
+            ) from error
         if pdf_path is None:
-            raise HTTPException(
-                status_code=400,
-                detail={"error": "Invalid upload", "message": "PDF upload not found"}
-            )
+            raise HTTPException(status_code=400, detail={"error": "Invalid upload", "message": "PDF upload not found"})
         inputs["book_pdf_path"] = str(pdf_path)
 
     # Validate that at least one input is provided
@@ -253,10 +219,10 @@ async def submit_job(
             detail={
                 "error": "Invalid inputs",
                 "message": "You must provide at least one of the following: "
-                          "course info (course_name, university_name, course_url, or topics_list), "
-                          "book info (textbook, book_title, book_author, or isbn), "
-                          "uploaded book file (book_upload_id), or book URL (book_url)"
-            }
+                "course info (course_name, university_name, course_url, or topics_list), "
+                "book info (textbook, book_title, book_author, or isbn), "
+                "uploaded book file (book_upload_id), or book URL (book_url)",
+            },
         )
 
     try:
@@ -277,14 +243,14 @@ async def submit_job(
         response = {
             "job_id": job_id,
             "status": "pending",
-            "message": "Job created successfully. Use job_id to poll for status."
+            "message": "Job created successfully. Use job_id to poll for status.",
         }
-        
+
         # Add warning if no workers are available
         if not worker_status["available"]:
             response["warning"] = "No workers currently available. Job is queued but may take longer to start."
             logger.warning(f"Job {job_id} submitted but no Celery workers are available")
-        
+
         return response
 
     except (ConnectionError, TimeoutError, ValueError, RuntimeError, OSError) as e:
@@ -295,11 +261,8 @@ async def submit_job(
 
         raise HTTPException(
             status_code=500,
-            detail={
-                "error": "Job creation failed",
-                "message": user_message
-            }
-        )
+            detail={"error": "Job creation failed", "message": user_message},
+        ) from e
 
 
 def verify_job_ownership(job: dict | None, job_id: UUID, user_id: str, action: str = "access") -> None:
@@ -310,23 +273,18 @@ def verify_job_ownership(job: dict | None, job_id: UUID, user_id: str, action: s
     """
     if not job:
         raise HTTPException(
-            status_code=404,
-            detail={"error": "Job not found", "message": f"No job found with ID: {job_id}"}
+            status_code=404, detail={"error": "Job not found", "message": f"No job found with ID: {job_id}"}
         )
     if job.get("user_id") != user_id:
         raise HTTPException(
             status_code=403,
-            detail={"error": "Forbidden", "message": f"You do not have permission to {action} this job"}
+            detail={"error": "Forbidden", "message": f"You do not have permission to {action} this job"},
         )
 
 
 @app.get("/api/status/{job_id}", response_model=JobStatusResponse, tags=["Jobs"])
 @limiter.limit("100/minute")
-async def get_job_status(
-    request: Request,
-    job_id: UUID,
-    current_user: dict = Depends(get_current_user)
-):
+async def get_job_status(request: Request, job_id: UUID, current_user: dict = Depends(get_current_user)):
     """
     Get the current status of a job.
 
@@ -354,24 +312,26 @@ async def get_job_status(
     # Extract relevant input fields for display
     inputs = job.get("inputs", {})
     status_message = job.get("status_message")
-    
+
     # Check if job is stuck in "queued" status (workers may be down)
     if job["status"] == "queued":
         try:
             created_at = datetime.fromisoformat(job["created_at"].replace("Z", "+00:00"))
-            age_seconds = (datetime.now(timezone.utc) - created_at).total_seconds()
-            
+            age_seconds = (datetime.now(UTC) - created_at).total_seconds()
+
             # If queued for more than threshold, check worker availability
             if age_seconds > QUEUE_ELAPSED_TIME_THRESHOLD_SECONDS:
                 worker_status = check_celery_workers()
                 if not worker_status["available"]:
-                    status_message = "⚠️ Job is queued but no workers are available. Workers may be starting up or offline."
+                    status_message = (
+                        "⚠️ Job is queued but no workers are available. Workers may be starting up or offline."
+                    )
                     logger.warning(f"Job {job_id} stuck in queue - no workers available")
         except (ValueError, AttributeError) as e:
             # ValueError from fromisoformat on unexpected timestamp format;
             # AttributeError if created_at is None or not a string
             logger.debug(f"Could not check queue age for job {job_id}: {e}")
-    
+
     return {
         "job_id": job["id"],
         "status": job["status"],
@@ -386,17 +346,13 @@ async def get_job_status(
         "book_title": inputs.get("book_title") or None,
         "book_author": inputs.get("book_author") or None,
         "created_at": job["created_at"],
-        "completed_at": job.get("completed_at")
+        "completed_at": job.get("completed_at"),
     }
 
 
 @app.post("/api/cancel/{job_id}", response_model=CancelJobResponse, tags=["Jobs"])
 @limiter.limit("20/hour")
-async def cancel_job(
-    request: Request,
-    job_id: UUID,
-    current_user: dict = Depends(get_current_user)
-):
+async def cancel_job(request: Request, job_id: UUID, current_user: dict = Depends(get_current_user)):
     """
     Cancel a running or pending job.
 
@@ -430,11 +386,7 @@ async def cancel_job(
     # Can only cancel pending or running jobs
     if current_status in ["completed", "failed", "cancelled"]:
         raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "Cannot cancel job",
-                "message": f"Job is already {current_status}"
-            }
+            status_code=400, detail={"error": "Cannot cancel job", "message": f"Job is already {current_status}"}
         )
 
     # Attempt to cancel the running crew task
@@ -452,7 +404,7 @@ async def cancel_job(
             status="cancelled",
             status_message="Job cancelled by user",
             error="Job was cancelled before completion",
-            access_token=access_token
+            access_token=access_token,
         )
 
         if task_cancelled:
@@ -460,11 +412,7 @@ async def cancel_job(
         else:
             message = "Job marked as cancelled. The crew task was not actively running."
 
-        return {
-            "job_id": job_id,
-            "status": "cancelled",
-            "message": message
-        }
+        return {"job_id": job_id, "status": "cancelled", "message": message}
     except (ConnectionError, TimeoutError, ValueError, RuntimeError, OSError) as e:
         # Covers DB connection failures, timeouts, Celery revoke errors, and I/O
         logger.error(f"Job cancellation failed: {str(e)}", exc_info=True)
@@ -473,20 +421,13 @@ async def cancel_job(
 
         raise HTTPException(
             status_code=500,
-            detail={
-                "error": "Cancellation failed",
-                "message": user_message
-            }
-        )
+            detail={"error": "Cancellation failed", "message": user_message},
+        ) from e
 
 
 @app.post("/api/upload-pdf", response_model=PdfUploadResponse, tags=["Jobs"])
 @limiter.limit("5/hour")
-async def upload_pdf(
-    request: Request,
-    file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user)
-):
+async def upload_pdf(request: Request, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     """
     Upload a PDF textbook for chapter-aware resource search.
 
@@ -511,14 +452,12 @@ async def upload_pdf(
     filename = file.filename or ""
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(
-            status_code=400,
-            detail={"error": "Invalid file type", "message": "Only PDF files are accepted"}
+            status_code=400, detail={"error": "Invalid file type", "message": "Only PDF files are accepted"}
         )
     content_type = file.content_type or ""
     if "pdf" not in content_type.lower():
         raise HTTPException(
-            status_code=400,
-            detail={"error": "Invalid content type", "message": "File must be a PDF (application/pdf)"}
+            status_code=400, detail={"error": "Invalid content type", "message": "File must be a PDF (application/pdf)"}
         )
 
     # Read and check size (50 MB limit)
@@ -526,8 +465,7 @@ async def upload_pdf(
     contents = await file.read()
     if len(contents) > MAX_SIZE:
         raise HTTPException(
-            status_code=413,
-            detail={"error": "File too large", "message": "PDF must be 50 MB or smaller"}
+            status_code=413, detail={"error": "File too large", "message": "PDF must be 50 MB or smaller"}
         )
 
     # Validate true file type via magic bytes (not just extension/content-type)
@@ -535,8 +473,7 @@ async def upload_pdf(
     detected_mime = kind.mime if kind else None
     if detected_mime != "application/pdf":
         raise HTTPException(
-            status_code=400,
-            detail={"error": "Invalid file", "message": "File contents do not match a valid PDF"}
+            status_code=400, detail={"error": "Invalid file", "message": "File contents do not match a valid PDF"}
         )
 
     try:
@@ -544,9 +481,8 @@ async def upload_pdf(
     except (OSError, ValueError) as e:
         logger.error(f"PDF upload failed for user {user_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail={"error": "Upload failed", "message": "Could not save uploaded file"}
-        )
+            status_code=500, detail={"error": "Upload failed", "message": "Could not save uploaded file"}
+        ) from e
 
     logger.info(f"PDF uploaded for user {user_id}: {pdf_path}")
     return {"upload_id": upload_id}

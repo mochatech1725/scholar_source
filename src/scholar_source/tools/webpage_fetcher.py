@@ -3,15 +3,16 @@ Webpage Content Fetcher Tool
 
 Fetches full HTML content from a webpage and returns clean text.
 """
-from crewai.tools import BaseTool
+
 import requests
 from bs4 import BeautifulSoup
-from typing import Type
+from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 
 
 class WebPageFetcherToolInput(BaseModel):
     """Input schema for WebPageFetcherTool"""
+
     url: str = Field(..., description="The URL of the webpage to fetch")
 
 
@@ -28,13 +29,14 @@ class WebPageFetcherTool(BaseTool):
     Perfect for extracting course information, textbook details, and syllabus content
     from university course pages.
     """
+
     name: str = "Webpage Content Fetcher"
     description: str = (
         "Fetches and returns the full text content of a webpage given its URL. "
         "Use this to extract course information, textbook details, and syllabus content. "
         "Returns clean text with scripts and styles removed."
     )
-    args_schema: Type[BaseModel] = WebPageFetcherToolInput
+    args_schema: type[BaseModel] = WebPageFetcherToolInput
 
     def _run(self, url: str) -> str:
         """
@@ -48,24 +50,24 @@ class WebPageFetcherTool(BaseTool):
         """
         try:
             # Fetch the webpage
-            response = requests.get(url, timeout=15, headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            })
+            response = requests.get(
+                url, timeout=15, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            )
             response.raise_for_status()
 
             # Parse HTML
-            soup = BeautifulSoup(response.text, 'html.parser')
+            soup = BeautifulSoup(response.text, "html.parser")
 
             # Remove script and style elements
             for script in soup(["script", "style", "nav", "footer", "header"]):
                 script.decompose()
 
             # Get text content
-            text = soup.get_text(separator='\n', strip=True)
+            text = soup.get_text(separator="\n", strip=True)
 
             # Clean up excessive whitespace
-            lines = [line.strip() for line in text.split('\n') if line.strip()]
-            cleaned_text = '\n'.join(lines)
+            lines = [line.strip() for line in text.split("\n") if line.strip()]
+            cleaned_text = "\n".join(lines)
 
             return cleaned_text
 

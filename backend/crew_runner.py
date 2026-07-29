@@ -7,12 +7,11 @@ Replaces the old threading-based approach with a scalable queue-based architectu
 
 import sys
 from pathlib import Path
-from typing import Dict
 
 # Add src to path to import ScholarSource
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from backend.jobs import update_job_status, get_job
+from backend.jobs import get_job, update_job_status
 from backend.logging_config import get_logger
 
 # Get logger for this module
@@ -21,7 +20,7 @@ logger = get_logger(__name__)
 
 def run_crew_async(
     job_id: str,
-    inputs: Dict[str, str],
+    inputs: dict[str, str],
 ) -> str:
     """
     Enqueue a ScholarSource crew job to the Celery task queue, or run synchronously if in SYNC_MODE.
@@ -45,10 +44,10 @@ def run_crew_async(
         ValueError: If job doesn't exist or is not in pending status
     """
     import os
-    
+
     # Check if running in sync mode
     SYNC_MODE = os.getenv("SYNC_MODE", "false").lower() in ("true", "1", "yes")
-    
+
     # Verify job exists and is in correct status
     job = get_job(job_id, use_service_role=True)
     if not job:
@@ -56,16 +55,13 @@ def run_crew_async(
 
     job_status = job.get("status")
     if job_status not in ["pending", "queued"]:
-        logger.warning(
-            f"Job {job_id} is in status '{job_status}', expected 'pending' or 'queued'. "
-            f"Proceeding anyway."
-        )
+        logger.warning(f"Job {job_id} is in status '{job_status}', expected 'pending' or 'queued'. Proceeding anyway.")
 
     if SYNC_MODE:
         # Run synchronously in the current process
         logger.info(f"Running job {job_id} synchronously (SYNC_MODE)")
         from backend.tasks import run_crew_task_sync
-        
+
         # Update job status to running (will be updated by the sync task)
         update_job_status(
             job_id,
@@ -74,7 +70,7 @@ def run_crew_async(
             metadata={
                 "sync_mode": True,
             },
-            use_service_role=True
+            use_service_role=True,
         )
 
         # Run the task synchronously (this will block)
@@ -109,7 +105,7 @@ def run_crew_async(
             metadata={
                 "celery_task_id": celery_task_id,
             },
-            use_service_role=True
+            use_service_role=True,
         )
 
         return celery_task_id
@@ -121,7 +117,7 @@ def cancel_crew_job(job_id: str) -> bool:
 
     In async mode (with Celery):
     - Revokes the Celery task (terminates if running, removes if queued)
-    
+
     In sync mode:
     - Marks the job as cancelled (cannot actually stop running task)
 
@@ -132,9 +128,9 @@ def cancel_crew_job(job_id: str) -> bool:
         bool: True if task was found and cancelled, False otherwise
     """
     import os
-    
+
     SYNC_MODE = os.getenv("SYNC_MODE", "false").lower() in ("true", "1", "yes")
-    
+
     # Get the job to find the Celery task ID
     job = get_job(job_id, use_service_role=True)
     if not job:
@@ -149,7 +145,7 @@ def cancel_crew_job(job_id: str) -> bool:
             status="cancelled",
             status_message="Job cancelled by user (sync mode)",
             error="Job was cancelled (sync mode - task may complete)",
-            use_service_role=True
+            use_service_role=True,
         )
         return True
 
@@ -165,12 +161,13 @@ def cancel_crew_job(job_id: str) -> bool:
             status="cancelled",
             status_message="Job cancelled by user",
             error="Job was cancelled (no active task found)",
-            use_service_role=True
+            use_service_role=True,
         )
         return False
 
     # Revoke the Celery task
     from backend.celery_app import app
+
     if app is None:
         logger.warning(f"Cannot cancel job {job_id}: Celery app not available")
         update_job_status(
@@ -178,14 +175,14 @@ def cancel_crew_job(job_id: str) -> bool:
             status="cancelled",
             status_message="Job cancelled by user",
             error="Job was cancelled (Celery not available)",
-            use_service_role=True
+            use_service_role=True,
         )
         return False
 
     # terminate=True will kill the worker processing the task (if it's running)
     # signal='SIGTERM' is a graceful termination signal
     logger.info(f"Revoking Celery task {celery_task_id} for job {job_id}")
-    app.control.revoke(celery_task_id, terminate=True, signal='SIGTERM')
+    app.control.revoke(celery_task_id, terminate=True, signal="SIGTERM")
 
     # Update job status to cancelled
     update_job_status(
@@ -193,14 +190,14 @@ def cancel_crew_job(job_id: str) -> bool:
         status="cancelled",
         status_message="Job cancelled by user",
         error="Job was cancelled before completion",
-        use_service_role=True
+        use_service_role=True,
     )
 
     logger.info(f"Successfully cancelled job {job_id} (Celery task: {celery_task_id})")
     return True
 
 
-def validate_crew_inputs(inputs: Dict[str, str]) -> bool:
+def validate_crew_inputs(inputs: dict[str, str]) -> bool:
     """
     Validate that crew inputs meet minimum requirements.
 
@@ -223,6 +220,7 @@ def validate_crew_inputs(inputs: Dict[str, str]) -> bool:
     Returns:
         bool: True if inputs are valid, False otherwise
     """
+
     def has_value(key: str) -> bool:
         value = inputs.get(key)
         if isinstance(value, str):
@@ -230,20 +228,14 @@ def validate_crew_inputs(inputs: Dict[str, str]) -> bool:
         return bool(value)
 
     # Check for course/topic information.
-    has_course_info = any(
-        has_value(key)
-        for key in ('course_name', 'university_name', 'course_url', 'topics_list')
-    )
+    has_course_info = any(has_value(key) for key in ("course_name", "university_name", "course_url", "topics_list"))
 
     # Check for book identification. `textbook` is a legacy free-text field.
-    has_book_info = any(
-        has_value(key)
-        for key in ('textbook', 'book_title', 'book_author', 'isbn')
-    )
+    has_book_info = any(has_value(key) for key in ("textbook", "book_title", "book_author", "isbn"))
 
     # Check for uploaded/internal book file or link.
-    has_book_file = any(has_value(key) for key in ('book_upload_id', 'book_pdf_path'))
-    has_book_link = has_value('book_url')
+    has_book_file = any(has_value(key) for key in ("book_upload_id", "book_pdf_path"))
+    has_book_link = has_value("book_url")
 
     # At least one combination must be satisfied
     return has_course_info or has_book_info or has_book_file or has_book_link

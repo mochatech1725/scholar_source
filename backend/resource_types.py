@@ -1,8 +1,8 @@
 """Shared resource type definitions for API and worker validation."""
 
-from typing import Literal, TypeAlias
+from typing import Literal
 
-ResourceType: TypeAlias = Literal[
+type ResourceType = Literal[
     "textbooks",
     "practice_problem_sets",
     "practice_exams_tests",

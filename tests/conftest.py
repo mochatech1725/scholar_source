@@ -7,14 +7,13 @@ used across unit, integration, and E2E tests.
 
 import os
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import jwt
 import pytest
 from fastapi.testclient import TestClient
-
 
 # ==============================================================================
 # Environment Setup
@@ -30,8 +29,8 @@ def create_test_jwt(user_id: str = TEST_USER_ID, email: str = "test@example.com"
         "sub": user_id,
         "email": email,
         "aud": "authenticated",
-        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
-        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(UTC) + timedelta(hours=1),
+        "iat": datetime.now(UTC),
     }
     return jwt.encode(payload, TEST_JWT_SECRET, algorithm="HS256")
 
@@ -67,6 +66,7 @@ def test_env():
 # FastAPI Test Client
 # ==============================================================================
 
+
 @pytest.fixture
 def client():
     """Authenticated FastAPI test client for endpoint behavior tests."""
@@ -75,10 +75,12 @@ def client():
 
     limiter._storage.reset()
     test_client = TestClient(app)
-    test_client.headers.update({
-        "Authorization": f"Bearer {create_test_jwt()}",
-        "Origin": "http://localhost:5175",
-    })
+    test_client.headers.update(
+        {
+            "Authorization": f"Bearer {create_test_jwt()}",
+            "Origin": "http://localhost:5175",
+        }
+    )
     return test_client
 
 
@@ -96,11 +98,12 @@ def unauthenticated_client():
 # Mock Supabase Client
 # ==============================================================================
 
+
 class MockSupabaseClient:
     """Mock Supabase client for testing."""
 
     def __init__(self):
-        self.jobs_data: Dict[str, Dict[str, Any]] = {}
+        self.jobs_data: dict[str, dict[str, Any]] = {}
 
     def table(self, table_name: str):
         """Return table mock."""
@@ -113,10 +116,10 @@ class MockSupabaseClient:
 class MockJobsTable:
     """Mock jobs table."""
 
-    def __init__(self, data: Dict[str, Dict[str, Any]]):
+    def __init__(self, data: dict[str, dict[str, Any]]):
         self.data = data
 
-    def insert(self, values: Dict[str, Any]):
+    def insert(self, values: dict[str, Any]):
         """Insert job."""
         job_id = values.get("id") or str(uuid.uuid4())
         values["id"] = job_id
@@ -127,7 +130,7 @@ class MockJobsTable:
         """Select query."""
         return MockSelectQuery(self.data)
 
-    def update(self, values: Dict[str, Any]):
+    def update(self, values: dict[str, Any]):
         """Update query."""
         return MockUpdateQuery(self.data, values)
 
@@ -135,7 +138,7 @@ class MockJobsTable:
 class MockSelectQuery:
     """Mock select query."""
 
-    def __init__(self, data: Dict[str, Dict[str, Any]]):
+    def __init__(self, data: dict[str, dict[str, Any]]):
         self.data = data
         self.filters = {}
 
@@ -154,17 +157,14 @@ class MockSelectQuery:
 
     def execute(self):
         """Execute query."""
-        results = [
-            item for item in self.data.values()
-            if all(item.get(k) == v for k, v in self.filters.items())
-        ]
+        results = [item for item in self.data.values() if all(item.get(k) == v for k, v in self.filters.items())]
         return MockExecute({"data": results, "error": None})
 
 
 class MockUpdateQuery:
     """Mock update query."""
 
-    def __init__(self, data: Dict[str, Dict[str, Any]], values: Dict[str, Any]):
+    def __init__(self, data: dict[str, dict[str, Any]], values: dict[str, Any]):
         self.data = data
         self.values = values
         self.filters = {}
@@ -187,7 +187,7 @@ class MockUpdateQuery:
 class MockExecute:
     """Mock query execution result."""
 
-    def __init__(self, result: Dict[str, Any]):
+    def __init__(self, result: dict[str, Any]):
         self.data = result.get("data")
         self.error = result.get("error")
 
@@ -208,6 +208,7 @@ def mock_supabase(mocker):
 # ==============================================================================
 # Mock CrewAI
 # ==============================================================================
+
 
 @pytest.fixture
 def mock_crew_success(mocker):
@@ -240,9 +241,7 @@ def mock_crew_failure(mocker):
     """Mock failed CrewAI execution."""
     mock_crew_class = mocker.patch("backend.tasks.ScholarSource")
     mock_crew_instance = Mock()
-    mock_crew_instance.crew().kickoff_async = AsyncMock(
-        side_effect=Exception("CrewAI execution failed")
-    )
+    mock_crew_instance.crew().kickoff_async = AsyncMock(side_effect=Exception("CrewAI execution failed"))
     mock_crew_class.return_value = mock_crew_instance
 
     return mock_crew_class
@@ -274,6 +273,7 @@ def mock_crew_with_errors(mocker):
 # Sample Test Data
 # ==============================================================================
 
+
 @pytest.fixture
 def sample_course_input():
     """Sample course input data."""
@@ -281,7 +281,7 @@ def sample_course_input():
         "course_url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-fall-2011/",
         "course_name": "Introduction to Algorithms",
         "university_name": "MIT",
-        "desired_resource_types": ["textbooks", "lecture_notes"]
+        "desired_resource_types": ["textbooks", "lecture_notes"],
     }
 
 
@@ -292,7 +292,7 @@ def sample_book_input():
         "book_title": "Introduction to Algorithms",
         "book_author": "Cormen, Leiserson, Rivest, Stein",
         "isbn": "978-0262046305",
-        "topics_list": "sorting, graphs, dynamic programming"
+        "topics_list": "sorting, graphs, dynamic programming",
     }
 
 
@@ -304,18 +304,15 @@ def sample_job_data():
         "id": job_id,
         "user_id": TEST_USER_ID,
         "status": "pending",
-        "inputs": {
-            "course_url": "https://ocw.mit.edu/courses/algorithms",
-            "course_name": "Algorithms"
-        },
+        "inputs": {"course_url": "https://ocw.mit.edu/courses/algorithms", "course_name": "Algorithms"},
         "search_title": "Algorithms - MIT",
         "results": [],
         "raw_output": None,
         "error": None,
         "status_message": "Job created",
         "metadata": {},
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "completed_at": None
+        "created_at": datetime.now(UTC).isoformat(),
+        "completed_at": None,
     }
 
 
@@ -328,15 +325,15 @@ def sample_resources():
             "title": "Introduction to Algorithms",
             "source": "MIT Press",
             "url": "https://mitpress.mit.edu/books/introduction-algorithms",
-            "description": "Comprehensive algorithms textbook"
+            "description": "Comprehensive algorithms textbook",
         },
         {
             "type": "Lecture Notes",
             "title": "MIT 6.006 Lecture Notes",
             "source": "MIT OpenCourseWare",
             "url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-fall-2011/",
-            "description": "Complete lecture notes from MIT course"
-        }
+            "description": "Complete lecture notes from MIT course",
+        },
     ]
 
 

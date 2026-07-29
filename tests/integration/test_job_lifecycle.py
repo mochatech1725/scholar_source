@@ -4,9 +4,9 @@ Integration tests for complete job lifecycle.
 Tests the full workflow: submit → running → completed/failed/cancelled
 """
 
-import pytest
 import time
-from fastapi.testclient import TestClient
+
+import pytest
 
 
 @pytest.mark.integration
@@ -33,7 +33,7 @@ class TestJobLifecycle:
 
         # Poll until completed (with timeout)
         max_attempts = 30
-        for attempt in range(max_attempts):
+        for _attempt in range(max_attempts):
             status_resp = client.get(f"/api/status/{job_id}")
             status_data = status_resp.json()
             status = status_data["status"]
@@ -60,7 +60,7 @@ class TestJobLifecycle:
 
         # Poll until failed
         max_attempts = 30
-        for attempt in range(max_attempts):
+        for _attempt in range(max_attempts):
             status_resp = client.get(f"/api/status/{job_id}")
             status_data = status_resp.json()
 
@@ -253,13 +253,16 @@ class TestJobErrorRecovery:
 class TestJobInputVariations:
     """Test different input combinations."""
 
-    @pytest.mark.parametrize("payload", [
-        {"course_url": "https://example.com"},
-        {"book_title": "Algorithms", "book_author": "Cormen"},
-        {"isbn": "978-0262046305"},
-        {"book_url": "https://example.com/book.pdf"},
-        {"course_name": "Algorithms", "university_name": "MIT"},
-    ])
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"course_url": "https://example.com"},
+            {"book_title": "Algorithms", "book_author": "Cormen"},
+            {"isbn": "978-0262046305"},
+            {"book_url": "https://example.com/book.pdf"},
+            {"course_name": "Algorithms", "university_name": "MIT"},
+        ],
+    )
     def test_valid_input_combinations(self, client, mock_supabase, mock_crew_success, payload):
         """Should accept various valid input combinations."""
         response = client.post("/api/submit", json=payload)

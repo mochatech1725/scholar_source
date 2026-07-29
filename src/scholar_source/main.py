@@ -12,13 +12,14 @@ warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 # Replace with inputs you want to test with, it will automatically
 # interpolate any tasks and agents information
 
+
 def parse_arguments():
     """
     Parse command-line arguments for crew inputs.
     All arguments are optional, but at least one must be provided.
     """
     parser = argparse.ArgumentParser(
-        description='Run ScholarSource crew to discover educational resources similar to your course book.',
+        description="Run ScholarSource crew to discover educational resources similar to your course book.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -28,51 +29,24 @@ Examples:
   %(prog)s --course-info-url "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/"
   %(prog)s --book-pdf-path "/path/to/textbook.pdf"
   %(prog)s -u "MIT" -c "Introduction to Algorithms" --book-title "Introduction to Algorithms"
-        """
+        """,
     )
 
+    parser.add_argument("-u", "--university-name", help='University name (e.g., "MIT", "Stanford")')
+    parser.add_argument("-c", "--course-name", help='Course name (e.g., "Introduction to Algorithms")')
+    parser.add_argument("-url", "--course-url", help="Course webpage URL")
     parser.add_argument(
-        '-u', '--university-name',
-        help='University name (e.g., "MIT", "Stanford")'
+        "-b", "--textbook", help="Textbook information (legacy field, prefer --book-title and --book-author)"
     )
-    parser.add_argument(
-        '-c', '--course-name',
-        help='Course name (e.g., "Introduction to Algorithms")'
-    )
-    parser.add_argument(
-        '-url', '--course-url',
-        help='Course webpage URL'
-    )
-    parser.add_argument(
-        '-b', '--textbook',
-        help='Textbook information (legacy field, prefer --book-title and --book-author)'
-    )
-    parser.add_argument(
-        '-t', '--topics-list',
-        help='Comma-separated list of topics to cover'
-    )
-    parser.add_argument(
-        '--book-title',
-        help='Book title (e.g., "Introduction to Algorithms")'
-    )
-    parser.add_argument(
-        '--book-author',
-        help='Book author(s) (e.g., "Cormen, Leiserson, Rivest, Stein")'
-    )
-    parser.add_argument(
-        '--isbn',
-        help='ISBN of the book (e.g., "978-0262046305")'
-    )
-    parser.add_argument(
-        '--book-pdf-path',
-        help='Local path to PDF copy of the course book'
-    )
-    parser.add_argument(
-        '--book-url',
-        help='Online link to the book (e.g., publisher website, Amazon, etc.)'
-    )
+    parser.add_argument("-t", "--topics-list", help="Comma-separated list of topics to cover")
+    parser.add_argument("--book-title", help='Book title (e.g., "Introduction to Algorithms")')
+    parser.add_argument("--book-author", help='Book author(s) (e.g., "Cormen, Leiserson, Rivest, Stein")')
+    parser.add_argument("--isbn", help='ISBN of the book (e.g., "978-0262046305")')
+    parser.add_argument("--book-pdf-path", help="Local path to PDF copy of the course book")
+    parser.add_argument("--book-url", help="Online link to the book (e.g., publisher website, Amazon, etc.)")
 
     return parser.parse_args()
+
 
 def validate_inputs(inputs):
     """
@@ -94,19 +68,13 @@ def validate_inputs(inputs):
         The validated inputs dictionary
     """
     # Check for valid input combinations
-    has_course_info = (
-        (inputs.get('course_name') and inputs.get('university_name')) or 
-        inputs.get('course_url')
-    )
-    
-    has_book_info = (
-        (inputs.get('book_title') and inputs.get('book_author')) or 
-        inputs.get('isbn')
-    )
-    
-    has_book_file = bool(inputs.get('book_pdf_path'))
-    has_book_link = bool(inputs.get('book_url'))
-    
+    has_course_info = (inputs.get("course_name") and inputs.get("university_name")) or inputs.get("course_url")
+
+    has_book_info = (inputs.get("book_title") and inputs.get("book_author")) or inputs.get("isbn")
+
+    has_book_file = bool(inputs.get("book_pdf_path"))
+    has_book_link = bool(inputs.get("book_url"))
+
     # At least one combination must be satisfied
     is_valid = has_course_info or has_book_info or has_book_file or has_book_link
 
@@ -138,6 +106,7 @@ Use --help for more information.
 
     return inputs
 
+
 def build_inputs_from_args(args):
     """
     Build inputs dictionary from parsed arguments.
@@ -151,23 +120,24 @@ def build_inputs_from_args(args):
     """
     # Map CLI arguments to input dictionary keys
     arg_mapping = {
-        'university_name': args.university_name,
-        'course_name': args.course_name,
-        'course_url': args.course_url,
-        'textbook': args.textbook,
-        'topics_list': args.topics_list,
-        'book_title': args.book_title,
-        'book_author': args.book_author,
-        'isbn': args.isbn,
-        'book_pdf_path': args.book_pdf_path,
-        'book_url': args.book_url,
+        "university_name": args.university_name,
+        "course_name": args.course_name,
+        "course_url": args.course_url,
+        "textbook": args.textbook,
+        "topics_list": args.topics_list,
+        "book_title": args.book_title,
+        "book_author": args.book_author,
+        "isbn": args.isbn,
+        "book_pdf_path": args.book_pdf_path,
+        "book_url": args.book_url,
     }
 
     # Include all keys, using empty string for None values
     # This is required because CrewAI task descriptions reference all variables
-    inputs = {key: (value if value is not None else '') for key, value in arg_mapping.items()}
+    inputs = {key: (value if value is not None else "") for key, value in arg_mapping.items()}
 
     return inputs
+
 
 def run():
     """
@@ -182,7 +152,7 @@ def run():
         print(str(e), file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        raise Exception(f"An error occurred while running the crew: {e}")
+        raise RuntimeError(f"An error occurred while running the crew: {e}") from e
 
 
 def train():
@@ -199,7 +169,8 @@ def train():
         print(str(e), file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        raise Exception(f"An error occurred while training the crew: {e}")
+        raise RuntimeError(f"An error occurred while training the crew: {e}") from e
+
 
 def replay():
     """
@@ -209,7 +180,8 @@ def replay():
         ScholarSource().crew().replay(task_id=sys.argv[1])
 
     except Exception as e:
-        raise Exception(f"An error occurred while replaying the crew: {e}")
+        raise RuntimeError(f"An error occurred while replaying the crew: {e}") from e
+
 
 def test():
     """
@@ -225,5 +197,4 @@ def test():
         print(str(e), file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        raise Exception(f"An error occurred while testing the crew: {e}")
-
+        raise RuntimeError(f"An error occurred while testing the crew: {e}") from e

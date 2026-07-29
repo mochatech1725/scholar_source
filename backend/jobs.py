@@ -6,7 +6,8 @@ Jobs are persisted across server restarts.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any
+
 from backend.database import get_supabase_client
 from backend.logging_config import get_logger
 
@@ -39,7 +40,7 @@ def create_job(inputs: dict, user_id: str, access_token: str = None) -> str:
         "status": "pending",
         "inputs": inputs,
         "search_title": search_title,
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.utcnow().isoformat(),
     }
 
     try:
@@ -47,11 +48,11 @@ def create_job(inputs: dict, user_id: str, access_token: str = None) -> str:
         if not response.data:
             raise Exception("Failed to create job: No data returned")
         return response.data[0]["id"]
-    except Exception as e:
-        raise Exception(f"Failed to create job in database: {str(e)}")
+    except Exception as error:
+        raise RuntimeError(f"Failed to create job in database: {error}") from error
 
 
-def get_job(job_id: str, access_token: str = None, use_service_role: bool = False) -> Optional[Dict[str, Any]]:
+def get_job(job_id: str, access_token: str = None, use_service_role: bool = False) -> dict[str, Any] | None:
     """
     Get job data from Supabase database.
 
@@ -80,13 +81,13 @@ def get_job(job_id: str, access_token: str = None, use_service_role: bool = Fals
 def update_job_status(
     job_id: str,
     status: str,
-    results: Optional[list] = None,
-    error: Optional[str] = None,
-    status_message: Optional[str] = None,
-    raw_output: Optional[str] = None,
-    metadata: Optional[dict] = None,
+    results: list | None = None,
+    error: str | None = None,
+    status_message: str | None = None,
+    raw_output: str | None = None,
+    metadata: dict | None = None,
     access_token: str = None,
-    use_service_role: bool = False
+    use_service_role: bool = False,
 ) -> None:
     """
     Update job status and optional fields in Supabase.
@@ -127,8 +128,8 @@ def update_job_status(
 
     try:
         supabase.table("jobs").update(update_data).eq("id", job_id).execute()
-    except Exception as e:
-        raise Exception(f"Failed to update job {job_id}: {str(e)}")
+    except Exception as error:
+        raise RuntimeError(f"Failed to update job {job_id}: {error}") from error
 
 
 def _generate_search_title(inputs: dict) -> str:

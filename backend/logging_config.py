@@ -4,26 +4,23 @@ Centralized logging configuration for ScholarSource backend.
 This module sets up logging once and provides a simple get_logger() function
 that all backend modules can use.
 """
+
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 # Global flag to ensure we only configure once
 _logging_configured = False
 
 
 def configure_logging(
-    log_level: str = "INFO",
-    log_file: Optional[str] = None,
-    log_dir: Optional[Path] = None,
-    console_output: bool = True
+    log_level: str = "INFO", log_file: str | None = None, log_dir: Path | None = None, console_output: bool = True
 ) -> None:
     """
     Configure logging for the entire application.
 
     This should be called once at application startup. Subsequent calls are ignored.
-    
+
     This configuration is designed to work alongside CrewAI's logging system.
     It preserves existing handlers and ensures CrewAI loggers are properly configured.
 
@@ -53,10 +50,10 @@ def configure_logging(
     # Configure logging ONLY for our application modules, not for CrewAI
     # CrewAI uses print() statements for verbose output, not logging
     # We don't want to interfere with CrewAI's output
-    
+
     # Get root logger
     root_logger = logging.getLogger()
-    
+
     # Only configure if root logger has no handlers (to avoid interfering with CrewAI)
     # If handlers already exist, don't add more
     if not root_logger.handlers:
@@ -67,17 +64,13 @@ def configure_logging(
         # Use stdout explicitly so Railway doesn't classify as errors
         if console_output:
             console_handler = logging.StreamHandler(sys.stdout)
-            console_handler.setFormatter(
-                logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            )
+            console_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
             handlers.append(console_handler)
 
         # File handler (optional) for our application logs
         if log_file:
             file_handler = logging.FileHandler(log_dir / log_file)
-            file_handler.setFormatter(
-                logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            )
+            file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
             handlers.append(file_handler)
 
         # Configure root logger level
@@ -86,10 +79,10 @@ def configure_logging(
         # Add our handlers to the root logger
         for handler in handlers:
             root_logger.addHandler(handler)
-    
+
     # Don't configure CrewAI loggers - let CrewAI handle its own output
     # CrewAI's verbose=True uses print() statements, not logging
-    
+
     # Suppress noisy third-party loggers
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
@@ -116,7 +109,7 @@ def get_logger(name: str) -> logging.Logger:
     # Auto-configuring interferes with CrewAI's print() statements
     # If logging isn't configured, Python's default logging will be used (which is fine)
     # return logging.getLogger(name)
-    
+
     # Actually, let's just return the logger without configuring
     # The application should explicitly call configure_logging() if needed
     return logging.getLogger(name)
@@ -128,4 +121,3 @@ def set_debug_mode():
     global _logging_configured
     _logging_configured = False  # Reset to allow reconfiguration
     configure_logging(log_level="DEBUG")
-

@@ -5,9 +5,10 @@ This module defines all Celery tasks for the ScholarSource application.
 Tasks are executed by Celery workers in separate processes.
 """
 
-import sys
 import os
+import sys
 import time
+
 from backend.env_loader import load_environment
 
 # Load environment variables
@@ -16,31 +17,31 @@ load_environment()
 # Disable CrewAI telemetry prompts in production/worker environment
 os.environ["OTEL_SDK_DISABLED"] = "true"
 
-import re
 import asyncio
-import traceback
 import concurrent.futures
+import re
+import traceback
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+
 from celery import Task
 
 # Add src to path to import ScholarSource
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 # Import utilities
-from scholar_source.utils import get_crew_output_path
-
 from backend.celery_app import app
-from scholar_source.crew import ScholarSource
-from backend.jobs import update_job_status, get_job
-from backend.markdown_parser import parse_markdown_to_resources
-from backend.logging_config import get_logger
 from backend.error_utils import transform_error_for_user
-from backend.security_utils import detect_prompt_injection
+from backend.jobs import get_job, update_job_status
+from backend.logging_config import get_logger
+from backend.markdown_parser import parse_markdown_to_resources
 from backend.resource_types import ALLOWED_RESOURCE_TYPE_SET
+from backend.security_utils import detect_prompt_injection
+from scholar_source.crew import ScholarSource
+from scholar_source.utils import get_crew_output_path
 
 # Get logger for this module
 logger = get_logger(__name__)
+
 
 # Helper to conditionally apply Celery task decorator
 # If app is None (sync mode), return a no-op decorator
@@ -52,28 +53,42 @@ def task_decorator(*args, **kwargs):
         # Return a no-op decorator for sync mode (ignores all arguments)
         def noop_decorator(func):
             return func
+
         return noop_decorator
 
 
 # ── Private helpers ───────────────────────────────────────────────────────────
 
-_REQUIRED_KEYS: List[str] = [
-    'university_name', 'course_name', 'course_url', 'textbook',
-    'topics_list', 'book_title', 'book_author', 'isbn',
-    'book_pdf_path', 'book_url', 'desired_resource_types', 'excluded_sites',
-    'targeted_sites', 'chapter', 'sections', 'preferred_creators',
+_REQUIRED_KEYS: list[str] = [
+    "university_name",
+    "course_name",
+    "course_url",
+    "textbook",
+    "topics_list",
+    "book_title",
+    "book_author",
+    "isbn",
+    "book_pdf_path",
+    "book_url",
+    "desired_resource_types",
+    "excluded_sites",
+    "targeted_sites",
+    "chapter",
+    "sections",
+    "preferred_creators",
 ]
 
-def _normalize_inputs(inputs: Dict) -> Dict:
+
+def _normalize_inputs(inputs: dict) -> dict:
     """
     Normalize raw task inputs for crew consumption:
     - Convert None values to empty strings (preserving lists for desired_resource_types).
     - Strip unrecognised desired_resource_types as defense in depth.
     - Fill in any missing required keys with safe defaults.
     """
-    normalized: Dict = {}
+    normalized: dict = {}
     for key, value in inputs.items():
-        if key == 'desired_resource_types':
+        if key == "desired_resource_types":
             raw = value if isinstance(value, list) else ([] if value is None else [])
             # Discard any items not in the allowlist
             filtered = [v for v in raw if isinstance(v, str) and v in ALLOWED_RESOURCE_TYPE_SET]
@@ -85,11 +100,11 @@ def _normalize_inputs(inputs: Dict) -> Dict:
             normalized[key] = value if value is not None else ""
     for key in _REQUIRED_KEYS:
         if key not in normalized:
-            normalized[key] = [] if key == 'desired_resource_types' else ""
+            normalized[key] = [] if key == "desired_resource_types" else ""
     return normalized
 
 
-def _validate_injection(normalized_inputs: Dict, job_id: str) -> Optional[str]:
+def _validate_injection(normalized_inputs: dict, job_id: str) -> str | None:
     """
     Secondary defense-in-depth check for prompt injection in all string inputs.
     Returns an error message string if any field is suspicious, otherwise None.
@@ -105,15 +120,15 @@ def _validate_injection(normalized_inputs: Dict, job_id: str) -> Optional[str]:
     return None
 
 
-def _read_crew_output(result) -> Tuple[str, str]:
+def _read_crew_output(result) -> tuple[str, str]:
     """
     Extract (raw_output, markdown_content) from a crew result.
     Prefers the on-disk report file; falls back to the result's raw string.
     """
-    raw_output = str(result.raw) if hasattr(result, 'raw') else str(result)
+    raw_output = str(result.raw) if hasattr(result, "raw") else str(result)
     report_path = get_crew_output_path()
     if report_path.exists():
-        with open(report_path, "r") as f:
+        with open(report_path) as f:
             markdown_content = f.read()
     else:
         markdown_content = raw_output
@@ -132,7 +147,7 @@ def _clear_previous_crew_output() -> None:
         logger.warning(f"Failed to remove stale CrewAI report {report_path}: {error}")
 
 
-def _extract_fatal_crew_error(markdown_content: str) -> Optional[str]:
+def _extract_fatal_crew_error(markdown_content: str) -> str | None:
     """Return a top-level crew error, not per-resource ERROR markers."""
     content = markdown_content.lstrip()
     if content.startswith("```"):
@@ -146,13 +161,13 @@ def _extract_fatal_crew_error(markdown_content: str) -> Optional[str]:
 
 def _parse_crew_results(
     markdown_content: str,
-    normalized_inputs: Dict,
-) -> Tuple[list, Optional[dict], Optional[dict]]:
+    normalized_inputs: dict,
+) -> tuple[list, dict | None, dict | None]:
     """
     Parse markdown output into structured resources.
     Returns (resources, textbook_info, section_groups).
     """
-    excluded_sites = normalized_inputs.get('excluded_sites', '')
+    excluded_sites = normalized_inputs.get("excluded_sites", "")
     parsed_data = parse_markdown_to_resources(markdown_content, excluded_sites=excluded_sites)
     return (
         parsed_data.get("resources", []),
@@ -161,10 +176,10 @@ def _parse_crew_results(
     )
 
 
-def _cleanup_pdf(normalized_inputs: Dict) -> None:
+def _cleanup_pdf(normalized_inputs: dict) -> None:
     """Remove the temporary PDF upload file if it came from /tmp/scholar_uploads/."""
-    pdf_path = normalized_inputs.get('book_pdf_path', '')
-    if pdf_path and pdf_path.startswith('/tmp/scholar_uploads/'):
+    pdf_path = normalized_inputs.get("book_pdf_path", "")
+    if pdf_path and pdf_path.startswith("/tmp/scholar_uploads/"):
         try:
             os.unlink(pdf_path)
         except OSError as e:
@@ -175,9 +190,9 @@ def _handle_task_failure(
     job_id: str,
     e: Exception,
     elapsed: float,
-    normalized_inputs: Dict,
-    extra_metadata: Dict,
-) -> Tuple[str, str]:
+    normalized_inputs: dict,
+    extra_metadata: dict,
+) -> tuple[str, str]:
     """
     Shared failure handler used by both task variants.
     - Logs the exception with elapsed time.
@@ -190,9 +205,7 @@ def _handle_task_failure(
     technical_error = str(e)
     stack_trace = traceback.format_exc()
 
-    logger.error(
-        f"❌ Job {job_id} failed with {error_type}: {technical_error} (elapsed: {elapsed:.2f}s)"
-    )
+    logger.error(f"❌ Job {job_id} failed with {error_type}: {technical_error} (elapsed: {elapsed:.2f}s)")
     logger.error(stack_trace)
 
     _cleanup_pdf(normalized_inputs)
@@ -210,7 +223,8 @@ def _handle_task_failure(
 
 # ── Crew runner (async helper) ────────────────────────────────────────────────
 
-async def _run_crew_async(crew, inputs: Dict, job_id: str):
+
+async def _run_crew_async(crew, inputs: dict, job_id: str):
     """Run crew.kickoff_async, flushing stdout/stderr around it for Railway log visibility."""
     sys.stdout.flush()
     sys.stderr.flush()
@@ -231,6 +245,7 @@ async def _run_crew_async(crew, inputs: Dict, job_id: str):
 
 # ── Celery task ───────────────────────────────────────────────────────────────
 
+
 @task_decorator(
     bind=True,
     name="backend.tasks.run_crew_task",
@@ -243,8 +258,8 @@ async def _run_crew_async(crew, inputs: Dict, job_id: str):
 def run_crew_task(
     self: Task,
     job_id: str,
-    inputs: Dict[str, str],
-) -> Dict[str, any]:
+    inputs: dict[str, str],
+) -> dict[str, any]:
     """
     Celery task to run the ScholarSource crew.
 
@@ -270,7 +285,7 @@ def run_crew_task(
         logger.info(f"Job {job_id} was cancelled before execution started (elapsed: {elapsed:.2f}s)")
         return {"status": "cancelled", "message": "Job was cancelled before execution"}
 
-    normalized_inputs: Dict = {}
+    normalized_inputs: dict = {}
     try:
         update_job_status(
             job_id,
@@ -317,9 +332,7 @@ def run_crew_task(
 
         raw_output, markdown_content = _read_crew_output(result)
 
-        resources, textbook_info, section_groups = _parse_crew_results(
-            markdown_content, normalized_inputs
-        )
+        resources, textbook_info, section_groups = _parse_crew_results(markdown_content, normalized_inputs)
 
         # Treat only top-level crew errors as fatal. Resource-level errors are
         # filtered by the markdown parser so valid partial results can complete.
@@ -335,7 +348,7 @@ def run_crew_task(
             )
             return {"status": "failed", "error": error_msg, "job_id": job_id}
 
-        metadata: Dict = {
+        metadata: dict = {
             "resource_count": len(resources),
             "crew_output_length": len(raw_output),
             "celery_task_id": self.request.id,
@@ -364,10 +377,7 @@ def run_crew_task(
         )
 
         elapsed = time.time() - start_time
-        logger.info(
-            f"✅ Job {job_id} completed successfully with {len(resources)} resources "
-            f"(elapsed: {elapsed:.2f}s)"
-        )
+        logger.info(f"✅ Job {job_id} completed successfully with {len(resources)} resources (elapsed: {elapsed:.2f}s)")
         return {"status": "completed", "job_id": job_id, "resource_count": len(resources)}
 
     except Exception as e:
@@ -376,18 +386,22 @@ def run_crew_task(
         # SystemExit) are BaseException and are not caught here.
         elapsed = time.time() - start_time
         _handle_task_failure(
-            job_id, e, elapsed, normalized_inputs,
+            job_id,
+            e,
+            elapsed,
+            normalized_inputs,
             extra_metadata={"celery_task_id": self.request.id},
         )
-        raise self.retry(exc=e, countdown=60)
+        raise self.retry(exc=e, countdown=60) from e
 
 
 # ── Sync task (no Celery / no Redis) ─────────────────────────────────────────
 
+
 def run_crew_task_sync(
     job_id: str,
-    inputs: Dict[str, str],
-) -> Dict[str, any]:
+    inputs: dict[str, str],
+) -> dict[str, any]:
     """
     Synchronous version of run_crew_task used when SYNC_MODE=true.
     Performs the same steps without Celery / Redis.
@@ -406,7 +420,7 @@ def run_crew_task_sync(
         logger.info(f"Job {job_id} was cancelled before execution started")
         return {"status": "cancelled", "message": "Job was cancelled before execution"}
 
-    normalized_inputs: Dict = {}
+    normalized_inputs: dict = {}
     try:
         update_job_status(
             job_id,
@@ -448,9 +462,7 @@ def run_crew_task_sync(
             asyncio.get_running_loop()
             # Already inside a running loop — spin up a thread with its own loop
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run, _run_crew_async(crew, normalized_inputs, job_id)
-                )
+                future = executor.submit(asyncio.run, _run_crew_async(crew, normalized_inputs, job_id))
                 result = future.result()
         except RuntimeError:
             # No running loop, safe to call asyncio.run() directly
@@ -465,9 +477,7 @@ def run_crew_task_sync(
 
         raw_output, markdown_content = _read_crew_output(result)
 
-        resources, textbook_info, section_groups = _parse_crew_results(
-            markdown_content, normalized_inputs
-        )
+        resources, textbook_info, section_groups = _parse_crew_results(markdown_content, normalized_inputs)
 
         # Treat only top-level crew errors as fatal. Resource-level errors are
         # filtered by the markdown parser so valid partial results can complete.
@@ -483,7 +493,7 @@ def run_crew_task_sync(
             )
             return {"status": "failed", "error": error_msg, "job_id": job_id}
 
-        metadata: Dict = {
+        metadata: dict = {
             "resource_count": len(resources),
             "crew_output_length": len(raw_output),
             "sync_mode": True,
@@ -512,17 +522,17 @@ def run_crew_task_sync(
         )
 
         elapsed = time.time() - start_time
-        logger.info(
-            f"✅ Job {job_id} completed successfully with {len(resources)} resources "
-            f"(elapsed: {elapsed:.2f}s)"
-        )
+        logger.info(f"✅ Job {job_id} completed successfully with {len(resources)} resources (elapsed: {elapsed:.2f}s)")
         return {"status": "completed", "job_id": job_id, "resource_count": len(resources)}
 
     except Exception as e:
         # Intentionally broad: same reasoning as run_crew_task above.
         elapsed = time.time() - start_time
         user_message, _ = _handle_task_failure(
-            job_id, e, elapsed, normalized_inputs,
+            job_id,
+            e,
+            elapsed,
+            normalized_inputs,
             extra_metadata={"sync_mode": True},
         )
         return {"status": "failed", "error": user_message, "job_id": job_id}
@@ -530,11 +540,12 @@ def run_crew_task_sync(
 
 # ── Maintenance tasks ─────────────────────────────────────────────────────────
 
+
 @task_decorator(
     name="backend.tasks.cleanup_old_results",
     queue="default",
 )
-def cleanup_old_results() -> Dict[str, any]:
+def cleanup_old_results() -> dict[str, any]:
     """
     Periodic task to clean up old job results.
 
@@ -549,10 +560,7 @@ def cleanup_old_results() -> Dict[str, any]:
     # - Delete old jobs from database (e.g., completed jobs older than 30 days)
     # - Clean up orphaned files
 
-    return {
-        "status": "completed",
-        "message": "Cleanup completed successfully"
-    }
+    return {"status": "completed", "message": "Cleanup completed successfully"}
 
 
 @task_decorator(
@@ -560,7 +568,7 @@ def cleanup_old_results() -> Dict[str, any]:
     name="backend.tasks.health_check",
     queue="default",
 )
-def health_check(self: Task) -> Dict[str, any]:
+def health_check(self: Task) -> dict[str, any]:
     """
     Health check task to verify worker is functioning.
 
@@ -568,8 +576,4 @@ def health_check(self: Task) -> Dict[str, any]:
         Dict with health status
     """
     logger.info("Health check task executed")
-    return {
-        "status": "healthy",
-        "worker_id": self.request.hostname,
-        "task_id": self.request.id
-    }
+    return {"status": "healthy", "worker_id": self.request.hostname, "task_id": self.request.id}

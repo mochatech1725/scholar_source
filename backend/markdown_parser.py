@@ -5,11 +5,10 @@ Parses the crew's markdown output into structured JSON resources.
 """
 
 import re
-from typing import List, Dict, Any, Optional
-from backend.models import Resource
+from typing import Any
 
 
-def parse_markdown_to_resources(markdown_content: str, excluded_sites: Optional[str] = None) -> Dict[str, Any]:
+def parse_markdown_to_resources(markdown_content: str, excluded_sites: str | None = None) -> dict[str, Any]:
     """
     Parse markdown report into structured resources and metadata.
 
@@ -58,14 +57,10 @@ def parse_markdown_to_resources(markdown_content: str, excluded_sites: Optional[
     # Detect section-grouped output (chapter-aware mode)
     section_groups = _parse_section_groups(content_for_resources)
 
-    return {
-        "resources": resources,
-        "textbook_info": textbook_info,
-        "section_groups": section_groups
-    }
+    return {"resources": resources, "textbook_info": textbook_info, "section_groups": section_groups}
 
 
-def _filter_excluded_domains(resources: List[Dict[str, Any]], excluded_sites: str) -> List[Dict[str, Any]]:
+def _filter_excluded_domains(resources: list[dict[str, Any]], excluded_sites: str) -> list[dict[str, Any]]:
     """
     Filter out resources whose URLs contain any of the excluded domains.
 
@@ -77,15 +72,15 @@ def _filter_excluded_domains(resources: List[Dict[str, Any]], excluded_sites: st
         Filtered list of resources with excluded domains removed
     """
     # Parse excluded domains - split by comma and clean up whitespace
-    excluded_domains = [domain.strip().lower() for domain in excluded_sites.split(',') if domain.strip()]
-    
+    excluded_domains = [domain.strip().lower() for domain in excluded_sites.split(",") if domain.strip()]
+
     if not excluded_domains:
         return resources
 
     filtered = []
     for resource in resources:
-        url = resource.get('url', '').lower()
-        
+        url = resource.get("url", "").lower()
+
         # Check if URL contains any excluded domain
         should_exclude = False
         for excluded_domain in excluded_domains:
@@ -94,14 +89,14 @@ def _filter_excluded_domains(resources: List[Dict[str, Any]], excluded_sites: st
             if excluded_domain in url:
                 should_exclude = True
                 break
-        
+
         if not should_exclude:
             filtered.append(resource)
-    
+
     return filtered
 
 
-def _parse_section_groups(content: str) -> Optional[List[Dict[str, Any]]]:
+def _parse_section_groups(content: str) -> list[dict[str, Any]] | None:
     """
     Detect and parse section-grouped output from chapter-aware mode.
 
@@ -114,7 +109,7 @@ def _parse_section_groups(content: str) -> Optional[List[Dict[str, Any]]]:
         None otherwise (standard flat output).
     """
     # Match ### headers, optionally prefixed with "Section:"
-    section_pattern = re.compile(r'^###\s+(?:Section:\s*)?(.+)$', re.MULTILINE)
+    section_pattern = re.compile(r"^###\s+(?:Section:\s*)?(.+)$", re.MULTILINE)
     matches = list(section_pattern.finditer(content))
 
     if not matches:
@@ -153,15 +148,15 @@ def _strip_non_resource_sections(content: str) -> str:
     This prevents URLs in those sections from being misidentified as resources.
     """
     section_headers = [
-        r'#+\s*(?:Textbook Information|Course Textbook|Official Textbook)',
-        r'#+\s*(?:How to Add|NotebookLM Instructions?|Adding.*NotebookLM)',
-        r'#+\s*(?:Study Tips?|Tips? for|Using Multiple)',
-        r'#+\s*(?:Course Overview|About This Course)',
-        r'#+\s*(?:Need More Help)',
+        r"#+\s*(?:Textbook Information|Course Textbook|Official Textbook)",
+        r"#+\s*(?:How to Add|NotebookLM Instructions?|Adding.*NotebookLM)",
+        r"#+\s*(?:Study Tips?|Tips? for|Using Multiple)",
+        r"#+\s*(?:Course Overview|About This Course)",
+        r"#+\s*(?:Need More Help)",
     ]
 
-    pattern = r'(' + '|'.join(section_headers) + r').*?(?=\n#+\s|\Z)'
-    return re.sub(pattern, '', content, flags=re.IGNORECASE | re.DOTALL)
+    pattern = r"(" + "|".join(section_headers) + r").*?(?=\n#+\s|\Z)"
+    return re.sub(pattern, "", content, flags=re.IGNORECASE | re.DOTALL)
 
 
 def _contains_error(url: str, title: str, description: str) -> bool:
@@ -176,9 +171,9 @@ def _contains_error(url: str, title: str, description: str) -> bool:
     Returns:
         bool: True if any field contains an error indicator
     """
-    error_indicators = ['ERROR:', 'Could not fetch', 'failed to', 'HTTP error', 'timed out']
+    error_indicators = ["ERROR:", "Could not fetch", "failed to", "HTTP error", "timed out"]
 
-    fields_to_check = [url, title, description or '']
+    fields_to_check = [url, title, description or ""]
 
     for field in fields_to_check:
         field_lower = field.lower()
@@ -189,7 +184,7 @@ def _contains_error(url: str, title: str, description: str) -> bool:
     return False
 
 
-def _parse_numbered_resources(content: str) -> List[Dict[str, Any]]:
+def _parse_numbered_resources(content: str) -> list[dict[str, Any]]:
     """
     Parse numbered resource format (most common in crew output).
 
@@ -202,7 +197,7 @@ def _parse_numbered_resources(content: str) -> List[Dict[str, Any]]:
 
     # Pattern to match numbered resources
     # Matches: **1. Title** or **Resource 1: Title** or similar
-    resource_pattern = r'\*\*(?:\d+\.?|Resource \d+:?)\s+([^\*]+?)\*\*(?:\s+\((?:Type:\s*)?([^\)]+)\))?'
+    resource_pattern = r"\*\*(?:\d+\.?|Resource \d+:?)\s+([^\*]+?)\*\*(?:\s+\((?:Type:\s*)?([^\)]+)\))?"
 
     # Find all numbered resources
     matches = re.finditer(resource_pattern, content)
@@ -213,7 +208,7 @@ def _parse_numbered_resources(content: str) -> List[Dict[str, Any]]:
 
         # Find the content block for this resource (until next numbered item or end)
         start_pos = match.end()
-        next_match = re.search(r'\*\*(?:\d+\.?|Resource \d+)', content[start_pos:])
+        next_match = re.search(r"\*\*(?:\d+\.?|Resource \d+)", content[start_pos:])
         end_pos = start_pos + next_match.start() if next_match else len(content)
         resource_block = content[start_pos:end_pos]
 
@@ -229,18 +224,20 @@ def _parse_numbered_resources(content: str) -> List[Dict[str, Any]]:
         # Only add if we have at least a URL and it's not an error
         # Skip resources that contain ERROR in the URL, title, or description
         if url and not _contains_error(url, title, description):
-            resources.append({
-                "type": _normalize_type(resource_type),
-                "title": title,
-                "source": source or "Unknown",
-                "url": url,
-                "description": description
-            })
+            resources.append(
+                {
+                    "type": _normalize_type(resource_type),
+                    "title": title,
+                    "source": source or "Unknown",
+                    "url": url,
+                    "description": description,
+                }
+            )
 
     return resources
 
 
-def _parse_link_sections(content: str) -> List[Dict[str, Any]]:
+def _parse_link_sections(content: str) -> list[dict[str, Any]]:
     """
     Parse resources from link sections.
 
@@ -252,7 +249,7 @@ def _parse_link_sections(content: str) -> List[Dict[str, Any]]:
     resources = []
 
     # Find all markdown links: [text](url)
-    link_pattern = r'\[([^\]]+)\]\(([^\)]+)\)'
+    link_pattern = r"\[([^\]]+)\]\(([^\)]+)\)"
     matches = re.finditer(link_pattern, content)
 
     for match in matches:
@@ -260,7 +257,7 @@ def _parse_link_sections(content: str) -> List[Dict[str, Any]]:
         url = match.group(2).strip()
 
         # Skip if it's just a navigation link or heading
-        if url.startswith('#') or title.lower() in ['back to top', 'top', 'home']:
+        if url.startswith("#") or title.lower() in ["back to top", "top", "home"]:
             continue
 
         # Try to find context around the link for source and description
@@ -276,25 +273,27 @@ def _parse_link_sections(content: str) -> List[Dict[str, Any]]:
 
         # Skip resources that contain error messages
         if not _contains_error(url, title, description):
-            resources.append({
-                "type": resource_type,
-                "title": title,
-                "source": source or "Unknown",
-                "url": url,
-                "description": description
-            })
+            resources.append(
+                {
+                    "type": resource_type,
+                    "title": title,
+                    "source": source or "Unknown",
+                    "url": url,
+                    "description": description,
+                }
+            )
 
     return resources
 
 
-def _parse_all_links(content: str) -> List[Dict[str, Any]]:
+def _parse_all_links(content: str) -> list[dict[str, Any]]:
     """
     Fallback: Extract all URLs from markdown as basic resources.
     """
     resources = []
 
     # Find all URLs (both in markdown links and plain text)
-    url_pattern = r'https?://[^\s\)\]\,\>]+'
+    url_pattern = r"https?://[^\s\)\]\,\>]+"
     urls = re.findall(url_pattern, content)
 
     # Remove duplicates while preserving order
@@ -317,14 +316,16 @@ def _parse_all_links(content: str) -> List[Dict[str, Any]]:
         resource_type = _infer_type_from_url(url)
 
         # Skip resources that contain error messages
-        if not _contains_error(url, title or '', ''):
-            resources.append({
-                "type": resource_type,
-                "title": title or url,
-                "source": source or _extract_domain(url),
-                "url": url,
-                "description": None
-            })
+        if not _contains_error(url, title or "", ""):
+            resources.append(
+                {
+                    "type": resource_type,
+                    "title": title or url,
+                    "source": source or _extract_domain(url),
+                    "url": url,
+                    "description": None,
+                }
+            )
 
     return resources
 
@@ -340,17 +341,17 @@ def _extract_url(text: str) -> str:
         URL string if found, empty string otherwise
     """
     # Try markdown link format first
-    link_match = re.search(r'\[.*?\]\((https?://[^\)]+)\)', text)
+    link_match = re.search(r"\[.*?\]\((https?://[^\)]+)\)", text)
     if link_match:
         return link_match.group(1).strip()
 
     # Try "Link:" or "URL:" prefix
-    url_match = re.search(r'(?:Link|URL|Website):\s*(https?://[^\s\n]+)', text, re.IGNORECASE)
+    url_match = re.search(r"(?:Link|URL|Website):\s*(https?://[^\s\n]+)", text, re.IGNORECASE)
     if url_match:
         return url_match.group(1).strip()
 
     # Try plain URL
-    plain_url_match = re.search(r'https?://[^\s\)\]\,\>]+', text)
+    plain_url_match = re.search(r"https?://[^\s\)\]\,\>]+", text)
     if plain_url_match:
         return plain_url_match.group(0).strip()
 
@@ -368,9 +369,9 @@ def _extract_source(text: str) -> str:
         Source name if found, empty string otherwise
     """
     source_patterns = [
-        r'(?:Source|Provider|From):\s*([^\n\-\*]+)',
-        r'\(([^)]*(?:MIT|Stanford|OpenStax|Khan|Coursera|edX|LibreTexts)[^)]*)\)',
-        r'(?:MIT|Stanford|OpenStax|Khan Academy|Coursera|edX|LibreTexts)[^\n\-]*'
+        r"(?:Source|Provider|From):\s*([^\n\-\*]+)",
+        r"\(([^)]*(?:MIT|Stanford|OpenStax|Khan|Coursera|edX|LibreTexts)[^)]*)\)",
+        r"(?:MIT|Stanford|OpenStax|Khan Academy|Coursera|edX|LibreTexts)[^\n\-]*",
     ]
 
     for pattern in source_patterns:
@@ -393,8 +394,8 @@ def _extract_description(text: str) -> str:
         Description string if found, None otherwise
     """
     desc_patterns = [
-        r'(?:What it covers|Description|Best for):\s*([^\n]+)',
-        r'[-•]\s*([^\n]{30,200})'  # Bullet points with substantial text
+        r"(?:What it covers|Description|Best for):\s*([^\n]+)",
+        r"[-•]\s*([^\n]{30,200})",  # Bullet points with substantial text
     ]
 
     for pattern in desc_patterns:
@@ -417,13 +418,13 @@ def _extract_title_from_context(context: str, url: str) -> str:
         Title string if found, None otherwise
     """
     # Try to find text before the URL that looks like a title
-    before_url = context[:context.find(url)]
-    title_match = re.search(r'(?:\*\*|##)\s*([^\*\#\n]+?)(?:\*\*|##|\n|$)', before_url)
+    before_url = context[: context.find(url)]
+    title_match = re.search(r"(?:\*\*|##)\s*([^\*\#\n]+?)(?:\*\*|##|\n|$)", before_url)
     if title_match:
         return title_match.group(1).strip()
 
     # Try markdown link format
-    link_match = re.search(r'\[([^\]]+)\]', before_url)
+    link_match = re.search(r"\[([^\]]+)\]", before_url)
     if link_match:
         return link_match.group(1).strip()
 
@@ -440,7 +441,7 @@ def _extract_type_from_context(context: str) -> str:
     Returns:
         Normalized resource type string
     """
-    type_match = re.search(r'(?:Type|Format):\s*([^\n\)\-]+)', context, re.IGNORECASE)
+    type_match = re.search(r"(?:Type|Format):\s*([^\n\)\-]+)", context, re.IGNORECASE)
     if type_match:
         return _normalize_type(type_match.group(1).strip())
 
@@ -459,15 +460,15 @@ def _infer_type_from_url(url: str) -> str:
     """
     url_lower = url.lower()
 
-    if 'youtube.com' in url_lower or 'youtu.be' in url_lower:
+    if "youtube.com" in url_lower or "youtu.be" in url_lower:
         return "Video"
-    elif '.pdf' in url_lower or 'pdf' in url_lower:
+    elif ".pdf" in url_lower or "pdf" in url_lower:
         return "PDF"
-    elif any(x in url_lower for x in ['openstax', 'textbook', 'book']):
+    elif any(x in url_lower for x in ["openstax", "textbook", "book"]):
         return "Textbook"
-    elif any(x in url_lower for x in ['course', 'lecture', 'ocw', 'coursera', 'edx']):
+    elif any(x in url_lower for x in ["course", "lecture", "ocw", "coursera", "edx"]):
         return "Course"
-    elif any(x in url_lower for x in ['notes', 'tutorial', 'guide']):
+    elif any(x in url_lower for x in ["notes", "tutorial", "guide"]):
         return "Tutorial"
     else:
         return "Website"
@@ -486,21 +487,21 @@ def _normalize_type(type_str: str) -> str:
     type_lower = type_str.lower()
 
     type_map = {
-        'open textbook': 'Textbook',
-        'textbook': 'Textbook',
-        'video lecture': 'Video',
-        'lecture series': 'Video',
-        'video': 'Video',
-        'youtube': 'Video',
-        'course notes': 'Course',
-        'lecture notes': 'Notes',
-        'notes': 'Notes',
-        'tutorial': 'Tutorial',
-        'interactive tutorial': 'Tutorial',
-        'course': 'Course',
-        'pdf': 'PDF',
-        'website': 'Website',
-        'web page': 'Website'
+        "open textbook": "Textbook",
+        "textbook": "Textbook",
+        "video lecture": "Video",
+        "lecture series": "Video",
+        "video": "Video",
+        "youtube": "Video",
+        "course notes": "Course",
+        "lecture notes": "Notes",
+        "notes": "Notes",
+        "tutorial": "Tutorial",
+        "interactive tutorial": "Tutorial",
+        "course": "Course",
+        "pdf": "PDF",
+        "website": "Website",
+        "web page": "Website",
     }
 
     for key, value in type_map.items():
@@ -521,16 +522,16 @@ def _extract_domain(url: str) -> str:
     Returns:
         Cleaned domain name (e.g., "mit.edu" becomes "Mit")
     """
-    domain_match = re.search(r'https?://(?:www\.)?([^/]+)', url)
+    domain_match = re.search(r"https?://(?:www\.)?([^/]+)", url)
     if domain_match:
         domain = domain_match.group(1)
         # Remove common TLDs for cleaner display
-        domain = re.sub(r'\.(com|org|edu|net|io)$', '', domain)
+        domain = re.sub(r"\.(com|org|edu|net|io)$", "", domain)
         return domain.title()
     return "Unknown"
 
 
-def _extract_textbook_info(content: str) -> Dict[str, str]:
+def _extract_textbook_info(content: str) -> dict[str, str]:
     """
     Extract textbook information from markdown content.
 
@@ -546,37 +547,37 @@ def _extract_textbook_info(content: str) -> Dict[str, str]:
     #         **Textbook:** Title
     #         **Author:** Author Name
     section_match = re.search(
-        r'#+\s*(?:Textbook Information|Course Textbook|Official Textbook)[:\s]*\n(.*?)(?=\n#|\n---|\Z)',
+        r"#+\s*(?:Textbook Information|Course Textbook|Official Textbook)[:\s]*\n(.*?)(?=\n#|\n---|\Z)",
         content,
-        re.IGNORECASE | re.DOTALL
+        re.IGNORECASE | re.DOTALL,
     )
-    
+
     if section_match:
         section = section_match.group(1)
-        
+
         # Look for **Textbook:** or **Title:** pattern
-        title_match = re.search(r'\*\*(?:Textbook|Title|Book):\*\*\s*([^\n]+)', section, re.IGNORECASE)
+        title_match = re.search(r"\*\*(?:Textbook|Title|Book):\*\*\s*([^\n]+)", section, re.IGNORECASE)
         title = title_match.group(1).strip() if title_match else None
-        
+
         # Look for **Author:** pattern
-        author_match = re.search(r'\*\*Authors?:\*\*\s*([^\n]+)', section, re.IGNORECASE)
+        author_match = re.search(r"\*\*Authors?:\*\*\s*([^\n]+)", section, re.IGNORECASE)
         author = author_match.group(1).strip() if author_match else None
-        
+
         # Look for **Source:** pattern
-        source_match = re.search(r'\*\*Source:\*\*\s*([^\n]+)', section, re.IGNORECASE)
+        source_match = re.search(r"\*\*Source:\*\*\s*([^\n]+)", section, re.IGNORECASE)
         source = source_match.group(1).strip() if source_match else None
-        
+
         if title or author:
             return {"title": title, "author": author, "source": source}
-    
+
     # Fallback: Try individual line patterns
     textbook_patterns = [
-        r'\*\*Textbook:\*\*\s*([^\n]+)',
-        r'\*\*Text:\*\*\s*([^\n]+)',
-        r'\*\*Official Textbook:\*\*\s*([^\n]+)',
-        r'(?:Textbook|Text):\s*([^\n]+)',  # Plain "Textbook:" or "Text:" format (same line)
-        r'(?:Textbook|Text):\s*\n\s*([^\n]+)',  # Textbook/Text on one line, value on next line
-        r'(?:\*\*Textbook:\*\*|\*\*Text:\*\*)\s*\n\s*([^\n]+)'  # Bold version with value on next line
+        r"\*\*Textbook:\*\*\s*([^\n]+)",
+        r"\*\*Text:\*\*\s*([^\n]+)",
+        r"\*\*Official Textbook:\*\*\s*([^\n]+)",
+        r"(?:Textbook|Text):\s*([^\n]+)",  # Plain "Textbook:" or "Text:" format (same line)
+        r"(?:Textbook|Text):\s*\n\s*([^\n]+)",  # Textbook/Text on one line, value on next line
+        r"(?:\*\*Textbook:\*\*|\*\*Text:\*\*)\s*\n\s*([^\n]+)",  # Bold version with value on next line
     ]
 
     for pattern in textbook_patterns:
@@ -585,67 +586,53 @@ def _extract_textbook_info(content: str) -> Dict[str, str]:
             section_text = match.group(1).strip()
 
             # For simple "Textbook: Author, Title" or "Text: Title by Author" formats
-            if ',' in section_text and not re.search(r'(?:Title|Author|Source):', section_text, re.IGNORECASE):
+            if "," in section_text and not re.search(r"(?:Title|Author|Source):", section_text, re.IGNORECASE):
                 # Check for "by [author]" pattern: "Title, edition, by Author"
-                by_match = re.search(r'by\s+([^.\n]+)', section_text, re.IGNORECASE)
+                by_match = re.search(r"by\s+([^.\n]+)", section_text, re.IGNORECASE)
                 if by_match:
                     # Extract author from "by xxx"
                     author = by_match.group(1).strip()
                     # Extract title (everything before "by")
-                    title_part = section_text[:by_match.start()].strip()
+                    title_part = section_text[: by_match.start()].strip()
                     # Remove edition info like "14th ed.," from title
-                    title = re.sub(r',\s*\d+(?:st|nd|rd|th)\s+ed\.?,?\s*$', '', title_part).strip()
+                    title = re.sub(r",\s*\d+(?:st|nd|rd|th)\s+ed\.?,?\s*$", "", title_part).strip()
                     # Remove trailing commas
-                    title = title.rstrip(',').rstrip('.')
-                    return {
-                        "title": title,
-                        "author": author,
-                        "source": None
-                    }
+                    title = title.rstrip(",").rstrip(".")
+                    return {"title": title, "author": author, "source": None}
                 else:
                     # Try format: "Title, Author1, Author2" (e.g., "Engineering Mechanics: Statics, Bedford, Fowler")
                     # Split by comma and check if first part looks like a title (contains colon or is long)
-                    parts = section_text.split(',')
+                    parts = section_text.split(",")
                     if len(parts) >= 2:
                         first_part = parts[0].strip()
                         # If first part has a colon or is longer than typical author name, it's likely the title
-                        if ':' in first_part or len(first_part) > 30:
+                        if ":" in first_part or len(first_part) > 30:
                             title = first_part
                             # Everything after first comma is the author(s)
-                            author = ', '.join([p.strip() for p in parts[1:]]).rstrip('.')
-                            return {
-                                "title": title,
-                                "author": author,
-                                "source": None
-                            }
+                            author = ", ".join([p.strip() for p in parts[1:]]).rstrip(".")
+                            return {"title": title, "author": author, "source": None}
                         else:
                             # Original format: "Author, Title"
                             author = first_part
-                            title = ', '.join([p.strip() for p in parts[1:]]).rstrip('.')
-                            return {
-                                "title": title,
-                                "author": author,
-                                "source": None
-                            }
+                            title = ", ".join([p.strip() for p in parts[1:]]).rstrip(".")
+                            return {"title": title, "author": author, "source": None}
 
             # Extract title (matches Title:, Book:, or Textbook:)
-            title_match = re.search(r'(?:\*\*)?(?:Title|Book|Textbook)[:\s]+\*?\*?([^\n\*]+)', section_text, re.IGNORECASE)
+            title_match = re.search(
+                r"(?:\*\*)?(?:Title|Book|Textbook)[:\s]+\*?\*?([^\n\*]+)", section_text, re.IGNORECASE
+            )
             title = title_match.group(1).strip() if title_match else None
 
             # Extract author(s)
-            author_match = re.search(r'(?:\*\*)?Author(?:s)?[:\s]+\*?\*?([^\n\*]+)', section_text, re.IGNORECASE)
+            author_match = re.search(r"(?:\*\*)?Author(?:s)?[:\s]+\*?\*?([^\n\*]+)", section_text, re.IGNORECASE)
             author = author_match.group(1).strip() if author_match else None
 
             # Extract source
-            source_match = re.search(r'(?:\*\*)?Source[:\s]+\*?\*?([^\n\*]+)', section_text, re.IGNORECASE)
+            source_match = re.search(r"(?:\*\*)?Source[:\s]+\*?\*?([^\n\*]+)", section_text, re.IGNORECASE)
             source = source_match.group(1).strip() if source_match else None
 
             # If we found at least title or author, return the info
             if title or author:
-                return {
-                    "title": title,
-                    "author": author,
-                    "source": source
-                }
+                return {"title": title, "author": author, "source": source}
 
     return None

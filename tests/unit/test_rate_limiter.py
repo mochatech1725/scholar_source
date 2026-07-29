@@ -4,10 +4,11 @@ Unit tests for rate_limiter.py
 Tests rate limiting configuration and error handling.
 """
 
-import pytest
 from unittest.mock import Mock
-from backend.rate_limiter import limiter, rate_limit_handler
+
 from slowapi.errors import RateLimitExceeded
+
+from backend.rate_limiter import limiter, rate_limit_handler
 
 
 class TestRateLimiter:
@@ -16,14 +17,14 @@ class TestRateLimiter:
     def test_limiter_exists(self):
         """Should initialize limiter instance."""
         assert limiter is not None
-        assert hasattr(limiter, 'limit')
+        assert hasattr(limiter, "limit")
 
     def test_limiter_uses_in_memory_when_allowed(self):
         """Should use in-memory storage when ALLOW_IN_MEMORY_RATE_LIMIT is set (via conftest)."""
         # In test environment, ALLOW_IN_MEMORY_RATE_LIMIT is set in conftest.py
         # Limiter should exist (using in-memory storage)
         assert limiter is not None
-        assert hasattr(limiter, 'limit')
+        assert hasattr(limiter, "limit")
 
     def test_limiter_has_default_limits(self):
         """Should have default rate limits configured."""

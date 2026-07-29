@@ -11,7 +11,6 @@ Configuration:
 
 import os
 
-
 _production_origins = [
     "https://scholar-source.pages.dev",  # Cloudflare Pages
     "https://scholar-source.com",
@@ -23,11 +22,7 @@ _dev_origins = [
     "http://localhost:5175",  # Standard Vite port
     "http://127.0.0.1:5175",
 ]
-_extra_origins = [
-    o.strip()
-    for o in os.getenv("EXTRA_ALLOWED_ORIGINS", "").split(",")
-    if o.strip()
-]
+_extra_origins = [o.strip() for o in os.getenv("EXTRA_ALLOWED_ORIGINS", "").split(",") if o.strip()]
 
 allowed_origins: list[str] = (
     _production_origins + _extra_origins

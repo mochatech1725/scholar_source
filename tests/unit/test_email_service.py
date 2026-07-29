@@ -4,7 +4,6 @@ Unit tests for email_service.py
 Tests HTML escaping and security features in email generation.
 """
 
-import pytest
 from backend.email_service import _build_email_html
 
 
@@ -13,13 +12,15 @@ class TestEmailHTMLEscaping:
 
     def test_html_injection_in_resource_title(self):
         """Should escape HTML tags in resource title."""
-        resources = [{
-            "type": "PDF",
-            "title": "<script>alert('XSS')</script>Malicious Title",
-            "url": "https://example.com/resource.pdf",
-            "source": "Example Source",
-            "description": "Test description"
-        }]
+        resources = [
+            {
+                "type": "PDF",
+                "title": "<script>alert('XSS')</script>Malicious Title",
+                "url": "https://example.com/resource.pdf",
+                "source": "Example Source",
+                "description": "Test description",
+            }
+        ]
 
         html = _build_email_html("Test Search", resources, "test-job-id")
 
@@ -31,13 +32,15 @@ class TestEmailHTMLEscaping:
 
     def test_javascript_url_in_resource_url(self):
         """Should handle javascript: URLs safely."""
-        resources = [{
-            "type": "Link",
-            "title": "Malicious Link",
-            "url": "javascript:alert('XSS')",
-            "source": "Bad Source",
-            "description": "Test"
-        }]
+        resources = [
+            {
+                "type": "Link",
+                "title": "Malicious Link",
+                "url": "javascript:alert('XSS')",
+                "source": "Bad Source",
+                "description": "Test",
+            }
+        ]
 
         html = _build_email_html("Test Search", resources, "test-job-id")
 
@@ -48,13 +51,15 @@ class TestEmailHTMLEscaping:
 
     def test_xss_in_description_field(self):
         """Should escape XSS attempts in description."""
-        resources = [{
-            "type": "Article",
-            "title": "Normal Title",
-            "url": "https://example.com",
-            "source": "Example",
-            "description": "<img src=x onerror=alert('XSS')>"
-        }]
+        resources = [
+            {
+                "type": "Article",
+                "title": "Normal Title",
+                "url": "https://example.com",
+                "source": "Example",
+                "description": "<img src=x onerror=alert('XSS')>",
+            }
+        ]
 
         html = _build_email_html("Test", resources, "test-job-id")
 
@@ -66,13 +71,15 @@ class TestEmailHTMLEscaping:
 
     def test_script_tags_in_source_field(self):
         """Should escape script tags in source field."""
-        resources = [{
-            "type": "Video",
-            "title": "Video Title",
-            "url": "https://example.com/video",
-            "source": "</div><script>alert('XSS')</script><div>",
-            "description": "Description"
-        }]
+        resources = [
+            {
+                "type": "Video",
+                "title": "Video Title",
+                "url": "https://example.com/video",
+                "source": "</div><script>alert('XSS')</script><div>",
+                "description": "Description",
+            }
+        ]
 
         html = _build_email_html("Test", resources, "test-job-id")
 
@@ -83,20 +90,22 @@ class TestEmailHTMLEscaping:
 
     def test_html_entities_properly_escaped(self):
         """Should properly escape HTML entities."""
-        resources = [{
-            "type": "PDF",
-            "title": "Title with & < > \" ' symbols",
-            "url": "https://example.com",
-            "source": "Source & Co.",
-            "description": "Description with <brackets> and & ampersand"
-        }]
+        resources = [
+            {
+                "type": "PDF",
+                "title": "Title with & < > \" ' symbols",
+                "url": "https://example.com",
+                "source": "Source & Co.",
+                "description": "Description with <brackets> and & ampersand",
+            }
+        ]
 
         html = _build_email_html("Test", resources, "test-job-id")
 
         # Should escape special HTML characters
         assert "&amp;" in html  # &
-        assert "&lt;" in html   # <
-        assert "&gt;" in html   # >
+        assert "&lt;" in html  # <
+        assert "&gt;" in html  # >
         # Should not contain unescaped versions in user content
         assert "Title with & < >" not in html
 
@@ -133,15 +142,15 @@ class TestEmailHTMLEscaping:
                 "title": "<script>1</script>",
                 "url": "https://example.com/1",
                 "source": "<i>Source1</i>",
-                "description": "<img src=x>"
+                "description": "<img src=x>",
             },
             {
                 "type": "Type2",
                 "title": "Normal & Title",
                 "url": "https://example.com/2",
                 "source": "Source2",
-                "description": "Normal description"
-            }
+                "description": "Normal description",
+            },
         ]
 
         html = _build_email_html("Test", resources, "test-job-id")
@@ -156,13 +165,9 @@ class TestEmailHTMLEscaping:
 
     def test_empty_description_no_html_injection(self):
         """Should handle empty/None descriptions without injection."""
-        resources = [{
-            "type": "PDF",
-            "title": "Title",
-            "url": "https://example.com",
-            "source": "Source",
-            "description": None
-        }]
+        resources = [
+            {"type": "PDF", "title": "Title", "url": "https://example.com", "source": "Source", "description": None}
+        ]
 
         html = _build_email_html("Test", resources, "test-job-id")
 
@@ -171,13 +176,15 @@ class TestEmailHTMLEscaping:
 
     def test_url_with_special_characters(self):
         """Should handle URLs with query parameters and special chars."""
-        resources = [{
-            "type": "Link",
-            "title": "Resource",
-            "url": "https://example.com/resource?param=<script>alert('xss')</script>",
-            "source": "Source",
-            "description": "Desc"
-        }]
+        resources = [
+            {
+                "type": "Link",
+                "title": "Resource",
+                "url": "https://example.com/resource?param=<script>alert('xss')</script>",
+                "source": "Source",
+                "description": "Desc",
+            }
+        ]
 
         html = _build_email_html("Test", resources, "test-job-id")
 
@@ -188,13 +195,15 @@ class TestEmailHTMLEscaping:
 
     def test_apostrophes_and_quotes_in_content(self):
         """Should handle quotes and apostrophes safely."""
-        resources = [{
-            "type": "Article",
-            "title": "It's a \"great\" article",
-            "url": "https://example.com",
-            "source": "Author's Source",
-            "description": 'Contains "quotes" and \'apostrophes\''
-        }]
+        resources = [
+            {
+                "type": "Article",
+                "title": 'It\'s a "great" article',
+                "url": "https://example.com",
+                "source": "Author's Source",
+                "description": "Contains \"quotes\" and 'apostrophes'",
+            }
+        ]
 
         html = _build_email_html("Test with 'quotes'", resources, "test-job-id")
 

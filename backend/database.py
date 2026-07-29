@@ -5,9 +5,9 @@ Initializes and provides access to the Supabase client for database operations.
 """
 
 import os
-from supabase import create_client, Client
-from typing import Optional
+
 from backend.env_loader import load_environment
+from supabase import Client, create_client
 
 # Load environment variables
 load_environment()
@@ -18,30 +18,27 @@ supabase_key = os.getenv("SUPABASE_ANON_KEY")
 supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 if not supabase_url or not supabase_key:
-    raise ValueError(
-        "SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment. "
-        "Check your .env file."
-    )
+    raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment. Check your .env file.")
 
 # Initialize default Supabase client (for operations that don't need user context)
 default_supabase: Client = create_client(supabase_url, supabase_key)
 
 # Initialize service role client (bypasses RLS - for trusted server-side operations)
-service_supabase: Optional[Client] = None
+service_supabase: Client | None = None
 if supabase_service_key:
     service_supabase = create_client(supabase_url, supabase_service_key)
 
 
-def get_supabase_client(access_token: Optional[str] = None, use_service_role: bool = False) -> Client:
+def get_supabase_client(access_token: str | None = None, use_service_role: bool = False) -> Client:
     """
     Get the Supabase client instance.
-    
+
     If an access_token is provided, creates a client authenticated with that token.
     This is required for RLS (Row Level Security) policies to work correctly.
-    
+
     If use_service_role is True, returns a client with service role key (bypasses RLS).
     This should only be used for trusted server-side operations.
-    
+
     Args:
         access_token: Optional JWT access token from authenticated user.
                     If provided, the client will be authenticated as that user.
@@ -57,7 +54,7 @@ def get_supabase_client(access_token: Optional[str] = None, use_service_role: bo
                 "This is required for background operations."
             )
         return service_supabase
-    
+
     if access_token:
         # Create a new client instance with the user's token for RLS
         # Set the Authorization header on the PostgREST client
