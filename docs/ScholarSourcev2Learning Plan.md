@@ -20,7 +20,45 @@ reason about.
 
 Practice this until it's automatic. You'll need it in every interview.
 
-"ScholarSource v1 used CrewAI agents to find study resources, but I ran into a fundamental problem: the same input produced inconsistent results on every run. I diagnosed this as a retrieval problem, not an agent problem. So I rebuilt it from scratch as a controlled RAG pipeline — user input goes through query generation, semantic retrieval from a pgvector store, reranking by relevance, and a final LLM synthesis step. I added evals so any change to the pipeline has to pass a golden test set before it ships. LangGraph handles the workflow orchestration. The result is a system that returns consistent, traceable, explainable results."
+"ScholarSource v1 used CrewAI agents to find study resources, but repeated
+runs showed that the same input produced different search plans, candidates,
+and recommendations. The framework itself was not the root cause: I had
+delegated retrieval planning and source selection to an LLM agent with live
+search tools. I could have kept CrewAI and moved those decisions into
+deterministic tools, but at that point the agent framework would mostly have
+been sequencing ordinary functions. I chose to build a controlled RAG pipeline
+instead, using LangChain integrations where useful while implementing the
+retrieval policy, scoring, traceability, and safety rules in application code.
+The result is a more repeatable, testable, and explainable system, with
+LangGraph deferred until workflow orchestration provides measurable value."
+
+### **What Actually Fixed v1**
+
+Switching frameworks did not make v2 reliable. The important change was moving
+control of retrieval out of an autonomous agent and into explicit,
+independently testable pipeline stages. Deterministic query templates, source
+quality policy, fixed retrieval limits, reranking rules, stored evidence,
+weak-evidence thresholds, caching, run logs, and evals are the reliability
+mechanisms.
+
+CrewAI could have remained as the sequential orchestrator if those decisions
+had been moved into constrained tools and structured tasks. That would have
+resolved much of the observed instability. Once the important behavior lives
+in deterministic functions, however, CrewAI adds little beyond sequencing, so
+plain Python is the simpler Phase 1 design.
+
+LangChain is an implementation and learning choice, not the cure for
+nondeterminism. In the current design it provides convenient OpenAI chat and
+embedding integrations and works naturally with LangSmith tracing. The core
+chunking, pgvector storage and queries, retrieval fusion, reranking, citation
+enforcement, and weak-evidence behavior remain ScholarSource application code.
+The same architecture could be implemented with the OpenAI SDK directly or
+with CrewAI calling the constrained functions.
+
+The goal is repeatability rather than a claim of mathematical determinism.
+Live search indexes can change, provider behavior may vary, and LLM synthesis
+can still differ. V2 constrains those sources of variation and records enough
+evidence to locate and evaluate them.
 
 ## **Tech Stack**
 
@@ -30,8 +68,8 @@ Practice this until it's automatic. You'll need it in every interview.
 | Database | PostgreSQL \+ pgvector via Supabase | You already use Supabase. pgvector is just an extension — no new infrastructure. |
 | Embeddings | OpenAI `text-embedding-3-small` or Anthropic | Industry standard. Easy to swap later. |
 | LLM | Claude (Anthropic) or GPT-4o | Use what you know. |
-| Document loading \+ splitting | LangChain | Best ecosystem for chunking, loaders, and retrieval chains. |
-| Retrieval chains | LangChain | Handles the retrieve → format → generate pipeline cleanly. |
+| Model and embedding integration | `langchain-openai` | Convenient OpenAI wrappers and LangSmith-compatible tracing; replaceable with direct SDK calls. |
+| Retrieval pipeline | ScholarSource Python modules | Keeps source policy, chunking, pgvector retrieval, reranking, citations, and weak-evidence behavior explicit and testable. |
 | Workflow orchestration | LangGraph | Only added in Phase 4, after the pipeline is stable. |
 | Evals | Ragas \+ LangSmith | Ragas measures retrieval and generation quality. LangSmith traces every step. |
 | Tracing / Observability | LangSmith | Log every LLM call, retrieval step, and chunk with full input/output. Start day one. |
@@ -46,7 +84,7 @@ Practice this until it's automatic. You'll need it in every interview.
 
 ### **From Google's Agentic Engineering Paper**
 
-**Agent \= Model \+ Harness.** The model is maybe 10% of what makes an agent work well. The harness — your system prompts, tools, guardrails, retrieval logic, and observability — is 90%. Most agent failures are configuration failures, not model failures. This is why v1 was inconsistent: the harness wasn't doing its job.
+**Agent \= Model \+ Harness.** The model is maybe 10% of what makes an agent work well. The harness — your system prompts, tools, guardrails, retrieval logic, and observability — is 90%. Most agent failures are configuration failures, not model failures. V1's harness delegated search planning and source selection to an LLM without enough deterministic controls, structured logging, or eval coverage; that architecture, rather than CrewAI itself, caused the observed instability.
 
 **Set up your harness before you write production code.** Before Phase 1, create an `AGENTS.md` file at the root of the repo. Start with 10 lines: your stack, naming conventions, implementation boundaries, validation requirements, and hard rules the agent cannot break (e.g., "never return a source without a URL", "always cite chunk source in the response").
 

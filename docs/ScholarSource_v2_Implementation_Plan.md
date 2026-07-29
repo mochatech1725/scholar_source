@@ -100,6 +100,46 @@ Three decisions in this translation matter more than everything else:
 
 ---
 
+## Framework Decision: Why v2 Does Not Use CrewAI for Retrieval
+
+The v1 failure was not a fundamental CrewAI limitation, and changing to
+LangChain does not by itself create deterministic behavior. The failure came
+from the responsibility assigned to the `resource_discovery_agent`: an LLM
+with live search tools chose the queries, number of searches, candidates, and
+source-selection path. Identical inputs could therefore produce different
+retrieval plans before validation or synthesis began.
+
+V1 could have been stabilized while retaining CrewAI. Deterministic query
+generation, bounded search tools, schema-constrained outputs, code-based source
+policy and scoring, caching, and structured run logs could all have been
+exposed as CrewAI tools or tasks. CrewAI could then have sequenced those
+operations. Once those decisions are implemented as ordinary testable
+functions, however, the framework contributes mainly orchestration, so the
+simpler Phase 1 choice is a plain Python pipeline. LangGraph remains deferred
+until the stable pipeline has an orchestration need that justifies it.
+
+LangChain is not the source of v2's repeatability. ScholarSource currently
+uses `langchain-openai` for convenient chat and embedding provider wrappers
+and for LangSmith-compatible tracing. Deterministic query generation, source
+collection policy, chunking, pgvector SQL, retrieval scoring, reciprocal rank
+fusion, reranking, citation enforcement, weak-evidence handling, and run
+logging are application-owned behavior. Direct OpenAI SDK calls, or CrewAI
+calling the same constrained functions, could preserve the same architecture.
+
+This rewrite therefore has two legitimate motivations:
+
+1. Correct the architecture by replacing autonomous retrieval planning with a
+   controlled, observable, and eval-backed pipeline.
+2. Learn and demonstrate RAG, pgvector, LangChain integrations, LangSmith, and
+   eventually LangGraph without presenting framework adoption as the fix.
+
+The target is controlled repeatability, not mathematical determinism. Live web
+results and model providers can still vary. Caching, stored evidence,
+deterministic settings, and complete run logs constrain that variation and
+make its origin diagnosable.
+
+---
+
 ## [x] Phase 0: Baseline, Diagnosis, and Project Contract
 
 **Goal:** Understand the current system failure modes before replacing them.
@@ -126,7 +166,7 @@ The main inconsistency appears to come from nondeterministic query generation in
 
 For the same submitted course URL, the resource search step generated different queries such as `Engineering Mechanics Statics practice exam PDF site:edu`, `Engineering Mechanics practice exam site:edu`, `Engineering mechanics statics exam pdf site:edu`, and `Engineering Mechanics Statics exam problems PDF site:edu`. Those search-planning differences changed the web results returned, the candidate resources selected for validation, and the material passed into final formatting and synthesis. Source validation, extraction, and final prose may amplify the differences, but they are downstream effects rather than the primary root cause.
 
-Interview explanation: the inconsistent results were primarily caused by the `resource_discovery_agent`, not the `course_intelligence_agent`. More precisely, the failure mode was nondeterministic agentic retrieval planning: the system delegated search-query generation and source selection to an LLM agent with live search tools, so identical input could produce different retrieval plans and therefore different final resource lists. Missing structured run logs make exact reconstruction harder, but the behavior points to resource search-planning nondeterminism as the root instability source.
+Interview explanation: the inconsistent results were primarily caused by the `resource_discovery_agent`, not the `course_intelligence_agent` or CrewAI as a framework. More precisely, the failure mode was nondeterministic agentic retrieval planning: the system delegated search-query generation and source selection to an LLM agent with live search tools, so identical input could produce different retrieval plans and therefore different final resource lists. Missing structured run logs make exact reconstruction harder, but the behavior points to resource search-planning nondeterminism as the root instability source. CrewAI could have been retained as an orchestrator around deterministic tools; v2 removes it from retrieval because a plain pipeline is easier to test and reason about once agent autonomy is no longer required.
 
 ### [x] 0.3 Define the Development Contract
 
