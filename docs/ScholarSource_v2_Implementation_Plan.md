@@ -457,7 +457,13 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   one-based `evidence_rank`. `tests/rag/test_reranker.py` verifies that the
   chunk with the highest semantic similarity can have a lower final relevance
   rank when another chunk is supported by both retrieval paths.
-- [ ] 1.8.3 Keep the original retrieval score for debugging.
+- [x] 1.8.3 Keep the original retrieval score for debugging.
+  Done in `backend/rag/models.py` and
+  `backend/rag/reranking/reranker.py`: each selected evidence record retains
+  the original semantic and lexical retrieval-path scores alongside its
+  independent rerank score. `tests/rag/test_reranker.py` verifies both raw
+  scores survive score merging and serialized debug output, including
+  zero-valued scores.
 - [ ] 1.8.4 Keep the rerank score for debugging.
 - [ ] 1.8.5 Verify reranking changes order when the nearest chunk is not the most useful chunk.
 - [ ] 1.8.6 Define what score is too weak to include.

@@ -97,7 +97,7 @@ class RetrievalHit(RagModel):
 
 
 class SelectedEvidence(RagModel):
-    """Retrieved chunk with an independent final relevance score and rank."""
+    """Retrieved chunk with raw debug scores and a final relevance ranking."""
 
     chunk_id: UUID
     source_id: UUID
@@ -105,8 +105,14 @@ class SelectedEvidence(RagModel):
     title: str
     chunk_index: int = Field(ge=0)
     content: str = Field(min_length=1)
-    semantic_score: float | None = None
-    lexical_score: float | None = None
+    semantic_score: float | None = Field(
+        default=None,
+        description="Original semantic retrieval score retained for debugging.",
+    )
+    lexical_score: float | None = Field(
+        default=None,
+        description="Original lexical retrieval score retained for debugging.",
+    )
     rerank_score: float = Field(
         description="Final relevance score; not comparable to raw retrieval scores.",
     )
