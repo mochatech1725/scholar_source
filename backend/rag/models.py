@@ -114,7 +114,7 @@ class SelectedEvidence(RagModel):
         description="Original lexical retrieval score retained for debugging.",
     )
     rerank_score: float = Field(
-        description="Final relevance score; not comparable to raw retrieval scores.",
+        description=("Final relevance score retained for debugging; not comparable to raw retrieval scores."),
     )
     evidence_rank: int = Field(
         ge=1,

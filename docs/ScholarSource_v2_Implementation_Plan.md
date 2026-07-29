@@ -464,7 +464,12 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   independent rerank score. `tests/rag/test_reranker.py` verifies both raw
   scores survive score merging and serialized debug output, including
   zero-valued scores.
-- [ ] 1.8.4 Keep the rerank score for debugging.
+- [x] 1.8.4 Keep the rerank score for debugging.
+  Done in `backend/rag/models.py` and
+  `backend/rag/reranking/reranker.py`: every selected evidence record retains
+  its final RRF score and one-based evidence rank in serialized debug output.
+  `tests/rag/test_reranker.py` verifies the serialized score equals the exact
+  contribution from both retrieval paths.
 - [ ] 1.8.5 Verify reranking changes order when the nearest chunk is not the most useful chunk.
 - [ ] 1.8.6 Define what score is too weak to include.
 

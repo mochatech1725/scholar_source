@@ -126,6 +126,21 @@ def test_selected_evidence_serializes_original_retrieval_scores_for_debugging() 
     assert debug_record["lexical_score"] == 0.42
 
 
+def test_selected_evidence_serializes_rerank_score_for_debugging() -> None:
+    chunk_id = "00000000-0000-4000-8000-000000000001"
+
+    evidence = rerank_evidence(
+        [_hit(chunk_id, semantic_score=0.87)],
+        [_hit(chunk_id, lexical_score=0.42)],
+        settings=SETTINGS,
+    )
+
+    debug_record = evidence[0].model_dump(mode="json")
+
+    assert debug_record["rerank_score"] == pytest.approx(_rrf_contribution(1) + _rrf_contribution(1))
+    assert debug_record["evidence_rank"] == 1
+
+
 def test_scoring_respects_the_configured_evidence_limit() -> None:
     settings = replace(SETTINGS, evidence_limit=1)
     semantic_hits = [
