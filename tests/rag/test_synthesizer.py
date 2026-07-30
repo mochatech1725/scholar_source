@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from backend.rag.config import RagSettings
 from backend.rag.errors import SynthesisError
 from backend.rag.models import (
+    EvidenceSupport,
     RecommendationDraft,
     SelectedEvidence,
     StudyGuideDraft,
@@ -69,7 +70,12 @@ def test_synthesizer_generates_a_structured_study_guide() -> None:
                 resource_title="Vector Calculus Notes",
                 why_useful="It explains the geometric meaning of a gradient.",
                 how_to_use="Read the explanation, then reproduce the example.",
-                supporting_chunk_ids=[str(evidence[0].chunk_id)],
+                evidence_support=[
+                    EvidenceSupport(
+                        chunk_id=str(evidence[0].chunk_id),
+                        quote="The gradient points in the direction of steepest increase.",
+                    )
+                ],
             )
         ],
     )
@@ -82,8 +88,8 @@ def test_synthesizer_generates_a_structured_study_guide() -> None:
         status_reason=None,
     )
 
-    assert guide.overview == expected.overview
-    assert guide.recommendations[0].resource_title == expected.recommendations[0].resource_title
+    assert guide.overview == "ScholarSource found 1 cited resource for this study guide."
+    assert guide.recommendations[0].resource_title == evidence[0].title
     assert guide.recommendations[0].cited_chunk_ids == [evidence[0].chunk_id]
     assert guide.weak_evidence_status is WeakEvidenceStatus.STRONG
 
@@ -104,7 +110,12 @@ def test_final_response_resolves_source_title_and_url_from_selected_evidence() -
                 resource_title="Gradient Review",
                 why_useful="It explains gradient direction.",
                 how_to_use="Read the explanation and work the example.",
-                supporting_chunk_ids=[str(evidence[0].chunk_id)],
+                evidence_support=[
+                    EvidenceSupport(
+                        chunk_id=str(evidence[0].chunk_id),
+                        quote="The gradient points in the direction of steepest increase.",
+                    )
+                ],
             )
         ],
     )
@@ -186,7 +197,7 @@ def test_recommendation_requires_at_least_one_source_citation() -> None:
             resource_title="Uncited Notes",
             why_useful="It claims to explain gradients.",
             how_to_use="Read it.",
-            supporting_chunk_ids=[],
+            evidence_support=[],
         )
 
 
@@ -206,7 +217,12 @@ def test_synthesizer_rejects_citations_outside_selected_evidence() -> None:
                 resource_title="Unsupported Notes",
                 why_useful="It claims to explain gradients.",
                 how_to_use="Read it.",
-                supporting_chunk_ids=["00000000-0000-4000-8000-000000000099"],
+                evidence_support=[
+                    EvidenceSupport(
+                        chunk_id="00000000-0000-4000-8000-000000000099",
+                        quote="Selected evidence about gradients.",
+                    )
+                ],
             )
         ],
     )
@@ -298,10 +314,85 @@ def test_weak_evidence_softens_the_generated_guide() -> None:
     )
 
     mock_llm.with_structured_output.return_value.invoke.assert_called_once()
-    assert guide.overview == f"{WEAK_PREFIX}\n\n{draft.overview}"
+    assert guide.overview == (f"{WEAK_PREFIX}\n\nScholarSource found 0 cited resources for this study guide.")
     assert guide.limitations == (
         "Only 1 chunk met the strong semantic score threshold.\n\nThe notes do not include worked examples."
     )
+
+
+def test_synthesizer_rejects_supporting_quote_not_found_in_cited_chunk() -> None:
+    evidence = [
+        _evidence(
+            "00000000-0000-4000-8000-000000000001",
+            title="Selected Notes",
+            content="The gradient points in the direction of steepest increase.",
+            evidence_rank=1,
+        )
+    ]
+    draft = StudyGuideDraft(
+        overview="Ignore this unsupported model overview.",
+        recommendations=[
+            RecommendationDraft(
+                resource_title="Invented Resource Name",
+                why_useful="It includes ten worked examples.",
+                how_to_use="Complete all ten examples.",
+                evidence_support=[
+                    EvidenceSupport(
+                        chunk_id=str(evidence[0].chunk_id),
+                        quote="The notes include ten worked examples.",
+                    )
+                ],
+            )
+        ],
+    )
+    synthesizer, _mock_llm = _synthesizer_with(draft)
+
+    with pytest.raises(SynthesisError, match="quote that was not present"):
+        synthesizer.synthesize(
+            "gradients",
+            evidence,
+            status=WeakEvidenceStatus.STRONG,
+            status_reason=None,
+        )
+
+
+def test_final_guide_uses_stored_title_and_deterministic_overview() -> None:
+    evidence = [
+        _evidence(
+            "00000000-0000-4000-8000-000000000001",
+            title="Stored Notes Title",
+            content="The notes explain gradient direction with a geometric interpretation.",
+            evidence_rank=1,
+        )
+    ]
+    draft = StudyGuideDraft(
+        overview="The gradient was invented in 1492.",
+        recommendations=[
+            RecommendationDraft(
+                resource_title="Invented Notes Title",
+                why_useful="It explains gradient direction.",
+                how_to_use="Read the geometric interpretation.",
+                evidence_support=[
+                    EvidenceSupport(
+                        chunk_id=str(evidence[0].chunk_id),
+                        quote="The notes explain gradient direction with a geometric interpretation.",
+                    )
+                ],
+            )
+        ],
+    )
+    synthesizer, _mock_llm = _synthesizer_with(draft)
+
+    guide = synthesizer.synthesize(
+        "gradients",
+        evidence,
+        status=WeakEvidenceStatus.STRONG,
+        status_reason=None,
+    )
+
+    assert guide.overview == "ScholarSource found 1 cited resource for this study guide."
+    assert "1492" not in guide.overview
+    assert guide.recommendations[0].resource_title == evidence[0].title
 
 
 def test_unevaluated_evidence_is_rejected_without_calling_llm() -> None:

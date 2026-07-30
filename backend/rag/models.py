@@ -122,15 +122,25 @@ class SelectedEvidence(RagModel):
     )
 
 
+class EvidenceSupport(RagModel):
+    """Model-provided quote that grounds a recommendation in one chunk."""
+
+    chunk_id: str
+    quote: str = Field(
+        min_length=1,
+        description="Exact quote from the selected chunk that supports the recommendation.",
+    )
+
+
 class RecommendationDraft(RagModel):
     """Model-facing synthesis output. Chunk IDs only — never URLs."""
 
     resource_title: str
     why_useful: str
     how_to_use: str
-    supporting_chunk_ids: list[str] = Field(
+    evidence_support: list[EvidenceSupport] = Field(
         min_length=1,
-        description="Selected evidence chunk IDs that support this recommendation.",
+        description="Selected chunk IDs and exact quotes that support every factual claim.",
     )
 
 

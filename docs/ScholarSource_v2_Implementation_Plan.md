@@ -592,7 +592,16 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   cited chunk and source IDs. `tests/rag/test_synthesizer.py` verifies the
   returned title and URL match stored evidence and remain absent from the LLM
   prompt.
-- [ ] 1.9.5 Avoid presenting unsupported claims as facts.
+- [x] 1.9.5 Avoid presenting unsupported claims as facts.
+  Done in `backend/rag/models.py`, `backend/rag/synthesis/prompt.py`, and
+  `backend/rag/synthesis/synthesizer.py`: each model-facing recommendation
+  must provide an exact supporting quote for every cited chunk, and synthesis
+  rejects quotes that are not present in the cited stored evidence. The final
+  resource title is always joined from stored evidence, while the overview is
+  deterministic rather than model-authored, preventing unsupported overview
+  facts or invented resource names from reaching the user.
+  `tests/rag/test_synthesizer.py` verifies fabricated quotes are rejected and
+  unsupported model titles and overview claims are replaced.
 - [ ] 1.9.6 Verify the answer can be traced back to stored chunks.
 
 ### Reference: Synthesis — Prompt and Cited Generation

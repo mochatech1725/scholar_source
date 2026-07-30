@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Protocol, cast
 from uuid import UUID
 
@@ -92,7 +93,7 @@ class EvidenceSynthesizer:
         if not isinstance(draft, StudyGuideDraft):
             raise SynthesisError("Synthesis did not return a structured study guide.")
         self._validate_citations(draft, evidence)
-        overview = draft.overview
+        overview = self._grounded_overview(len(draft.recommendations))
         limitations = draft.limitations
         if status is WeakEvidenceStatus.WEAK:
             overview = f"{WEAK_PREFIX}\n\n{overview}"
@@ -125,12 +126,12 @@ class EvidenceSynthesizer:
         cited_source_ids: set[UUID] = set()
 
         for recommendation in draft.recommendations:
-            cited_chunk_ids = [UUID(chunk_id) for chunk_id in recommendation.supporting_chunk_ids]
+            cited_chunk_ids = [UUID(support.chunk_id) for support in recommendation.evidence_support]
             primary_evidence = evidence_by_chunk_id[cited_chunk_ids[0]]
             cited_source_ids.update(evidence_by_chunk_id[chunk_id].source_id for chunk_id in cited_chunk_ids)
             recommendations.append(
                 CitedRecommendation(
-                    resource_title=recommendation.resource_title,
+                    resource_title=primary_evidence.title,
                     url=primary_evidence.url,
                     source_title=primary_evidence.title,
                     why_useful=recommendation.why_useful,
@@ -159,13 +160,31 @@ class EvidenceSynthesizer:
         return "\n\n".join(parts)
 
     @staticmethod
+    def _grounded_overview(recommendation_count: int) -> str:
+        """Build overview prose from validated output shape, not model claims."""
+        noun = "resource" if recommendation_count == 1 else "resources"
+        return f"ScholarSource found {recommendation_count} cited {noun} for this study guide."
+
+    @staticmethod
     def _validate_citations(
         draft: StudyGuideDraft,
         evidence: list[SelectedEvidence],
     ) -> None:
         """Reject recommendations that cite anything outside selected evidence."""
-        selected_chunk_ids = {str(item.chunk_id) for item in evidence}
+        evidence_by_chunk_id = {str(item.chunk_id): item for item in evidence}
         for recommendation in draft.recommendations:
-            unknown_chunk_ids = set(recommendation.supporting_chunk_ids) - selected_chunk_ids
+            support_chunk_ids = {support.chunk_id for support in recommendation.evidence_support}
+            unknown_chunk_ids = support_chunk_ids - evidence_by_chunk_id.keys()
             if unknown_chunk_ids:
                 raise SynthesisError("Synthesis cited chunk IDs that were not present in selected evidence.")
+            for support in recommendation.evidence_support:
+                evidence_content = evidence_by_chunk_id[support.chunk_id].content
+                if _normalize_whitespace(support.quote) not in _normalize_whitespace(evidence_content):
+                    raise SynthesisError(
+                        "Synthesis included a supporting quote that was not present in its cited chunk."
+                    )
+
+
+def _normalize_whitespace(value: str) -> str:
+    """Normalize whitespace so copied quotes survive harmless line wrapping."""
+    return re.sub(r"\s+", " ", value).strip()

@@ -13,8 +13,14 @@ Rules:
 - Build the study guide using ONLY the provided evidence chunks.
 - Do not use external knowledge about websites, books, courses, or the topic.
 - Refer to evidence exclusively by chunk_id. Never write or invent a URL.
-- Every recommendation must include at least one supporting_chunk_ids entry.
-- Use only chunk_ids that appear in the evidence.
+- Treat every factual statement in resource_title, why_useful, and how_to_use
+  as a claim that must be supported by the cited evidence.
+- Every recommendation must include at least one evidence_support entry. Each
+  entry must contain a chunk_id from the evidence and an exact, copied quote
+  from that chunk. The quote must directly support all factual claims in the
+  recommendation; otherwise omit or soften those claims.
+- Keep overview to a brief description of how to use the recommendations. Do
+  not add uncited facts about the topic or resources there.
 - If the evidence is thin, contradictory, or off-topic, say so plainly in
   limitations and return fewer recommendations, or none.
 - Never pad weak evidence into confident-sounding advice.
