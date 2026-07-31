@@ -627,8 +627,15 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   reference, normalization method, and confidence; model validation rejects
   populated fields without provenance. Focused contract tests live in
   `tests/rag/test_normalized_learning_request.py`.
-- [ ] 1.10.2 Add an adapter dispatcher that selects the input path from
+- [x] 1.10.2 Add an adapter dispatcher that selects the input path from
   validated request fields and rejects ambiguous conflicting primary inputs.
+  Done in `backend/rag/input_adapters/dispatcher.py`: validated
+  `CourseInputRequest` fields map deterministically to one typed input route,
+  conflicting primary groups fail before any adapter runs, and missing,
+  incomplete, or unregistered routes return structured normalization errors.
+  Adapters are injected behind a shared protocol so the input-specific work in
+  steps 1.10.3 through 1.10.9 can land without changing dispatch policy.
+  Focused routing tests live in `tests/rag/test_input_adapter_dispatcher.py`.
 - [ ] 1.10.3 Add a direct adapter for topic lists and optional course, subject,
   chapter, section, and preference context.
 - [ ] 1.10.4 Add a URL adapter for course pages and general educational pages

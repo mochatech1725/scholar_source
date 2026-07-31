@@ -37,3 +37,15 @@ class RetrievalError(RagError):
 
 class SynthesisError(RagError):
     """Raised when answer synthesis fails after valid evidence exists."""
+
+
+class InputNormalizationError(RagError):
+    """Raised when a validated API request cannot enter input normalization."""
+
+
+class AmbiguousLearningInputError(InputNormalizationError):
+    """Raised when a request contains more than one primary learning input."""
+
+
+class UnsupportedLearningInputError(InputNormalizationError):
+    """Raised when a request does not contain a complete supported primary input."""
