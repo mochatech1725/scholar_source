@@ -68,16 +68,31 @@ def _primary_input_selections(request: CourseInputRequest) -> list[PrimaryInputS
         ("topics_list", LearningInputKind.TOPIC_LIST),
         ("course_url", LearningInputKind.COURSE_PAGE),
         ("book_url", LearningInputKind.BOOK_URL),
-        ("book_upload_id", LearningInputKind.UPLOADED_PDF),
-        ("book_pdf_path", LearningInputKind.UPLOADED_PDF),
         ("isbn", LearningInputKind.ISBN),
     )
     for field_name, input_kind in scalar_inputs:
         if getattr(request, field_name):
             selections.append(PrimaryInputSelection(input_kind=input_kind, populated_fields=(field_name,)))
 
+    upload_fields = tuple(
+        field_name for field_name in ("book_upload_id", "book_pdf_path") if getattr(request, field_name)
+    )
+    if upload_fields:
+        selections.append(
+            PrimaryInputSelection(
+                input_kind=LearningInputKind.UPLOADED_PDF,
+                populated_fields=upload_fields,
+            )
+        )
+
     metadata_fields = tuple(field_name for field_name in ("book_title", "textbook") if getattr(request, field_name))
-    if metadata_fields:
+    book_context_kinds = {
+        LearningInputKind.BOOK_URL,
+        LearningInputKind.UPLOADED_PDF,
+        LearningInputKind.ISBN,
+    }
+    has_book_primary_input = any(selection.input_kind in book_context_kinds for selection in selections)
+    if metadata_fields and not has_book_primary_input:
         selections.append(
             PrimaryInputSelection(
                 input_kind=LearningInputKind.BOOK_METADATA,

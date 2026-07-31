@@ -28,6 +28,7 @@ class RagSettings:
     topic_list_adapter_version: str = "v1"
     url_page_adapter_version: str = "v1"
     book_url_adapter_version: str = "v1"
+    uploaded_pdf_adapter_version: str = "v1"
     learning_outline_prompt_version: str = "learning-outline-v1"
 
     # Chunking: ~1400 chars is roughly 350 tokens. Large enough that a chunk
@@ -56,6 +57,7 @@ class RagSettings:
     results_per_query: int = 5
     fetch_timeout_seconds: float = 15.0
     max_fetch_bytes: int = 2_000_000
+    max_upload_pdf_bytes: int = 50 * 1024 * 1024
 
 
 DEFAULT_SETTINGS = RagSettings()

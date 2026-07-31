@@ -27,6 +27,16 @@ from backend.rag.models import (
             LearningInputKind.UPLOADED_PDF,
             ("book_upload_id",),
         ),
+        (
+            CourseInputRequest(
+                book_upload_id="123e4567-e89b-12d3-a456-426614174000",
+                book_pdf_path=(
+                    "/tmp/scholar_uploads/123e4567-e89b-12d3-a456-426614174001/123e4567-e89b-12d3-a456-426614174000.pdf"
+                ),
+            ),
+            LearningInputKind.UPLOADED_PDF,
+            ("book_upload_id", "book_pdf_path"),
+        ),
         (CourseInputRequest(isbn="9780262046305"), LearningInputKind.ISBN, ("isbn",)),
         (
             CourseInputRequest(book_title="Algorithms", book_author="Ada Author"),

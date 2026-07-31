@@ -49,3 +49,11 @@ class AmbiguousLearningInputError(InputNormalizationError):
 
 class UnsupportedLearningInputError(InputNormalizationError):
     """Raised when a request does not contain a complete supported primary input."""
+
+
+class UploadedPdfNormalizationError(InputNormalizationError):
+    """Structured failure raised when an uploaded PDF cannot be normalized."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code

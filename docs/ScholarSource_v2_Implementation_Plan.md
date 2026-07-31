@@ -672,10 +672,22 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   rather than an approved recommendation. Direct PDFs receive an additional
   explicit warning. Focused behavior, provenance, failure, PDF, catalog-page,
   readable-page, and dispatcher tests live in `tests/rag/test_book_url_adapter.py`.
-- [ ] 1.10.6 Add an uploaded-PDF adapter that preserves upload ownership,
+- [x] 1.10.6 Add an uploaded-PDF adapter that preserves upload ownership,
   validates file type and size, extracts text with page provenance, and returns
   a structured error for encrypted, corrupt, or image-only files when OCR is
   unavailable.
+  Done in `backend/rag/input_adapters/uploaded_pdf.py`: normalization requires
+  the authenticated upload ID and its user-scoped resolved path to match,
+  revalidates the PDF signature and configured 50 MB size limit, extracts
+  page-tagged text in order, and records the contributing page numbers without
+  exposing the internal filesystem path. Encrypted, corrupt, invalid,
+  oversized, missing, ownership-mismatched, and image-only PDFs return typed
+  `UploadedPdfNormalizationError` codes; image-only input reports that OCR is
+  unavailable without invoking outline generation. The dispatcher now treats
+  the upload ID and resolved path as one primary input and permits explicit
+  book context alongside it. Focused adapter and routing coverage lives in
+  `tests/rag/test_uploaded_pdf_adapter.py` and
+  `tests/rag/test_input_adapter_dispatcher.py`.
 - [ ] 1.10.7 Decide whether OCR is required for the v2 launch based on
   representative uploaded-book fixtures; if required, document the provider or
   local library, limits, cost, privacy behavior, and fallback policy before
