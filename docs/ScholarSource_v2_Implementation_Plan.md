@@ -618,8 +618,15 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 
 ### 1.10 Unified Input Normalization
 
-- [ ] 1.10.1 Define a typed normalized learning request and per-field
+- [x] 1.10.1 Define a typed normalized learning request and per-field
   provenance model shared by every input adapter.
+  Done in `backend/rag/models.py`: `NormalizedLearningRequest` gives every
+  successful adapter one strict contract for input kind, canonical identifier,
+  learning context, user constraints, warnings, and confidence.
+  `FieldProvenance` records each populated field's origin, non-secret source
+  reference, normalization method, and confidence; model validation rejects
+  populated fields without provenance. Focused contract tests live in
+  `tests/rag/test_normalized_learning_request.py`.
 - [ ] 1.10.2 Add an adapter dispatcher that selects the input path from
   validated request fields and rejects ambiguous conflicting primary inputs.
 - [ ] 1.10.3 Add a direct adapter for topic lists and optional course, subject,

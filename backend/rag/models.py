@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class QualityStatus(StrEnum):
@@ -30,10 +30,113 @@ class WeakEvidenceStatus(StrEnum):
     INSUFFICIENT = "insufficient"
 
 
+class LearningInputKind(StrEnum):
+    """Supported primary inputs that normalize into one learning request."""
+
+    TOPIC_LIST = "topic_list"
+    COURSE_PAGE = "course_page"
+    EDUCATIONAL_PAGE = "educational_page"
+    BOOK_URL = "book_url"
+    UPLOADED_PDF = "uploaded_pdf"
+    ISBN = "isbn"
+    BOOK_METADATA = "book_metadata"
+
+
+class ProvenanceOrigin(StrEnum):
+    """Origin of a normalized field value."""
+
+    USER_INPUT = "user_input"
+    EXTRACTED_CONTENT = "extracted_content"
+    PROVIDER_METADATA = "provider_metadata"
+    ADAPTER_DERIVED = "adapter_derived"
+
+
+class NormalizedLearningField(StrEnum):
+    """Fields whose values require traceable normalization provenance."""
+
+    CANONICAL_IDENTIFIER = "canonical_identifier"
+    TITLE = "title"
+    AUTHOR = "author"
+    INSTITUTION = "institution"
+    SUBJECT = "subject"
+    TOPICS = "topics"
+    CHAPTERS = "chapters"
+    SECTIONS = "sections"
+    USER_CONSTRAINTS = "user_constraints"
+
+
 class RagModel(BaseModel):
     """Base model: reject unexpected fields, strip whitespace."""
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+
+class FieldProvenance(RagModel):
+    """Trace describing how one normalized learning-request field was obtained."""
+
+    origin: ProvenanceOrigin
+    source_reference: str = Field(
+        min_length=1,
+        description="Non-secret input field, URL, upload ID, or provider record reference.",
+    )
+    method: str = Field(
+        min_length=1,
+        description="Deterministic adapter operation or versioned extraction method.",
+    )
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+class LearningConstraints(RagModel):
+    """Optional user preferences preserved for downstream query generation."""
+
+    desired_resource_types: list[str] = Field(default_factory=list)
+    excluded_sites: list[str] = Field(default_factory=list)
+    targeted_sites: list[str] = Field(default_factory=list)
+    preferred_creators: list[str] = Field(default_factory=list)
+
+
+class NormalizedLearningRequest(RagModel):
+    """Canonical learning context emitted by every successful input adapter."""
+
+    input_kind: LearningInputKind
+    canonical_identifier: str = Field(min_length=1)
+    title: str | None = None
+    author: str | None = None
+    institution: str | None = None
+    subject: str | None = None
+    topics: list[str] = Field(min_length=1)
+    chapters: list[str] = Field(default_factory=list)
+    sections: list[str] = Field(default_factory=list)
+    user_constraints: LearningConstraints = Field(default_factory=LearningConstraints)
+    field_provenance: dict[NormalizedLearningField, FieldProvenance]
+    warnings: list[str] = Field(default_factory=list)
+    confidence: float = Field(ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def require_provenance_for_populated_fields(self) -> NormalizedLearningRequest:
+        """Reject normalized values that cannot be traced to their origin."""
+
+        populated_fields = {
+            NormalizedLearningField.CANONICAL_IDENTIFIER,
+            NormalizedLearningField.TOPICS,
+        }
+        optional_fields = {
+            NormalizedLearningField.TITLE: self.title,
+            NormalizedLearningField.AUTHOR: self.author,
+            NormalizedLearningField.INSTITUTION: self.institution,
+            NormalizedLearningField.SUBJECT: self.subject,
+            NormalizedLearningField.CHAPTERS: self.chapters,
+            NormalizedLearningField.SECTIONS: self.sections,
+        }
+        populated_fields.update(field for field, value in optional_fields.items() if value)
+        if self.user_constraints != LearningConstraints():
+            populated_fields.add(NormalizedLearningField.USER_CONSTRAINTS)
+
+        missing_fields = populated_fields.difference(self.field_provenance)
+        if missing_fields:
+            names = ", ".join(sorted(field.value for field in missing_fields))
+            raise ValueError(f"Missing provenance for normalized fields: {names}")
+        return self
 
 
 class SourceRecord(RagModel):
