@@ -662,9 +662,16 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   Focused HTML, PDF, classification, provenance, failure, structured-output,
   and dispatcher tests live in `tests/rag/test_url_page_adapter.py` and
   `tests/rag/test_extractor.py`.
-- [ ] 1.10.5 Add a book URL adapter that handles catalog or publisher pages,
+- [x] 1.10.5 Add a book URL adapter that handles catalog or publisher pages,
   readable book pages, and direct PDF URLs without treating the submitted book
   as an automatically approved recommendation.
+  Done in `backend/rag/input_adapters/book_url.py`: book URLs reuse the shared
+  redirect-aware HTML/PDF extractor and structured learning-outline boundary,
+  preserve derived title, author, subject, topic, chapter, and section
+  provenance, and always mark the submitted book as normalization context
+  rather than an approved recommendation. Direct PDFs receive an additional
+  explicit warning. Focused behavior, provenance, failure, PDF, catalog-page,
+  readable-page, and dispatcher tests live in `tests/rag/test_book_url_adapter.py`.
 - [ ] 1.10.6 Add an uploaded-PDF adapter that preserves upload ownership,
   validates file type and size, extracts text with page provenance, and returns
   a structured error for encrypted, corrupt, or image-only files when OCR is

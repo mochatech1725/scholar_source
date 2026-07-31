@@ -39,7 +39,7 @@ OUTLINE_SYSTEM_PROMPT = """Derive a concise learning outline from the supplied e
 
 Rules:
 - Use only the supplied extracted content. Do not add outside knowledge.
-- Return the page title, institution, and subject only when supported.
+- Return the page title, author, institution, and subject only when supported.
 - Topics must be specific concepts a student could search for and study.
 - Preserve named chapters or sections only when the content identifies them.
 - Do not treat navigation, legal notices, or promotional copy as learning topics.
@@ -51,6 +51,7 @@ class LearningOutline(RagModel):
     """Schema-constrained learning context derived from extracted page text."""
 
     title: str | None = None
+    author: str | None = None
     institution: str | None = None
     subject: str | None = None
     topics: list[str] = Field(min_length=1)

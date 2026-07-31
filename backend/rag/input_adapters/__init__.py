@@ -1,5 +1,6 @@
 """Input routing for the ScholarSource v2 normalization boundary."""
 
+from backend.rag.input_adapters.book_url import BookUrlAdapter
 from backend.rag.input_adapters.dispatcher import (
     AdapterDispatcher,
     InputAdapter,
@@ -17,6 +18,7 @@ from backend.rag.input_adapters.url_page import (
 
 __all__ = [
     "AdapterDispatcher",
+    "BookUrlAdapter",
     "InputAdapter",
     "InputSourceReference",
     "PrimaryInputSelection",
