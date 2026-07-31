@@ -8,6 +8,12 @@ from backend.rag.input_adapters.dispatcher import (
 )
 from backend.rag.input_adapters.references import InputSourceReference
 from backend.rag.input_adapters.topic_list import TopicListAdapter
+from backend.rag.input_adapters.url_page import (
+    LearningOutline,
+    LearningOutlineDeriver,
+    StructuredLearningOutlineDeriver,
+    UrlPageAdapter,
+)
 
 __all__ = [
     "AdapterDispatcher",
@@ -15,5 +21,9 @@ __all__ = [
     "InputSourceReference",
     "PrimaryInputSelection",
     "TopicListAdapter",
+    "LearningOutline",
+    "LearningOutlineDeriver",
+    "StructuredLearningOutlineDeriver",
+    "UrlPageAdapter",
     "select_primary_input",
 ]

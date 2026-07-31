@@ -118,6 +118,18 @@ def test_html_source_extracts_successfully(monkeypatch: pytest.MonkeyPatch) -> N
     assert document.metadata["text_length"] == len(document.text)
 
 
+def test_extract_url_returns_detected_html_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=PAGE_HTML, headers={"content-type": "text/html"})
+
+    content = _extractor_with(handler, monkeypatch).extract_url("https://ocw.mit.edu/statics")
+
+    assert content.media_type == "html"
+    assert content.title == "Statics Notes"
+    assert content.final_url == "https://ocw.mit.edu/statics"
+    assert "bodies in equilibrium" in content.text
+
+
 def test_pdf_content_type_routes_to_pdf_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
     padding = " It applies to trusses, frames, and machines in engineering practice."
     pdf_text = ("Statics is about equilibrium." + padding * 4).strip()
@@ -132,6 +144,21 @@ def test_pdf_content_type_routes_to_pdf_extraction(monkeypatch: pytest.MonkeyPat
     document = _extractor_with(handler, monkeypatch).extract(_source())
     assert document.extraction_status is ExtractionStatus.COMPLETED
     assert "Statics is about equilibrium." in document.text
+
+
+def test_extract_url_detects_pdf_from_content_type(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=_minimal_pdf("Statics is about equilibrium."),
+            headers={"content-type": "application/pdf"},
+        )
+
+    content = _extractor_with(handler, monkeypatch).extract_url("https://example.edu/download?id=1")
+
+    assert content.media_type == "pdf"
+    assert content.title is None
+    assert "Statics is about equilibrium." in content.text
 
 
 def test_fetch_failure_returns_failed_record_not_exception(

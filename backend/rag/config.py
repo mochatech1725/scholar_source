@@ -26,6 +26,8 @@ class RagSettings:
     # Input normalization: versions are recorded in field provenance and will
     # participate in normalization cache keys when the cache lands in 1.10.11.
     topic_list_adapter_version: str = "v1"
+    url_page_adapter_version: str = "v1"
+    learning_outline_prompt_version: str = "learning-outline-v1"
 
     # Chunking: ~1400 chars is roughly 350 tokens. Large enough that a chunk
     # carries a complete explanation, small enough that retrieval stays

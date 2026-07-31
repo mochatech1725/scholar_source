@@ -647,9 +647,21 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   centralized in `backend/rag/config.py`. Equivalent topic casing and spacing
   produce the same canonical identifier. Focused tests live in
   `tests/rag/test_topic_list_adapter.py`.
-- [ ] 1.10.4 Add a URL adapter for course pages and general educational pages
+- [x] 1.10.4 Add a URL adapter for course pages and general educational pages
   that detects HTML versus PDF content, reuses v2 extraction, and derives a
   structured learning outline.
+  Done in `backend/rag/input_adapters/url_page.py` and
+  `backend/rag/extraction/extractor.py`: validated course URLs reuse the shared
+  fetch, size-limit, HTML-cleaning, and PDF-extraction path; final URLs are
+  canonicalized after redirects; and deterministic page markers plus explicit
+  course context distinguish course pages from general educational pages. A
+  versioned, schema-constrained outline call derives topics and optional title,
+  institution, subject, chapters, and sections from extracted content only.
+  Explicit user context takes precedence and retains user-input provenance,
+  while derived fields retain extracted-URL and prompt-version provenance.
+  Focused HTML, PDF, classification, provenance, failure, structured-output,
+  and dispatcher tests live in `tests/rag/test_url_page_adapter.py` and
+  `tests/rag/test_extractor.py`.
 - [ ] 1.10.5 Add a book URL adapter that handles catalog or publisher pages,
   readable book pages, and direct PDF URLs without treating the submitted book
   as an automatically approved recommendation.

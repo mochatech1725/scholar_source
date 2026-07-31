@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import re
+from dataclasses import dataclass
 
 import httpx
 from lxml import html as lxml_html
@@ -15,6 +16,16 @@ from backend.rag.hashing import sha256_text
 from backend.rag.models import ExtractedDocument, ExtractionStatus, SourceRecord
 
 REMOVED_HTML_NODES = "//script | //style | //nav | //header | //footer | //noscript | //iframe"
+
+
+@dataclass(frozen=True, slots=True)
+class ExtractedContent:
+    """Fetched text and media metadata reusable outside source ingestion."""
+
+    text: str
+    media_type: str
+    title: str | None
+    final_url: str
 
 
 def clean_text(text: str) -> str:
@@ -56,7 +67,8 @@ class SourceExtractor:
         if source.source_id is None:
             raise ExtractionError("Source must be persisted before extraction.")
         try:
-            text = self._fetch_and_extract(source)
+            content = self.extract_url(source.url)
+            text = content.text
         except Exception as error:  # noqa: BLE001 - isolate any fetch failure per 1.3.4
             failure_reason = "extraction_failed" if isinstance(error, ExtractionError) else "fetch_or_parse_failed"
             return self._failed(
@@ -86,20 +98,42 @@ class SourceExtractor:
         )
 
     def _fetch_and_extract(self, source: SourceRecord) -> str:
+        """Compatibility wrapper for callers that already have a source record."""
+
+        return self.extract_url(source.url).text
+
+    def extract_url(self, url: str) -> ExtractedContent:
+        """Fetch one validated URL and detect HTML versus PDF content."""
+
         with httpx.Client(
             timeout=self._settings.fetch_timeout_seconds,
             follow_redirects=True,
             headers={"User-Agent": "ScholarSourceBot/2.0 (+study resource finder)"},
         ) as client:
-            response = client.get(source.url)
+            response = client.get(url)
             response.raise_for_status()
             if len(response.content) > self._settings.max_fetch_bytes:
                 raise ExtractionError(f"Response exceeds {self._settings.max_fetch_bytes} bytes.")
 
             content_type = response.headers.get("content-type", "").casefold()
-            if "pdf" in content_type or source.url.casefold().endswith(".pdf"):
-                return extract_text_from_pdf(response.content)
-            return extract_text_from_html(response.text)
+            final_url = str(response.url)
+            if "pdf" in content_type or final_url.casefold().endswith(".pdf"):
+                return ExtractedContent(
+                    text=extract_text_from_pdf(response.content),
+                    media_type="pdf",
+                    title=None,
+                    final_url=final_url,
+                )
+
+            tree = lxml_html.fromstring(response.text)
+            title_nodes = tree.xpath("//title/text()")
+            title = clean_text(title_nodes[0]) if title_nodes else None
+            return ExtractedContent(
+                text=extract_text_from_html(response.text),
+                media_type="html",
+                title=title or None,
+                final_url=final_url,
+            )
 
     def _failed(
         self,
