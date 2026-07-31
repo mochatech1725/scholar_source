@@ -40,13 +40,16 @@ class TestCourseInputRequest:
             "course_url": "https://ocw.mit.edu/courses/math",
             "course_name": "Single Variable Calculus",
             "university_name": "MIT",
+            "subject": "Mathematics",
         }
         request = CourseInputRequest(**data)
 
         assert request.course_name == "Single Variable Calculus"
         assert request.university_name == "MIT"
+        assert request.subject == "Mathematics"
         assert request.model_dump()["course_name"] == "Single Variable Calculus"
         assert request.model_dump()["university_name"] == "MIT"
+        assert request.model_dump()["subject"] == "Mathematics"
 
     def test_valid_book_title_input(self):
         """Should accept valid book title."""

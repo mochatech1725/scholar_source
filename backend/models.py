@@ -18,6 +18,7 @@ class CourseInputRequest(BaseModel):
 
     course_name: str | None = Field(None, description="Course name")
     university_name: str | None = Field(None, description="University or institution name")
+    subject: str | None = Field(None, description="Course subject or academic discipline")
     course_url: str | None = Field(None, description="Course webpage URL (required if no book info)")
     textbook: str | None = Field(None, description="Textbook information (legacy)")
     topics_list: str | None = Field(None, description="Comma-separated topics")
@@ -103,7 +104,7 @@ class CourseInputRequest(BaseModel):
 
         return v
 
-    @field_validator("course_name", "university_name", "book_title", "book_author", "textbook", mode="after")
+    @field_validator("course_name", "university_name", "subject", "book_title", "book_author", "textbook", mode="after")
     @classmethod
     def validate_text_fields(cls, v):
         """Validate text fields for length and security"""

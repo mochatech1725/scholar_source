@@ -636,8 +636,17 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   Adapters are injected behind a shared protocol so the input-specific work in
   steps 1.10.3 through 1.10.9 can land without changing dispatch policy.
   Focused routing tests live in `tests/rag/test_input_adapter_dispatcher.py`.
-- [ ] 1.10.3 Add a direct adapter for topic lists and optional course, subject,
+- [x] 1.10.3 Add a direct adapter for topic lists and optional course, subject,
   chapter, section, and preference context.
+  Done in `backend/rag/input_adapters/topic_list.py`: the adapter performs no
+  provider or model calls, parses and case-insensitively deduplicates explicit
+  topic and section lists while preserving order, carries course identity and
+  resource preferences into the shared normalized contract, and records exact
+  user-input provenance for every populated field using shared source-reference
+  names from `backend/rag/input_adapters/references.py` and the adapter version
+  centralized in `backend/rag/config.py`. Equivalent topic casing and spacing
+  produce the same canonical identifier. Focused tests live in
+  `tests/rag/test_topic_list_adapter.py`.
 - [ ] 1.10.4 Add a URL adapter for course pages and general educational pages
   that detects HTML versus PDF content, reuses v2 extraction, and derives a
   structured learning outline.

@@ -23,6 +23,10 @@ class RagSettings:
     llm_seed: int = 7
     prompt_version: str = "study-guide-synthesis-v1"
 
+    # Input normalization: versions are recorded in field provenance and will
+    # participate in normalization cache keys when the cache lands in 1.10.11.
+    topic_list_adapter_version: str = "v1"
+
     # Chunking: ~1400 chars is roughly 350 tokens. Large enough that a chunk
     # carries a complete explanation, small enough that retrieval stays
     # precise. Overlap keeps definitions that straddle a boundary retrievable
