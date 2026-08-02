@@ -7,6 +7,13 @@ from backend.rag.input_adapters.dispatcher import (
     PrimaryInputSelection,
     select_primary_input,
 )
+from backend.rag.input_adapters.isbn import (
+    CachedIsbnMetadataProvider,
+    IsbnAdapter,
+    IsbnMetadata,
+    IsbnMetadataProvider,
+    canonicalize_isbn,
+)
 from backend.rag.input_adapters.references import InputSourceReference
 from backend.rag.input_adapters.topic_list import TopicListAdapter
 from backend.rag.input_adapters.uploaded_pdf import UploadedPdfAdapter
@@ -22,6 +29,10 @@ __all__ = [
     "BookUrlAdapter",
     "InputAdapter",
     "InputSourceReference",
+    "CachedIsbnMetadataProvider",
+    "IsbnAdapter",
+    "IsbnMetadata",
+    "IsbnMetadataProvider",
     "PrimaryInputSelection",
     "TopicListAdapter",
     "UploadedPdfAdapter",
@@ -29,5 +40,6 @@ __all__ = [
     "LearningOutlineDeriver",
     "StructuredLearningOutlineDeriver",
     "UrlPageAdapter",
+    "canonicalize_isbn",
     "select_primary_input",
 ]

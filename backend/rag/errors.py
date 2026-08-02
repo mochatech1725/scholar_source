@@ -57,3 +57,11 @@ class UploadedPdfNormalizationError(InputNormalizationError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+class IsbnNormalizationError(InputNormalizationError):
+    """Structured failure raised when an ISBN cannot provide learning context."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code

@@ -708,11 +708,20 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   text-only, image-only, accepted-mixed, and rejected-sparse fixtures in
   `backend/rag/input_adapters/uploaded_pdf.py` and
   `tests/rag/test_uploaded_pdf_adapter.py`.
-- [ ] 1.10.8 Add an ISBN adapter that validates and canonicalizes ISBN-10 and
+- [x] 1.10.8 Add an ISBN adapter that validates and canonicalizes ISBN-10 and
   ISBN-13, resolves cached bibliographic and available table-of-contents or
   subject metadata behind a provider interface, records provider provenance,
   and fails transparently when the ISBN does not provide enough learning
   context.
+  Done in `backend/rag/input_adapters/isbn.py`: checksum-valid ISBN-10 values
+  convert to canonical ISBN-13, ISBN-13 values are checksum-validated, and a
+  provider-neutral metadata contract supplies bibliographic, subject, and
+  table-of-contents context. The cache wrapper stores both records and misses
+  by canonical ISBN-13. Provider identity, version, record reference, and
+  confidence remain attached to derived-field provenance; missing records,
+  provider failures, invalid checksums, and metadata without a subject or
+  table of contents return typed failure codes. Focused coverage lives in
+  `tests/rag/test_isbn_adapter.py`.
 - [ ] 1.10.9 Add a book-metadata adapter for title and optional author,
   edition, chapter, and section fields.
 - [ ] 1.10.10 Use schema-constrained, deterministic extraction for unstructured
