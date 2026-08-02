@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from pypdf import PdfWriter
+from pypdf import PdfReader, PdfWriter
 
 from backend.models import CourseInputRequest
 from backend.rag.config import DEFAULT_SETTINGS, RagSettings
@@ -65,6 +65,23 @@ def _minimal_pdf(text: str) -> bytes:
     return bytes(output)
 
 
+def _pdf_with_pages(page_texts: list[str | None]) -> bytes:
+    writer = PdfWriter()
+    for text in page_texts:
+        if text is None:
+            writer.add_blank_page(width=612, height=792)
+        else:
+            reader = PdfReader(io.BytesIO(_minimal_pdf(text)))
+            writer.add_page(reader.pages[0])
+    output = io.BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+def _substantial_text(label: str) -> str:
+    return f"{label} explains important course concepts with examples and definitions. " * 5
+
+
 def _owned_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, contents: bytes) -> CourseInputRequest:
     upload_id = str(uuid4())
     user_id = str(uuid4())
@@ -79,7 +96,7 @@ def test_uploaded_pdf_adapter_preserves_page_and_upload_provenance(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    request = _owned_request(monkeypatch, tmp_path, _minimal_pdf("Statics studies equilibrium and moments."))
+    request = _owned_request(monkeypatch, tmp_path, _minimal_pdf(_substantial_text("Statics")))
     deriver = StubOutlineDeriver()
     adapter = UploadedPdfAdapter(settings=DEFAULT_SETTINGS, outline_deriver=deriver)
 
@@ -98,7 +115,7 @@ def test_uploaded_pdf_adapter_preserves_explicit_context_and_dispatches(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    request = _owned_request(monkeypatch, tmp_path, _minimal_pdf("Algorithms and data structures."))
+    request = _owned_request(monkeypatch, tmp_path, _minimal_pdf(_substantial_text("Algorithms")))
     request.book_title = "User title"
     request.chapter = "Chapter 2"
     adapter = UploadedPdfAdapter(settings=DEFAULT_SETTINGS, outline_deriver=StubOutlineDeriver())
@@ -166,11 +183,51 @@ def test_uploaded_pdf_adapter_reports_ocr_requirement_for_image_only_pdf(
     assert "OCR is not configured" in str(error.value)
 
 
+def test_uploaded_pdf_adapter_accepts_mixed_pdf_and_warns_about_skipped_pages(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    contents = _pdf_with_pages(
+        [
+            _substantial_text("Equilibrium"),
+            None,
+            None,
+            _substantial_text("Moments"),
+            None,
+        ]
+    )
+    request = _owned_request(monkeypatch, tmp_path, contents)
+    deriver = StubOutlineDeriver()
+
+    result = UploadedPdfAdapter(settings=DEFAULT_SETTINGS, outline_deriver=deriver).normalize(request)
+
+    assert "[Page 1]" in deriver.text
+    assert "[Page 4]" in deriver.text
+    assert deriver.source_url.endswith("#pages=1,4")
+    assert result.warnings[-1] == (
+        "Text could not be extracted reliably from 3 of 5 pages; the learning outline may be incomplete."
+    )
+
+
+def test_uploaded_pdf_adapter_rejects_sparse_mixed_pdf(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    contents = _pdf_with_pages([None, None, _substantial_text("One readable page"), None, None, None])
+    request = _owned_request(monkeypatch, tmp_path, contents)
+
+    with pytest.raises(UploadedPdfNormalizationError) as error:
+        UploadedPdfAdapter(settings=DEFAULT_SETTINGS, outline_deriver=StubOutlineDeriver()).normalize(request)
+
+    assert error.value.code == "insufficient_extractable_text"
+    assert "reliable learning outline" in str(error.value)
+
+
 def test_uploaded_pdf_adapter_rejects_path_that_does_not_match_owned_upload(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    request = _owned_request(monkeypatch, tmp_path, _minimal_pdf("Readable text"))
+    request = _owned_request(monkeypatch, tmp_path, _minimal_pdf(_substantial_text("Readable text")))
     request.book_upload_id = str(uuid4())
 
     with pytest.raises(UploadedPdfNormalizationError) as error:
@@ -183,7 +240,7 @@ def test_uploaded_pdf_adapter_enforces_configured_size_limit(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    request = _owned_request(monkeypatch, tmp_path, _minimal_pdf("Readable text"))
+    request = _owned_request(monkeypatch, tmp_path, _minimal_pdf(_substantial_text("Readable text")))
     settings = RagSettings(max_upload_pdf_bytes=10)
 
     with pytest.raises(UploadedPdfNormalizationError) as error:

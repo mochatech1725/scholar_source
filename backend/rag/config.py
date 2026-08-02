@@ -58,6 +58,10 @@ class RagSettings:
     fetch_timeout_seconds: float = 15.0
     max_fetch_bytes: int = 2_000_000
     max_upload_pdf_bytes: int = 50 * 1024 * 1024
+    uploaded_pdf_min_page_chars: int = 40
+    uploaded_pdf_min_total_chars: int = 200
+    uploaded_pdf_min_text_pages: int = 2
+    uploaded_pdf_min_text_page_ratio: float = 0.2
 
 
 DEFAULT_SETTINGS = RagSettings()

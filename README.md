@@ -109,7 +109,9 @@ The adapters are intentionally narrow:
 - Course and educational pages are fetched and reduced to a structured
   learning outline.
 - Book pages and direct PDF URLs use the same extraction contract.
-- Uploaded PDFs preserve user ownership and page provenance.
+- Uploaded PDFs preserve user ownership and page provenance. V2 launch does
+  not perform OCR: image-only files fail explicitly, while mixed files must
+  meet deterministic text-coverage thresholds and warn about skipped pages.
 - ISBNs resolve bibliographic and available contents or subject metadata
   through a replaceable provider.
 - Book title and author fields become structured book context.
@@ -147,6 +149,8 @@ tests:
 - Deterministic query generation and candidate source collection
 - Source-quality policy with persisted rejection reasons
 - HTML and text-based PDF extraction with failure handling
+- Uploaded-PDF ownership checks, page-level text coverage, and explicit
+  no-OCR failure and mixed-file warning behavior
 - Ordered, metadata-preserving chunking
 - OpenAI embeddings with content-hash deduplication
 - Supabase PostgreSQL and pgvector persistence

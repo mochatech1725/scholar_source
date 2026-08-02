@@ -254,12 +254,15 @@ This subsection tracks when to use the Manning liveProjects while building Phase
   topic-list-only.
 - **Normalization limits:** adapters may derive only learning context and
   search topics; they do not generate recommended resources or citations.
-  A scanned or image-only PDF must use an explicitly configured OCR path or
-  return a transparent unsupported-document error. ISBN lookup must report
-  insufficient metadata rather than inventing chapters or topics. User-provided
-  book content is processed only as needed to derive the learning outline and
-  must not be exposed as a recommended source unless it independently passes
-  the normal source-quality and citation rules.
+  OCR is not included in the v2 launch. A scanned or image-only PDF returns a
+  transparent `ocr_required` error. A mixed PDF continues only when its
+  extracted text passes deterministic total-text, text-bearing-page, and page
+  coverage thresholds; accepted mixed files warn that skipped pages may make
+  the outline incomplete. ISBN lookup must report insufficient metadata rather
+  than inventing chapters or topics. User-provided book content is processed
+  only as needed to derive the learning outline and must not be exposed as a
+  recommended source unless it independently passes the normal source-quality
+  and citation rules.
 - **Minimum accepted output:** the same envelope the frontend already
   renders — a completed job with `results` (a list of resources with type,
   title, source, URL, description) and `raw_output` (the markdown study
@@ -297,7 +300,7 @@ This subsection tracks when to use the Manning liveProjects while building Phase
 3. Normalize into one typed learning request
    topics: normalize directly
    page/book URL: fetch HTML or PDF -> extract text and metadata
-   uploaded PDF: validate -> extract text, or OCR when configured
+   uploaded PDF: validate -> measure page-level text coverage -> accept, warn, or reject without OCR
    ISBN: canonicalize -> cached metadata/contents lookup
    extracted material -> schema-constrained title/subject/topic derivation
    |
@@ -688,10 +691,23 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   book context alongside it. Focused adapter and routing coverage lives in
   `tests/rag/test_uploaded_pdf_adapter.py` and
   `tests/rag/test_input_adapter_dispatcher.py`.
-- [ ] 1.10.7 Decide whether OCR is required for the v2 launch based on
+- [x] 1.10.7 Decide whether OCR is required for the v2 launch based on
   representative uploaded-book fixtures; if required, document the provider or
   local library, limits, cost, privacy behavior, and fallback policy before
   implementation.
+  Decision: OCR is not required for the v2 launch. Fully image-only PDFs return
+  `ocr_required`. Mixed PDFs are accepted only when they provide at least 200
+  extracted characters across at least two meaningful text-bearing pages (or
+  every page for a one-page file), with at least 40 characters on each counted
+  page and at least 20 percent page coverage. Accepted mixed PDFs retain the
+  contributing page numbers and warn with the skipped-page count; sparse mixed
+  PDFs return `insufficient_extractable_text`. These thresholds are centralized
+  in `RagSettings` for later fixture- and eval-driven tuning. This launch policy
+  avoids a new OCR provider, cost, latency, and third-party handling of uploaded
+  book pages while keeping failures explicit. Implemented and covered with
+  text-only, image-only, accepted-mixed, and rejected-sparse fixtures in
+  `backend/rag/input_adapters/uploaded_pdf.py` and
+  `tests/rag/test_uploaded_pdf_adapter.py`.
 - [ ] 1.10.8 Add an ISBN adapter that validates and canonicalizes ISBN-10 and
   ISBN-13, resolves cached bibliographic and available table-of-contents or
   subject metadata behind a provider interface, records provider provenance,

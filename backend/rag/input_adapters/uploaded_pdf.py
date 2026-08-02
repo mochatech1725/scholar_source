@@ -35,6 +35,13 @@ class ExtractedUploadedPdf:
 
     text: str
     page_numbers: tuple[int, ...]
+    total_pages: int
+
+    @property
+    def skipped_page_count(self) -> int:
+        """Return pages that did not contain enough useful extracted text."""
+
+        return self.total_pages - len(self.page_numbers)
 
 
 class UploadedPdfAdapter:
@@ -50,7 +57,7 @@ class UploadedPdfAdapter:
         """Return a traceable learning request from one owned local upload."""
 
         upload_id, pdf_path = _validated_upload_reference(request)
-        extracted = _extract_uploaded_pdf(pdf_path, self._settings.max_upload_pdf_bytes)
+        extracted = _extract_uploaded_pdf(pdf_path, self._settings)
         page_reference = _page_reference(upload_id, extracted.page_numbers)
         try:
             outline = self._outline_deriver.derive(
@@ -97,6 +104,10 @@ class UploadedPdfAdapter:
                 confidence=1.0,
             )
 
+        warnings = [*outline.warnings, UPLOAD_CONTEXT_WARNING]
+        if extracted.skipped_page_count:
+            warnings.append(_mixed_pdf_warning(extracted))
+
         return NormalizedLearningRequest(
             input_kind=LearningInputKind.UPLOADED_PDF,
             canonical_identifier=f"upload:{upload_id}",
@@ -108,7 +119,7 @@ class UploadedPdfAdapter:
             sections=sections,
             user_constraints=constraints,
             field_provenance=provenance,
-            warnings=[*outline.warnings, UPLOAD_CONTEXT_WARNING],
+            warnings=warnings,
             confidence=outline.confidence,
         )
 
@@ -170,13 +181,16 @@ def _validated_upload_reference(request: CourseInputRequest) -> tuple[str, Path]
     return upload_id, pdf_path
 
 
-def _extract_uploaded_pdf(pdf_path: Path, max_bytes: int) -> ExtractedUploadedPdf:
+def _extract_uploaded_pdf(pdf_path: Path, settings: RagSettings) -> ExtractedUploadedPdf:
     try:
         size = pdf_path.stat().st_size
     except OSError as error:
         raise UploadedPdfNormalizationError("upload_unreadable", "Uploaded PDF could not be read.") from error
-    if size > max_bytes:
-        raise UploadedPdfNormalizationError("file_too_large", f"Uploaded PDF exceeds {max_bytes} bytes.")
+    if size > settings.max_upload_pdf_bytes:
+        raise UploadedPdfNormalizationError(
+            "file_too_large",
+            f"Uploaded PDF exceeds {settings.max_upload_pdf_bytes} bytes.",
+        )
     try:
         with pdf_path.open("rb") as pdf_file:
             if pdf_file.read(5) != b"%PDF-":
@@ -185,23 +199,53 @@ def _extract_uploaded_pdf(pdf_path: Path, max_bytes: int) -> ExtractedUploadedPd
             reader = PdfReader(pdf_file)
             if reader.is_encrypted and reader.decrypt("") == 0:
                 raise UploadedPdfNormalizationError("encrypted_pdf", "Encrypted PDFs are not supported.")
+            total_pages = len(reader.pages)
             pages: list[str] = []
             page_numbers: list[int] = []
+            extracted_character_count = 0
+            usable_character_count = 0
             for page_number, page in enumerate(reader.pages, start=1):
                 text = (page.extract_text() or "").strip()
-                if text:
+                extracted_character_count += len(text)
+                if len(text) >= settings.uploaded_pdf_min_page_chars:
                     pages.append(f"[Page {page_number}]\n{text}")
                     page_numbers.append(page_number)
+                    usable_character_count += len(text)
     except UploadedPdfNormalizationError:
         raise
     except (OSError, PdfReadError, ValueError) as error:
         raise UploadedPdfNormalizationError("corrupt_pdf", "Uploaded PDF is corrupt or unreadable.") from error
-    if not pages:
+    if extracted_character_count == 0:
         raise UploadedPdfNormalizationError(
             "ocr_required",
             "Uploaded PDF contains no extractable text. OCR is not configured.",
         )
-    return ExtractedUploadedPdf(text="\n\n".join(pages), page_numbers=tuple(page_numbers))
+    minimum_text_pages = min(total_pages, settings.uploaded_pdf_min_text_pages)
+    text_page_ratio = len(page_numbers) / total_pages if total_pages else 0.0
+    if (
+        usable_character_count < settings.uploaded_pdf_min_total_chars
+        or len(page_numbers) < minimum_text_pages
+        or text_page_ratio < settings.uploaded_pdf_min_text_page_ratio
+    ):
+        raise UploadedPdfNormalizationError(
+            "insufficient_extractable_text",
+            (
+                "Uploaded PDF does not contain enough extractable text for a reliable learning outline. "
+                "OCR is not configured."
+            ),
+        )
+    return ExtractedUploadedPdf(
+        text="\n\n".join(pages),
+        page_numbers=tuple(page_numbers),
+        total_pages=total_pages,
+    )
+
+
+def _mixed_pdf_warning(extracted: ExtractedUploadedPdf) -> str:
+    return (
+        f"Text could not be extracted reliably from {extracted.skipped_page_count} of "
+        f"{extracted.total_pages} pages; the learning outline may be incomplete."
+    )
 
 
 def _page_reference(upload_id: str, pages: tuple[int, ...]) -> str:
