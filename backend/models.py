@@ -4,8 +4,6 @@ Pydantic Models
 Request and response models for the FastAPI backend.
 """
 
-import uuid
-
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from backend.resource_types import ALLOWED_RESOURCE_TYPES, ResourceType
@@ -26,7 +24,6 @@ class CourseInputRequest(BaseModel):
     book_author: str | None = Field(None, description="Book author(s)")
     book_edition: str | None = Field(None, description="Book edition")
     isbn: str | None = Field(None, description="Book ISBN")
-    book_upload_id: str | None = Field(None, description="Opaque ID returned by /api/upload-pdf")
     book_url: str | None = Field(None, description="Book URL")
     # Email field - COMMENTED OUT but kept for API compatibility
     email: str | None = Field(None, description="Email address to receive results (optional, currently disabled)")
@@ -179,18 +176,6 @@ class CourseInputRequest(BaseModel):
 
         return v
 
-    @field_validator("book_upload_id", mode="after")
-    @classmethod
-    def validate_book_upload_id(cls, v):
-        """Validate upload IDs without exposing server file paths."""
-        if v is None or v == "":
-            return v
-
-        try:
-            return str(uuid.UUID(v))
-        except ValueError as error:
-            raise ValueError("Invalid upload ID") from error
-
     # Email validation - COMMENTED OUT
     # @field_validator('email', mode='after')
     # @classmethod
@@ -216,37 +201,9 @@ class CourseInputRequest(BaseModel):
                 "course_url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/",
                 "book_title": "Introduction to Algorithms",
                 "book_author": "Cormen, Leiserson, Rivest, Stein",
-                "book_upload_id": "123e4567-e89b-12d3-a456-426614174000",
             }
         },
     )
-
-
-class ResolvedCourseInput(CourseInputRequest):
-    """Server-internal input carrying values a client is never allowed to set.
-
-    `book_pdf_path` is the local file the pipeline reads, so it may only ever
-    come from resolving an upload ID against its owner's storage. It lives here
-    rather than on `CourseInputRequest` so no request body can supply it, and
-    it is never used as a route model. `owner_user_id` travels with the path so
-    a consumer can re-derive whose upload directory the path must belong to; a
-    path without its owner is not enough to authorize a read.
-    """
-
-    book_pdf_path: str | None = Field(None, description="Server-resolved path to an owned PDF upload")
-    owner_user_id: str | None = Field(None, description="Authenticated user the resolved path was resolved for")
-
-    @classmethod
-    def from_request(
-        cls,
-        request: CourseInputRequest,
-        *,
-        owner_user_id: str,
-        book_pdf_path: str | None = None,
-    ) -> "ResolvedCourseInput":
-        """Return the internal form of a validated request plus resolved paths."""
-
-        return cls(**request.model_dump(), book_pdf_path=book_pdf_path, owner_user_id=owner_user_id)
 
 
 class JobSubmitResponse(BaseModel):
@@ -266,14 +223,6 @@ class JobSubmitResponse(BaseModel):
             }
         }
     )
-
-
-class PdfUploadResponse(BaseModel):
-    """Response model for PDF uploads."""
-
-    upload_id: str = Field(..., description="Opaque PDF upload ID for use as book_upload_id")
-
-    model_config = ConfigDict(json_schema_extra={"example": {"upload_id": "123e4567-e89b-12d3-a456-426614174000"}})
 
 
 class WorkerHealthResponse(BaseModel):

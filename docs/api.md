@@ -14,7 +14,6 @@ Internal reference for the FastAPI backend. Read this before modifying routes, a
 | POST | `/api/submit` | JWT | 10/hour, 2/min | Submit a job |
 | GET | `/api/status/{job_id}` | JWT | 100/min | Poll job status |
 | POST | `/api/cancel/{job_id}` | JWT | 20/hour | Cancel a job |
-| POST | `/api/upload-pdf` | JWT | 5/hour | Upload a PDF textbook |
 
 All protected routes use the `get_current_user` FastAPI dependency (`backend/auth.py`).
 
@@ -63,17 +62,6 @@ If a job is stuck in `queued` for more than 30 seconds, `GET /api/status` checks
 
 ---
 
-## PDF Upload Flow
-
-Two-step process — upload first, then submit:
-
-1. `POST /api/upload-pdf` — returns `{"upload_id": "<uuid>"}`. File is validated by extension, `Content-Type`, and magic bytes (libmagic). Max 50 MB.
-2. `POST /api/submit` — pass `book_upload_id: "<uuid>"` in the request body. The backend resolves it to an internal path scoped to the user.
-
-`book_upload_id` must be a valid UUID string. The upload is user-scoped — another user's upload ID returns 400.
-
----
-
 ## Supabase Client Modes
 
 `get_supabase_client()` in `backend/database.py` has two modes:
@@ -105,14 +93,11 @@ Both systems share a single source of truth: `backend/origins.py`.
 - `topics_list` allows up to 1000 characters; other text fields 200
 - `excluded_sites` / `targeted_sites` must be comma-separated valid domain names (no IPs, no localhost)
 - `isbn` must be a valid ISBN-10 or ISBN-13 format
-- `book_upload_id` must be a valid UUID string
-- Unknown fields are rejected with 422; server-internal values such as the
-  resolved PDF path cannot be supplied by a client
+- Unknown fields are rejected with 422
 
 At least one of the following groups must be present or the request is rejected with 400:
 - Course info: `course_name`, `university_name`, `course_url`, or `topics_list`
 - Book identity: `textbook`, `book_title`, `book_author`, or `isbn`
-- Book file: `book_upload_id`
 - Book link: `book_url`
 
 ---

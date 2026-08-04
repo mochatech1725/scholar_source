@@ -1,10 +1,9 @@
 """Bound extracted text before it is handed to a chat model.
 
 Extraction can produce far more text than a chat model can accept: a fetched
-page is capped only by `max_fetch_bytes`, and an uploaded book is capped only
-by `max_upload_pdf_bytes`. Truncation happens here, once, so every adapter
-shortens text the same way and reports the same visible warning instead of
-silently sending an oversized prompt.
+page is capped only by `max_fetch_bytes`. Truncation happens here, once, so
+every adapter shortens text the same way and reports the same visible warning
+instead of silently sending an oversized prompt.
 """
 
 from __future__ import annotations

@@ -31,7 +31,6 @@ def test_crew():
             "book_title": "",
             "book_author": "",
             "isbn": "",
-            "book_pdf_path": "",
             "book_url": "",
         }
 

@@ -37,7 +37,6 @@ class LearningInputKind(StrEnum):
     COURSE_PAGE = "course_page"
     EDUCATIONAL_PAGE = "educational_page"
     BOOK_URL = "book_url"
-    UPLOADED_PDF = "uploaded_pdf"
     ISBN = "isbn"
     BOOK_METADATA = "book_metadata"
 

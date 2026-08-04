@@ -4,12 +4,9 @@ Integration tests for FastAPI endpoints.
 Tests all API endpoints with mock dependencies.
 """
 
-import uuid
 from datetime import UTC
 
 import pytest
-
-from tests.conftest import TEST_USER_ID
 
 
 class TestHealthEndpoint:
@@ -100,65 +97,6 @@ class TestSubmitEndpoint:
         data = response.json()
         assert "detail" in data
         assert "error" in data["detail"]
-
-    def test_submit_rejects_client_supplied_pdf_path(self, client, mock_supabase):
-        """Should reject a hand-written book_pdf_path with 422."""
-        payload = {"course_url": "https://example.com", "book_pdf_path": "/etc/passwd"}
-        response = client.post("/api/submit", json=payload)
-
-        assert response.status_code == 422
-
-    def test_submit_rejects_client_supplied_upload_owner(self, client, mock_supabase):
-        """Should reject a hand-written owner_user_id with 422."""
-        payload = {"course_url": "https://example.com", "owner_user_id": TEST_USER_ID}
-        response = client.post("/api/submit", json=payload)
-
-        assert response.status_code == 422
-
-    def test_submit_rejects_another_users_upload_id(self, client, mock_supabase, tmp_path, monkeypatch):
-        """Should reject an upload ID stored under a different user's directory."""
-        other_user_id = str(uuid.uuid4())
-        upload_id = str(uuid.uuid4())
-        other_upload = tmp_path / other_user_id / f"{upload_id}.pdf"
-        other_upload.parent.mkdir(parents=True)
-        other_upload.write_bytes(b"%PDF-1.4 borrowed")
-        monkeypatch.setattr("backend.uploads.UPLOAD_ROOT", tmp_path)
-
-        response = client.post("/api/submit", json={"book_upload_id": upload_id})
-
-        assert response.status_code == 400
-        assert response.json()["detail"]["error"] == "Invalid upload"
-
-    def test_submit_records_the_authenticated_owner_of_a_resolved_upload(
-        self,
-        client,
-        mock_supabase,
-        mock_crew_success,
-        tmp_path,
-        monkeypatch,
-    ):
-        """Should resolve an owned upload to a path carrying the authenticated owner."""
-        upload_id = str(uuid.uuid4())
-        owned_upload = tmp_path / TEST_USER_ID / f"{upload_id}.pdf"
-        owned_upload.parent.mkdir(parents=True)
-        owned_upload.write_bytes(b"%PDF-1.4 owned")
-        monkeypatch.setattr("backend.uploads.UPLOAD_ROOT", tmp_path)
-        from backend import main
-
-        captured: dict = {}
-        real_create_job = main.create_job
-
-        def capture_inputs(inputs, user_id, **kwargs):
-            captured.update(inputs)
-            return real_create_job(inputs, user_id, **kwargs)
-
-        monkeypatch.setattr(main, "create_job", capture_inputs)
-
-        response = client.post("/api/submit", json={"book_upload_id": upload_id})
-
-        assert response.status_code == 200
-        assert captured["owner_user_id"] == TEST_USER_ID
-        assert captured["book_pdf_path"] == str(owned_upload)
 
     def test_submit_with_desired_resource_types(self, client, mock_supabase, mock_crew_success):
         """Should accept desired_resource_types list."""

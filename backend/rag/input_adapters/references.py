@@ -19,7 +19,6 @@ class InputSourceReference(StrEnum):
     RESOURCE_PREFERENCES = "resource_preferences"
     COURSE_URL = "course_url"
     BOOK_URL = "book_url"
-    BOOK_UPLOAD_ID = "book_upload_id"
     ISBN = "isbn"
     BOOK_TITLE = "book_title"
     BOOK_AUTHOR = "book_author"

@@ -68,7 +68,6 @@ _REQUIRED_KEYS: list[str] = [
     "book_title",
     "book_author",
     "isbn",
-    "book_pdf_path",
     "book_url",
     "desired_resource_types",
     "excluded_sites",
@@ -176,16 +175,6 @@ def _parse_crew_results(
     )
 
 
-def _cleanup_pdf(normalized_inputs: dict) -> None:
-    """Remove the temporary PDF upload file if it came from /tmp/scholar_uploads/."""
-    pdf_path = normalized_inputs.get("book_pdf_path", "")
-    if pdf_path and pdf_path.startswith("/tmp/scholar_uploads/"):
-        try:
-            os.unlink(pdf_path)
-        except OSError as e:
-            logger.warning(f"Failed to remove temp PDF {pdf_path}: {e}")
-
-
 def _handle_task_failure(
     job_id: str,
     e: Exception,
@@ -207,8 +196,6 @@ def _handle_task_failure(
 
     logger.error(f"❌ Job {job_id} failed with {error_type}: {technical_error} (elapsed: {elapsed:.2f}s)")
     logger.error(stack_trace)
-
-    _cleanup_pdf(normalized_inputs)
 
     update_job_status(
         job_id,
@@ -358,8 +345,6 @@ def run_crew_task(
         if section_groups:
             metadata["section_groups"] = section_groups
 
-        _cleanup_pdf(normalized_inputs)
-
         # Check if job was cancelled during execution
         job = get_job(job_id, use_service_role=True)
         if job and job.get("status") == "cancelled":
@@ -502,8 +487,6 @@ def run_crew_task_sync(
             metadata["textbook_info"] = textbook_info
         if section_groups:
             metadata["section_groups"] = section_groups
-
-        _cleanup_pdf(normalized_inputs)
 
         # Check if job was cancelled during execution
         job = get_job(job_id, use_service_role=True)

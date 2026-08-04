@@ -24,6 +24,24 @@ reference implementation sections are kept in
 `docs/ScholarSource_v2_Reference_Code.md` and linked from the checklist
 sections they support. See "How to Use the Reference Code Sections" below.
 
+### Scope Change: PDF Upload Removed
+
+The uploaded-PDF input was dropped from the product on 2026-08-04. It carried
+the largest maintenance and security surface of any input — a file-accepting
+endpoint, user-scoped storage, ownership checks, MIME and magic-byte
+validation, page-level text-coverage thresholds, and temp-file cleanup — while
+serving the case a student can already express by typing a book title or ISBN.
+
+Completed Phase 0 steps that hardened this path (0.6.3, 0.6.4, 0.6.5, 0.6.6,
+0.7.4, and the upload-related items in 1.8) are left checked as an audit
+trail; they were real work and were correct when done. Steps that were still
+open when the input was removed (0.6.10, 0.6.11, 0.7.7) are marked withdrawn
+rather than deleted, with the reason recorded inline.
+
+Accepted inputs are now: topics list, course page URL, book URL, ISBN, and
+book title/author metadata. A PDF reached by URL is still a valid *source* for
+extraction; only user file upload is gone.
+
 ---
 
 ## Guiding Rules
@@ -389,14 +407,13 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
   execute only to the service role, pin `search_path`, and bound
   `match_limit`. The functions are currently protected only by the accident
   that `rag_chunks` has row level security enabled with no policies.
-- [ ] 0.6.10 Add uploaded-PDF deletion to the v2 path. The only cleanup today
-  is `_cleanup_pdf` in `backend/tasks.py`, which is removed with CrewAI at
-  step 5.1.8, so after cutover uploaded textbooks would accumulate on disk
-  indefinitely. Resolve the path before any prefix check rather than porting
-  the current unresolved comparison forward.
-- [ ] 0.6.11 Enforce the upload size limit before the request body is fully
-  buffered in `backend/main.py`. The `/api/upload-pdf` handler reads the whole
-  upload into memory and only then compares against the 50 MB limit.
+- [x] 0.6.10 ~~Add uploaded-PDF deletion to the v2 path.~~ Withdrawn: the PDF
+  upload input was dropped from the product (see "Scope Change" in Working
+  Context). `_cleanup_pdf` and the upload storage it cleaned no longer exist,
+  so there is nothing left to accumulate on disk.
+- [x] 0.6.11 ~~Enforce the upload size limit before the request body is fully
+  buffered.~~ Withdrawn: `/api/upload-pdf` was removed, so the unbounded-buffer
+  path it described is gone.
 - [ ] 0.6.12 Add regression tests for each of the above: a blocked
   internal-address fetch, a blocked redirect to an internal address, an
   oversized response aborted mid-stream, a truncated over-budget extraction, a
@@ -419,8 +436,9 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
   retrieval results.
 - [ ] 0.7.6 The retrieval RPCs are not executable by the `anon` or
   `authenticated` roles, verified against the local Supabase stack.
-- [ ] 0.7.7 An uploaded PDF is removed from disk after its run completes,
-  including when the run fails.
+- [x] 0.7.7 ~~An uploaded PDF is removed from disk after its run completes,
+  including when the run fails.~~ Withdrawn with steps 0.6.10 and 0.6.11: no
+  request can place a PDF on disk anymore.
 - [ ] 0.7.8 The validation gates in AGENTS.md pass with the new regression
   tests in place.
 
@@ -507,7 +525,7 @@ This subsection tracks when to use the Manning liveProjects while building Phase
 
 ```text
 1. User input
-   topics | course/page URL | book URL | uploaded PDF | ISBN | book metadata
+   topics | course/page URL | book URL | ISBN | book metadata
    |
    v
 2. Input validation and adapter selection
@@ -517,7 +535,6 @@ This subsection tracks when to use the Manning liveProjects while building Phase
 3. Normalize into one typed learning request
    topics: normalize directly
    page/book URL: fetch HTML or PDF -> extract text and metadata
-   uploaded PDF: validate -> measure page-level text coverage -> accept, warn, or reject without OCR
    ISBN: canonicalize -> cached metadata/contents lookup
    extracted material -> schema-constrained title/subject/topic derivation
    |
@@ -1073,11 +1090,11 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 - [ ] 3.1.6 Include at least three cases where good sources are hard to find.
 - [ ] 3.1.7 Include at least three cases where low-quality sources are tempting.
 - [ ] 3.1.8 Include successful golden cases for every accepted input type:
-  topics, course page, general page, book page, direct PDF URL, uploaded PDF,
-  ISBN, and book metadata.
-- [ ] 3.1.9 Include normalization failure cases for scanned or invalid PDFs,
-  inaccessible URLs, unknown ISBNs, insufficient ISBN metadata, and ambiguous
-  multi-input submissions.
+  topics, course page, general page, book page, direct PDF URL, ISBN, and
+  book metadata.
+- [ ] 3.1.9 Include normalization failure cases for invalid PDFs fetched from
+  a URL, inaccessible URLs, unknown ISBNs, insufficient ISBN metadata, and
+  ambiguous multi-input submissions.
 
 ### 3.2 Retrieval Evaluation
 
@@ -1336,7 +1353,7 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
 - [ ] Build reranking.
 - [ ] Build cited synthesis.
 - [ ] Build the canonical normalized learning request.
-- [ ] Build and test topic, URL, book URL, PDF, ISBN, and book metadata input adapters.
+- [ ] Build and test topic, URL, book URL, ISBN, and book metadata input adapters.
 - [ ] Add run logging.
 - [ ] Add run comparison.
 - [ ] Build the golden eval set.

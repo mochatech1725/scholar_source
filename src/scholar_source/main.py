@@ -27,7 +27,6 @@ Examples:
   %(prog)s --isbn "978-0262046305"
   %(prog)s --book-url "https://mitpress.mit.edu/9780262046305/introduction-to-algorithms/"
   %(prog)s --course-info-url "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/"
-  %(prog)s --book-pdf-path "/path/to/textbook.pdf"
   %(prog)s -u "MIT" -c "Introduction to Algorithms" --book-title "Introduction to Algorithms"
         """,
     )
@@ -42,7 +41,6 @@ Examples:
     parser.add_argument("--book-title", help='Book title (e.g., "Introduction to Algorithms")')
     parser.add_argument("--book-author", help='Book author(s) (e.g., "Cormen, Leiserson, Rivest, Stein")')
     parser.add_argument("--isbn", help='ISBN of the book (e.g., "978-0262046305")')
-    parser.add_argument("--book-pdf-path", help="Local path to PDF copy of the course book")
     parser.add_argument("--book-url", help="Online link to the book (e.g., publisher website, Amazon, etc.)")
 
     return parser.parse_args()
@@ -55,8 +53,7 @@ def validate_inputs(inputs):
     Required combinations (at least one must be satisfied):
     1. (course_name OR university_name) OR course_url
     2. OR (book_title AND book_author) OR isbn
-    3. OR book_pdf_path
-    4. OR book_url
+    3. OR book_url
 
     Args:
         inputs: Dictionary of input values
@@ -72,11 +69,10 @@ def validate_inputs(inputs):
 
     has_book_info = (inputs.get("book_title") and inputs.get("book_author")) or inputs.get("isbn")
 
-    has_book_file = bool(inputs.get("book_pdf_path"))
     has_book_link = bool(inputs.get("book_url"))
 
     # At least one combination must be satisfied
-    is_valid = has_course_info or has_book_info or has_book_file or has_book_link
+    is_valid = has_course_info or has_book_info or has_book_link
 
     if not is_valid:
         error_msg = """
@@ -87,16 +83,13 @@ Required combinations (at least one):
      - (--course-name OR --university-name) OR --course-url
   2. Book identification:
      - (--book-title AND --book-author) OR --isbn
-  3. Book file:
-     - --book-pdf-path
-  4. Book link:
+  3. Book link:
      - --book-url
 
 Example usage:
   scholar_source --book-title "Introduction to Algorithms" --book-author "Cormen, Leiserson, Rivest, Stein"
   scholar_source --isbn "978-0262046305"
   scholar_source --book-url "https://mitpress.mit.edu/9780262046305/introduction-to-algorithms/"
-  scholar_source --book-pdf-path "/path/to/textbook.pdf"
   scholar_source -u "MIT" -c "Introduction to Algorithms"
   scholar_source --course-url "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/"
 
@@ -128,7 +121,6 @@ def build_inputs_from_args(args):
         "book_title": args.book_title,
         "book_author": args.book_author,
         "isbn": args.isbn,
-        "book_pdf_path": args.book_pdf_path,
         "book_url": args.book_url,
     }
 

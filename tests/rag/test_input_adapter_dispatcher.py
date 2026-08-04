@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from backend.models import CourseInputRequest, ResolvedCourseInput
+from backend.models import CourseInputRequest
 from backend.rag.errors import AmbiguousLearningInputError, UnsupportedLearningInputError
 from backend.rag.input_adapters import AdapterDispatcher, select_primary_input
 from backend.rag.models import (
@@ -22,21 +22,6 @@ from backend.rag.models import (
         (CourseInputRequest(topics_list="limits, derivatives"), LearningInputKind.TOPIC_LIST, ("topics_list",)),
         (CourseInputRequest(course_url="https://example.edu/course"), LearningInputKind.COURSE_PAGE, ("course_url",)),
         (CourseInputRequest(book_url="https://example.com/book"), LearningInputKind.BOOK_URL, ("book_url",)),
-        (
-            CourseInputRequest(book_upload_id="123e4567-e89b-12d3-a456-426614174000"),
-            LearningInputKind.UPLOADED_PDF,
-            ("book_upload_id",),
-        ),
-        (
-            ResolvedCourseInput(
-                book_upload_id="123e4567-e89b-12d3-a456-426614174000",
-                book_pdf_path=(
-                    "/tmp/scholar_uploads/123e4567-e89b-12d3-a456-426614174001/123e4567-e89b-12d3-a456-426614174000.pdf"
-                ),
-            ),
-            LearningInputKind.UPLOADED_PDF,
-            ("book_upload_id",),
-        ),
         (CourseInputRequest(isbn="9780262046305"), LearningInputKind.ISBN, ("isbn",)),
         (
             CourseInputRequest(book_title="Algorithms", book_author="Ada Author"),

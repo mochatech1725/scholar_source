@@ -16,13 +16,6 @@ def test_input_adapter_version_is_centralized() -> None:
     assert DEFAULT_SETTINGS.topic_list_adapter_version == "v1"
 
 
-def test_uploaded_pdf_text_coverage_policy_is_recorded() -> None:
-    assert DEFAULT_SETTINGS.uploaded_pdf_min_page_chars == 40
-    assert DEFAULT_SETTINGS.uploaded_pdf_min_total_chars == 200
-    assert DEFAULT_SETTINGS.uploaded_pdf_min_text_pages == 2
-    assert DEFAULT_SETTINGS.uploaded_pdf_min_text_page_ratio == 0.2
-
-
 def test_outline_input_budget_is_recorded_and_bounded() -> None:
     assert DEFAULT_SETTINGS.max_outline_input_chars == 60_000
     assert DEFAULT_SETTINGS.max_outline_input_chars < DEFAULT_SETTINGS.max_fetch_bytes

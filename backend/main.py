@@ -9,8 +9,7 @@ import os
 from datetime import UTC, datetime
 from uuid import UUID
 
-import filetype
-from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
@@ -29,13 +28,10 @@ from backend.models import (
     HealthResponse,
     JobStatusResponse,
     JobSubmitResponse,
-    PdfUploadResponse,
-    ResolvedCourseInput,
     WorkerHealthResponse,
 )
 from backend.origins import allowed_origins
 from backend.rate_limiter import limiter, rate_limit_handler
-from backend.uploads import resolve_pdf_upload, save_pdf_upload
 from backend.version import APP_VERSION
 
 # Load environment variables
@@ -196,26 +192,7 @@ async def submit_job(
     access_token = current_user.get("access_token")
     logger.info(f"Job submission request from user: {user_id}")
 
-    # Resolve public upload IDs to internal, user-scoped file paths. The path
-    # only ever exists on the internal model, never on the request body.
-    resolved_pdf_path: str | None = None
-    if course_input.book_upload_id:
-        try:
-            pdf_path = resolve_pdf_upload(user_id, course_input.book_upload_id)
-        except ValueError as error:
-            raise HTTPException(
-                status_code=400,
-                detail={"error": "Invalid upload", "message": "Invalid PDF upload ID"},
-            ) from error
-        if pdf_path is None:
-            raise HTTPException(status_code=400, detail={"error": "Invalid upload", "message": "PDF upload not found"})
-        resolved_pdf_path = str(pdf_path)
-
-    inputs = ResolvedCourseInput.from_request(
-        course_input,
-        owner_user_id=user_id,
-        book_pdf_path=resolved_pdf_path,
-    ).model_dump()
+    inputs = course_input.model_dump()
 
     # Validate that at least one input is provided
     if not validate_crew_inputs(inputs):
@@ -226,7 +203,7 @@ async def submit_job(
                 "message": "You must provide at least one of the following: "
                 "course info (course_name, university_name, course_url, or topics_list), "
                 "book info (textbook, book_title, book_author, or isbn), "
-                "uploaded book file (book_upload_id), or book URL (book_url)",
+                "or book URL (book_url)",
             },
         )
 
@@ -428,69 +405,6 @@ async def cancel_job(request: Request, job_id: UUID, current_user: dict = Depend
             status_code=500,
             detail={"error": "Cancellation failed", "message": user_message},
         ) from e
-
-
-@app.post("/api/upload-pdf", response_model=PdfUploadResponse, tags=["Jobs"])
-@limiter.limit("5/hour")
-async def upload_pdf(request: Request, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
-    """
-    Upload a PDF textbook for chapter-aware resource search.
-
-    Saves the file to a temporary location and returns an opaque upload ID,
-    which should be passed as book_upload_id in a subsequent /api/submit call.
-
-    Args:
-        file: PDF file to upload (max 50 MB)
-        current_user: Authenticated user (automatically extracted from JWT)
-
-    Returns:
-        PdfUploadResponse: {"upload_id": "<uuid>"}
-
-    Raises:
-        HTTPException: If file is invalid or upload fails
-        AuthenticationError: If authentication fails (401)
-    """
-    validate_origin(request)
-    user_id = current_user["id"]
-
-    # Validate file type by extension and content-type
-    filename = file.filename or ""
-    if not filename.lower().endswith(".pdf"):
-        raise HTTPException(
-            status_code=400, detail={"error": "Invalid file type", "message": "Only PDF files are accepted"}
-        )
-    content_type = file.content_type or ""
-    if "pdf" not in content_type.lower():
-        raise HTTPException(
-            status_code=400, detail={"error": "Invalid content type", "message": "File must be a PDF (application/pdf)"}
-        )
-
-    # Read and check size (50 MB limit)
-    MAX_SIZE = 50 * 1024 * 1024
-    contents = await file.read()
-    if len(contents) > MAX_SIZE:
-        raise HTTPException(
-            status_code=413, detail={"error": "File too large", "message": "PDF must be 50 MB or smaller"}
-        )
-
-    # Validate true file type via magic bytes (not just extension/content-type)
-    kind = filetype.guess(contents[:2048])
-    detected_mime = kind.mime if kind else None
-    if detected_mime != "application/pdf":
-        raise HTTPException(
-            status_code=400, detail={"error": "Invalid file", "message": "File contents do not match a valid PDF"}
-        )
-
-    try:
-        upload_id, pdf_path = save_pdf_upload(user_id, contents)
-    except (OSError, ValueError) as e:
-        logger.error(f"PDF upload failed for user {user_id}: {e}")
-        raise HTTPException(
-            status_code=500, detail={"error": "Upload failed", "message": "Could not save uploaded file"}
-        ) from e
-
-    logger.info(f"PDF uploaded for user {user_id}: {pdf_path}")
-    return {"upload_id": upload_id}
 
 
 # Development server command:

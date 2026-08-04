@@ -20,10 +20,6 @@ course_analysis_task:
       Extract title and author. If a book URL is found, treat as book_url above.
       Otherwise, infer general topics from title/author.
 
-    {book_pdf_path} (no book_url):
-      Use "Table of Contents Extractor" with {book_pdf_path} as URL. Extract TOC only.
-      Set textbook_source="uploaded_pdf".
-
     {course_url} (no book inputs):
       Fetch ONCE. Extract topics from syllabus/description.
       Follow syllabus link if present (1 extra fetch max).
@@ -39,7 +35,7 @@ course_analysis_task:
         If no match: use all top-level topics.
       Else: set search_mode="standard", chapter_sections=[].
 
-    Inputs: {course_url}, {book_url}, {book_pdf_path}, {topics_list}, {isbn}, {chapter}, {sections}
+    Inputs: {course_url}, {book_url}, {topics_list}, {isbn}, {chapter}, {sections}
 
   expected_output: >
     JSON with keys: textbook_title, textbook_author, textbook_source,

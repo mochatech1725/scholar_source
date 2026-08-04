@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { submitJob, uploadPdf } from '../api/client';
+import { submitJob } from '../api/client';
 import InlineSearchStatus from '../components/InlineSearchStatus';
 import ResultsTable from '../components/ResultsTable';
 import StatusMessage from '../components/StatusMessage';
@@ -19,7 +19,6 @@ const SEARCH_TYPES = [
   { value: 'course_url', label: 'Course URL',  icon: '🎓' },
   { value: 'book_url',   label: 'Book URL',    icon: '📖' },
   { value: 'isbn',       label: 'ISBN',         icon: '🔢' },
-  { value: 'book_pdf',   label: 'PDF Upload',  icon: '📄' },
 ];
 
 const RESOURCE_TYPES = [
@@ -50,10 +49,8 @@ export default function HomePage() {
     targeted_sites: '',
     chapter: '',
     sections: '',
-    preferred_creators: '',
-    book_upload_id: ''
+    preferred_creators: ''
   });
-  const [pdfFile, setPdfFile] = useState(null);
   const [validationError, setValidationError] = useState('');
   const [isChapterSearchExpanded, setIsChapterSearchExpanded] = useState(false);
   const [isFocusTopicsExpanded, setIsFocusTopicsExpanded] = useState(false);
@@ -87,7 +84,6 @@ export default function HomePage() {
   const handleSearchParamChange = (value) => {
     setSearchParamType(value);
     if (validationError) setValidationError('');
-    setPdfFile(null);
     setFormData(prev => ({
       course_url: '',
       book_url: '',
@@ -98,8 +94,7 @@ export default function HomePage() {
       targeted_sites: prev.targeted_sites,
       chapter: prev.chapter,
       sections: prev.sections,
-      preferred_creators: prev.preferred_creators,
-      book_upload_id: ''
+      preferred_creators: prev.preferred_creators
     }));
   };
 
@@ -109,7 +104,6 @@ export default function HomePage() {
       case 'course_url': return formData.course_url.trim() !== '';
       case 'book_url':   return formData.book_url.trim() !== '';
       case 'isbn':       return formData.isbn.trim() !== '';
-      case 'book_pdf':   return pdfFile !== null;
       default:           return false;
     }
   };
@@ -126,10 +120,8 @@ export default function HomePage() {
       targeted_sites: '',
       chapter: '',
       sections: '',
-      preferred_creators: '',
-      book_upload_id: ''
+      preferred_creators: ''
     });
-    setPdfFile(null);
     setSectionGroups(null);
     setValidationError('');
     setIsChapterSearchExpanded(false);
@@ -156,9 +148,6 @@ export default function HomePage() {
       case 'isbn':
         if (!formData.isbn.trim()) { setValidationError('Please provide a Book ISBN'); return; }
         break;
-      case 'book_pdf':
-        if (!pdfFile) { setValidationError('Please select a PDF file to upload'); return; }
-        break;
       default:
         setValidationError('Please select a valid search type');
         return;
@@ -174,14 +163,7 @@ export default function HomePage() {
       setJobId(null);
       setIsLoading(true);
 
-      let payload = { ...formData };
-
-      if (searchParamType === 'book_pdf' && pdfFile) {
-        const { upload_id } = await uploadPdf(pdfFile);
-        payload = { ...payload, book_upload_id: upload_id };
-      }
-
-      const response = await submitJob(payload);
+      const response = await submitJob({ ...formData });
       setJobId(response.job_id);
     } catch (err) {
       setError(err.message);
@@ -229,7 +211,7 @@ export default function HomePage() {
     setJobId(null);
   }, []);
 
-  const isBookType = searchParamType === 'book_url' || searchParamType === 'isbn' || searchParamType === 'book_pdf';
+  const isBookType = searchParamType === 'book_url' || searchParamType === 'isbn';
   const hasRightContent = jobId !== null || results !== null || error !== null || statusMessage !== null;
 
   return (
@@ -279,7 +261,7 @@ export default function HomePage() {
                 <p className="hero-steps-eyebrow">How it works</p>
                 <div className="hero-steps-list">
                   {[
-                    { num: 1, icon: '🎓', title: 'Enter your course details', desc: 'Provide a course URL, textbook link, ISBN, or upload a PDF syllabus.' },
+                    { num: 1, icon: '🎓', title: 'Enter your course details', desc: 'Provide a course URL, textbook link, or ISBN.' },
                     { num: 2, icon: '🔍', title: 'AI discovers resources', desc: 'Our AI agents find textbooks, lecture videos, practice problems, and more from trusted sources.' },
                     { num: 3, icon: '📋', title: 'Select & copy links', desc: 'Choose the resources you want, then copy their URLs with one click.' },
                     { num: 4, icon: '✨', title: 'Generate study tools', desc: 'Paste into NotebookLM to create summaries, flashcards, and practice quizzes.' },
@@ -364,7 +346,7 @@ export default function HomePage() {
               <div className="search-type-tab-group">
                 <div className="flex items-baseline gap-2 mb-2">
                   <TextLabel required>Search By</TextLabel>
-                  <span className="text-xs text-slate-500">Select what you have — a URL, ISBN, or PDF to upload.</span>
+                  <span className="text-xs text-slate-500">Select what you have — a course URL, book URL, or ISBN.</span>
                 </div>
                 <div className="search-type-tab-bar" role="radiogroup" aria-label="Search type">
                   {SEARCH_TYPES.map(({ value, label, icon }) => {
@@ -403,36 +385,6 @@ export default function HomePage() {
                       <TextInput type="text" id="isbn" name="isbn" value={formData.isbn}
                         onChange={handleChange} placeholder="978-0262046305"
                         disabled={isLoading} required />
-                    )}
-                    {searchParamType === 'book_pdf' && (
-                      <>
-                        <input
-                          type="file"
-                          id="book_pdf_file"
-                          accept=".pdf"
-                          disabled={isLoading}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0] || null;
-                            if (file) {
-                              if (file.type !== 'application/pdf') {
-                                e.target.value = '';
-                                setPdfFile(null);
-                                alert('Only PDF files are accepted.');
-                                return;
-                              }
-                              if (file.size > 50 * 1024 * 1024) {
-                                e.target.value = '';
-                                setPdfFile(null);
-                                alert('File exceeds the 50 MB limit.');
-                                return;
-                              }
-                            }
-                            setPdfFile(file);
-                          }}
-                          className="block w-full text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                        />
-                        <p className="mt-1 text-xs text-slate-500">Max 50 MB. PDF will be uploaded securely.</p>
-                      </>
                     )}
                   </div>
                 )}

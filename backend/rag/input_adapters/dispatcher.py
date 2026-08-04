@@ -42,7 +42,7 @@ def select_primary_input(request: CourseInputRequest) -> PrimaryInputSelection:
         raise UnsupportedLearningInputError("Book author requires book_title or textbook.")
     raise UnsupportedLearningInputError(
         "No supported primary learning input was provided. Submit topics_list, course_url, book_url, "
-        "book_upload_id, ISBN, or book title metadata."
+        "ISBN, or book title metadata."
     )
 
 
@@ -74,20 +74,9 @@ def _primary_input_selections(request: CourseInputRequest) -> list[PrimaryInputS
         if getattr(request, field_name):
             selections.append(PrimaryInputSelection(input_kind=input_kind, populated_fields=(field_name,)))
 
-    # Only the opaque upload ID routes here. The resolved local path is server
-    # internal and can never stand in as a primary input on its own.
-    if request.book_upload_id:
-        selections.append(
-            PrimaryInputSelection(
-                input_kind=LearningInputKind.UPLOADED_PDF,
-                populated_fields=("book_upload_id",),
-            )
-        )
-
     metadata_fields = tuple(field_name for field_name in ("book_title", "textbook") if getattr(request, field_name))
     book_context_kinds = {
         LearningInputKind.BOOK_URL,
-        LearningInputKind.UPLOADED_PDF,
         LearningInputKind.ISBN,
     }
     has_book_primary_input = any(selection.input_kind in book_context_kinds for selection in selections)

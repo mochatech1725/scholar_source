@@ -7,7 +7,7 @@
 ### What This Project Is
 
 **ScholarSource** - an AI-powered study resource finder. Users submit course
-info (URL, textbook, ISBN, PDF, or topic list) and the backend searches,
+info (URL, textbook, ISBN, or topic list) and the backend searches,
 validates, and formats supplementary learning resources into a markdown study
 guide optimized for import into NotebookLM.
 
@@ -44,7 +44,6 @@ scholar_source/
 |-- docs/                     # SDD, TDD, Deployment, Testing docs
 |-- supabase_schema.sql       # Fresh-database bootstrap schema + RLS policies
 |-- Procfile.railway          # Railway process definitions
-|-- nixpacks.toml             # Railway build config (libmagic1)
 `-- pyproject.toml            # Python project config (version source of truth)
 ```
 
@@ -159,7 +158,7 @@ python3 scripts/sync_web_package_version.py
 
 ### CrewAI Agents (v1, 4 Sequential)
 
-1. **Course Intelligence Agent** - extracts topics from URL/book/ISBN/PDF
+1. **Course Intelligence Agent** - extracts topics from URL/book/ISBN
 2. **Resource Discovery Agent** - finds 5-7 resources via Serper + YouTube
 3. **Resource Validator Agent** - verifies URLs, copyright, and NotebookLM
    compatibility

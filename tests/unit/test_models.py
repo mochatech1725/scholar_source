@@ -13,8 +13,6 @@ from backend.models import (
     HealthResponse,
     JobStatusResponse,
     JobSubmitResponse,
-    PdfUploadResponse,
-    ResolvedCourseInput,
     Resource,
     WorkerHealthResponse,
 )
@@ -136,62 +134,10 @@ class TestCourseInputRequest:
 
         assert request.isbn == "978-0262046305"
 
-    def test_client_supplied_pdf_path_is_rejected(self):
-        """Should reject a hand-written local PDF path on the public model."""
-        data = {"book_pdf_path": "/etc/passwd", "book_title": "Algorithms"}
-
-        with pytest.raises(ValidationError):
-            CourseInputRequest(**data)
-
     def test_unknown_fields_are_rejected(self):
         """Should reject any field the public request model does not define."""
         with pytest.raises(ValidationError):
             CourseInputRequest(book_title="Algorithms", not_a_field="value")
-
-    def test_resolved_input_carries_server_resolved_pdf_path_and_owner(self):
-        """Should accept a PDF path and its owner only on the server-internal model."""
-        request = CourseInputRequest(book_upload_id="123e4567-e89b-12d3-a456-426614174000")
-        user_id = "9f6f6cb0-6f1a-4d5f-9c2a-2c1f3f4c5d6e"
-
-        resolved = ResolvedCourseInput.from_request(
-            request,
-            owner_user_id=user_id,
-            book_pdf_path=f"/tmp/scholar_uploads/{user_id}/book.pdf",
-        )
-
-        assert resolved.book_upload_id == request.book_upload_id
-        assert resolved.book_pdf_path == f"/tmp/scholar_uploads/{user_id}/book.pdf"
-        assert resolved.owner_user_id == user_id
-
-    def test_resolved_input_defaults_to_no_pdf_path(self):
-        """Should leave the internal path unset when no upload was resolved."""
-        resolved = ResolvedCourseInput.from_request(
-            CourseInputRequest(book_title="Algorithms"),
-            owner_user_id="9f6f6cb0-6f1a-4d5f-9c2a-2c1f3f4c5d6e",
-        )
-
-        assert resolved.book_pdf_path is None
-
-    def test_owner_user_id_is_rejected_on_the_public_model(self):
-        """Should reject a client-supplied upload owner."""
-        with pytest.raises(ValidationError):
-            CourseInputRequest(book_title="Algorithms", owner_user_id="9f6f6cb0-6f1a-4d5f-9c2a-2c1f3f4c5d6e")
-
-    def test_book_upload_id_field(self):
-        """Should accept and normalize opaque PDF upload IDs."""
-        data = {"book_upload_id": "123E4567-E89B-12D3-A456-426614174000", "book_title": "Algorithms"}
-        request = CourseInputRequest(**data)
-
-        assert request.book_upload_id == "123e4567-e89b-12d3-a456-426614174000"
-
-    def test_invalid_book_upload_id_rejected(self):
-        """Should reject invalid PDF upload IDs."""
-        data = {"book_upload_id": "../secret.pdf", "book_title": "Algorithms"}
-
-        with pytest.raises(ValidationError) as exc_info:
-            CourseInputRequest(**data)
-
-        assert "Invalid upload ID" in str(exc_info.value)
 
     def test_book_url_field(self):
         """Should accept book URL."""
@@ -233,16 +179,6 @@ class TestJobSubmitResponse:
 
         with pytest.raises(ValidationError):
             JobSubmitResponse(**data)
-
-
-class TestPdfUploadResponse:
-    """Test PdfUploadResponse model."""
-
-    def test_valid_pdf_upload_response(self):
-        """Should create valid PDF upload response."""
-        response = PdfUploadResponse(upload_id="123e4567-e89b-12d3-a456-426614174000")
-
-        assert response.upload_id == "123e4567-e89b-12d3-a456-426614174000"
 
 
 class TestWorkerHealthResponse:

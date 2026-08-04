@@ -17,7 +17,6 @@ from backend.rag.input_adapters.isbn import (
 )
 from backend.rag.input_adapters.references import InputSourceReference
 from backend.rag.input_adapters.topic_list import TopicListAdapter
-from backend.rag.input_adapters.uploaded_pdf import UploadedPdfAdapter
 from backend.rag.input_adapters.url_page import (
     LearningOutline,
     LearningOutlineDeriver,
@@ -37,7 +36,6 @@ __all__ = [
     "IsbnMetadataProvider",
     "PrimaryInputSelection",
     "TopicListAdapter",
-    "UploadedPdfAdapter",
     "LearningOutline",
     "LearningOutlineDeriver",
     "StructuredLearningOutlineDeriver",

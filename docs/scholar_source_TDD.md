@@ -370,7 +370,7 @@ Row Level Security is enabled with a permissive policy allowing all operations.
 The model includes the following optional fields:
 
 - `university_name`, `course_name`, `course_url` (strings)
-- `isbn`, `book_pdf_path`, `book_url` (strings)
+- `isbn`, `book_url` (strings)
 - `topics_list`, `excluded_sites` (strings)
 - `desired_resource_types` (list of strings)
 
@@ -382,7 +382,7 @@ The model includes the following optional fields:
 
 2. **At Least One Field Required:**
    - Custom validation in `validate_crew_inputs()` function
-   - Checks for: course_url, course_name, university_name, isbn, book_pdf_path, book_url
+   - Checks for: course_url, course_name, university_name, isbn, book_url
    - Raises HTTPException 400 if none provided
 
 3. **Field Types:**

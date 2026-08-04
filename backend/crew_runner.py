@@ -210,8 +210,6 @@ def validate_crew_inputs(inputs: dict[str, str]) -> bool:
     - book_title
     - book_author
     - isbn
-    - book_upload_id
-    - book_pdf_path
     - book_url
 
     Args:
@@ -233,9 +231,8 @@ def validate_crew_inputs(inputs: dict[str, str]) -> bool:
     # Check for book identification. `textbook` is a legacy free-text field.
     has_book_info = any(has_value(key) for key in ("textbook", "book_title", "book_author", "isbn"))
 
-    # Check for uploaded/internal book file or link.
-    has_book_file = any(has_value(key) for key in ("book_upload_id", "book_pdf_path"))
+    # Check for a link to the book.
     has_book_link = has_value("book_url")
 
     # At least one combination must be satisfied
-    return has_course_info or has_book_info or has_book_file or has_book_link
+    return has_course_info or has_book_info or has_book_link

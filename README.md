@@ -12,8 +12,8 @@ resources.**
 
 ScholarSource helps students find useful learning material without asking them
 to translate their course into perfect search queries. A student can provide a
-course page, another educational page, a book URL, an uploaded book PDF, an
-ISBN, book details, or a topic list. ScholarSource derives the learning context,
+course page, another educational page, a book URL, an ISBN, book details, or a
+topic list. ScholarSource derives the learning context,
 finds relevant resources, rejects weak or unsafe sources, and builds a study
 guide whose recommendations link back to verified source evidence.
 
@@ -32,8 +32,8 @@ to assemble a source collection in Google NotebookLM.
 
 Finding material for a real course is harder than searching for its title.
 
-1. **Course context arrives in inconsistent forms.** A syllabus page, textbook
-   PDF, ISBN, and handwritten topic list may describe the same class in
+1. **Course context arrives in inconsistent forms.** A syllabus page, a book
+   page, an ISBN, and a handwritten topic list may describe the same class in
    completely different ways.
 2. **Search results are noisy.** Pirated books, answer-key sites, inaccessible
    pages, SEO content, and weakly related material can look credible at a
@@ -53,9 +53,9 @@ citations, and weak-evidence behavior explicit and testable.
 ## How a Request Moves Through v2
 
 ```text
- Course page       Page or book URL       PDF upload       ISBN       Topics
-      |                    |                   |              |           |
-      +--------------------+-------------------+--------------+-----------+
+ Course page       Page or book URL       ISBN       Topics
+      |                    |                  |            |
+      +--------------------+------------------+------------+
                                        |
                            +-----------v-----------+
                            |     Input adapters     |
@@ -109,9 +109,6 @@ The adapters are intentionally narrow:
 - Course and educational pages are fetched and reduced to a structured
   learning outline.
 - Book pages and direct PDF URLs use the same extraction contract.
-- Uploaded PDFs preserve user ownership and page provenance. V2 launch does
-  not perform OCR: image-only files fail explicitly, while mixed files must
-  meet deterministic text-coverage thresholds and warn about skipped pages.
 - ISBNs resolve bibliographic and available contents or subject metadata
   through a replaceable provider.
 - Book title and author fields become structured book context.
@@ -149,8 +146,6 @@ tests:
 - Deterministic query generation and candidate source collection
 - Source-quality policy with persisted rejection reasons
 - HTML and text-based PDF extraction with failure handling
-- Uploaded-PDF ownership checks, page-level text coverage, and explicit
-  no-OCR failure and mixed-file warning behavior
 - Ordered, metadata-preserving chunking
 - OpenAI embeddings with content-hash deduplication
 - Supabase PostgreSQL and pgvector persistence
