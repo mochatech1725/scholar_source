@@ -248,6 +248,65 @@ def test_url_adapter_truncates_extracted_text_and_warns() -> None:
     )
 
 
+def test_url_adapter_drops_topics_the_page_does_not_support() -> None:
+    deriver = StubOutlineDeriver(LearningOutline(topics=["Limits", "Offshore banking incorporation"], confidence=0.7))
+    adapter = UrlPageAdapter(
+        settings=DEFAULT_SETTINGS,
+        extractor=StubExtractor(content=_content()),
+        outline_deriver=deriver,
+    )
+
+    result = adapter.normalize(CourseInputRequest(course_url="https://example.edu/calculus"))
+
+    assert result.topics == ["Limits"]
+    assert result.warnings[0] == "1 derived topic(s) were dropped because the extracted content did not support them."
+    assert "Offshore" not in result.warnings[0]
+
+
+def test_url_adapter_rejects_an_outline_with_no_supported_topic() -> None:
+    adapter = UrlPageAdapter(
+        settings=DEFAULT_SETTINGS,
+        extractor=StubExtractor(content=_content()),
+        outline_deriver=StubOutlineDeriver(LearningOutline(topics=["Offshore banking incorporation"], confidence=0.7)),
+    )
+
+    with pytest.raises(InputNormalizationError, match="No derived learning topic was supported"):
+        adapter.normalize(CourseInputRequest(course_url="https://example.edu/calculus"))
+
+
+def test_structured_outline_deriver_drops_topics_absent_from_the_budgeted_text() -> None:
+    llm = Mock()
+    structured_llm = llm.with_structured_output.return_value
+    structured_llm.invoke.return_value = LearningOutline(
+        topics=["Derivatives", "Offshore banking incorporation"], confidence=0.7
+    )
+    deriver = StructuredLearningOutlineDeriver(DEFAULT_SETTINGS, llm=llm)
+
+    result = deriver.derive(
+        text="Limits and derivatives are the first learning objectives.",
+        source_url="https://example.edu/calculus",
+        media_type="html",
+    )
+
+    assert result.topics == ["Derivatives"]
+    assert result.warnings == ["1 derived topic(s) were dropped because the extracted content did not support them."]
+
+
+def test_structured_outline_deriver_rejects_a_fully_unsupported_outline() -> None:
+    llm = Mock()
+    llm.with_structured_output.return_value.invoke.return_value = LearningOutline(
+        topics=["Offshore banking incorporation"], confidence=0.7
+    )
+    deriver = StructuredLearningOutlineDeriver(DEFAULT_SETTINGS, llm=llm)
+
+    with pytest.raises(InputNormalizationError, match="No derived learning topic was supported"):
+        deriver.derive(
+            text="Limits and derivatives are the first learning objectives.",
+            source_url="https://example.edu/calculus",
+            media_type="html",
+        )
+
+
 def test_structured_outline_deriver_enforces_the_budget_on_its_own() -> None:
     llm = Mock()
     structured_llm = llm.with_structured_output.return_value

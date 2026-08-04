@@ -37,6 +37,14 @@ class RagSettings:
     # for an outline of a syllabus or a book's front matter, and a bounded
     # per-run prompt cost.
     max_outline_input_chars: int = 60_000
+    # Topic grounding (plan step 0.6.7). A derived topic is kept when at least
+    # this fraction of its meaningful words appears in the extracted text the
+    # model saw. Half admits ordinary rephrasing ("algorithm analysis" from a
+    # page listing algorithms) while rejecting topics built from vocabulary the
+    # page never used. max_topic_chars bounds a topic to a searchable concept:
+    # anything longer is prose or an instruction payload, not a topic.
+    min_topic_evidence_coverage: float = 0.5
+    max_topic_chars: int = 120
 
     # Chunking: ~1400 chars is roughly 350 tokens. Large enough that a chunk
     # carries a complete explanation, small enough that retrieval stays

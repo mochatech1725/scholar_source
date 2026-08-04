@@ -141,8 +141,37 @@ def test_dispatcher_runs_registered_book_url_adapter() -> None:
     assert result.input_kind is LearningInputKind.BOOK_URL
 
 
+def test_book_url_adapter_drops_topics_the_book_page_does_not_support() -> None:
+    adapter = BookUrlAdapter(
+        settings=DEFAULT_SETTINGS,
+        extractor=StubExtractor(content=_content()),
+        outline_deriver=StubOutlineDeriver(
+            LearningOutline(topics=["Data structures", "Offshore banking incorporation"], confidence=0.8)
+        ),
+    )
+
+    result = adapter.normalize(CourseInputRequest(book_url="https://publisher.example/books/algorithms"))
+
+    assert result.topics == ["Data structures"]
+    assert result.warnings == [
+        BOOK_CONTEXT_WARNING,
+        "1 derived topic(s) were dropped because the extracted content did not support them.",
+    ]
+
+
+def test_book_url_adapter_rejects_an_outline_with_no_supported_topic() -> None:
+    adapter = BookUrlAdapter(
+        settings=DEFAULT_SETTINGS,
+        extractor=StubExtractor(content=_content()),
+        outline_deriver=StubOutlineDeriver(LearningOutline(topics=["Offshore banking incorporation"], confidence=0.8)),
+    )
+
+    with pytest.raises(InputNormalizationError, match="No derived learning topic was supported"):
+        adapter.normalize(CourseInputRequest(book_url="https://publisher.example/books/algorithms"))
+
+
 def test_book_url_adapter_truncates_extracted_text_and_warns() -> None:
-    oversized = "Chapter 1: Algorithms. " * 200
+    oversized = "Chapter 1: Algorithm analysis and data structures. " * 200
     content = ExtractedContent(
         text=oversized,
         media_type="html",

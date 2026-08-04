@@ -387,13 +387,52 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
   rejected on the public model), and `tests/integration/test_api_endpoints.py`
   (422 on a client-supplied owner, 400 on another user's upload ID, and the
   authenticated owner recorded alongside the resolved path).
-- [ ] 0.6.7 Validate that every topic returned by the structured outline
+- [x] 0.6.7 Validate that every topic returned by the structured outline
   deriver is supported by the adapter's extracted input evidence, and reject
   or drop unsupported topics. Page and PDF text is attacker-controlled, and
   derived topics flow straight into search query generation, so this is the
   injection defense for the normalization path — not only a quality check.
   This is the same requirement as step 1.10.10, which steps 1.10.4, 1.10.5,
   and 1.10.6 shipped ahead of; completing it here satisfies both.
+  Done in `backend/rag/input_adapters/topic_evidence.py`:
+  `filter_supported_topics()` reduces both the evidence text and each topic to
+  the same word stems and keeps a topic only when at least
+  `RagSettings.min_topic_evidence_coverage` (0.5) of its non-stopword stems
+  appear in the text the model actually saw. The stemmer strips one trailing
+  plural `s` and nothing else — deliberately crude, and applied symmetrically,
+  so it can only ever merge a word with its own plural rather than quietly
+  widening what counts as support. Half coverage admits ordinary rephrasing
+  ("algorithm analysis" from a page listing algorithms) while rejecting a topic
+  built from vocabulary the page never used, which is the hallucination and
+  smuggled-instruction case. Two shape rules sit ahead of the coverage test,
+  because a topic can be built entirely from page words and still not be a
+  topic: anything over `RagSettings.max_topic_chars` (120) or containing a line
+  break is prose or an instruction payload, and anything containing a URL,
+  `www.`, or an email address is an address — which would otherwise carry an
+  attacker's destination into query generation with every one of its words
+  "supported".
+  The check runs at two levels, mirroring the 0.6.4 budget pattern.
+  `StructuredLearningOutlineDeriver` applies it to the budgeted text it sent,
+  so no outline leaves that boundary carrying unsupported topics even if a
+  future caller forgets; `UrlPageAdapter` and `BookUrlAdapter` apply it again
+  against their own extracted evidence, because the adapter owns the evidence
+  and a `LearningOutlineDeriver` is an injectable protocol it should not have
+  to trust. On the structured deriver the adapter pass drops nothing. An
+  outline with no supported topic left raises `InputNormalizationError` rather
+  than degrading to an empty topic list, and the visible warning reports only
+  how many topics were dropped — never their text, since echoing dropped
+  content back to the user would hand the injected string a second path to a
+  reader. The ISBN adapter is unaffected: its topics come from provider
+  subject and table-of-contents records, not from a model reading
+  attacker-supplied text. Derived title, subject, institution, and author are
+  not yet gated this way; they are single fields that do not seed query
+  generation, and tightening them is a separate decision. Coverage lives in
+  `tests/rag/test_topic_evidence.py` (kept, dropped, plural folding, stopword-
+  only topics, address and prose shapes, warning text that omits the dropped
+  topic, threshold validation), `tests/rag/test_url_page_adapter.py` and
+  `tests/rag/test_book_url_adapter.py` (adapter-level drop, adapter-level
+  rejection when nothing survives, and independent deriver enforcement), and
+  `tests/rag/test_config.py`.
 - [ ] 0.6.8 Decide and document the tenancy rule for the stored corpus.
   `match_rag_chunks` filters only on embedding model, so every chunk any run
   ever stored is retrievable by every other user. Choose between scoping
@@ -965,9 +1004,16 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   case-normalized bibliographic identity while learning topics are derived
   deterministically from explicit subject, chapter, section, and title fields.
   Focused coverage lives in `tests/rag/test_book_metadata_adapter.py`.
-- [ ] 1.10.10 Use schema-constrained, deterministic extraction for unstructured
+- [x] 1.10.10 Use schema-constrained, deterministic extraction for unstructured
   HTML, PDF, and ISBN metadata, and validate that every derived topic is
   supported by the adapter's extracted input evidence.
+  Schema-constrained extraction shipped with the adapters themselves: HTML and
+  PDF text goes through the versioned `LearningOutline` structured-output call
+  in 1.10.4 and 1.10.5 at temperature 0 with a fixed seed, and ISBN metadata
+  never reaches a model at all — 1.10.8 maps provider records onto the typed
+  `IsbnMetadata` contract. The evidence-support half was completed as step
+  0.6.7, which gates every model-derived topic against the extracted text the
+  outline model saw; see that entry for the rule, thresholds, and coverage.
 - [ ] 1.10.11 Hash and cache normalization results using the canonical primary
   input, relevant context fields, adapter version, extraction prompt version,
   and provider or OCR version.

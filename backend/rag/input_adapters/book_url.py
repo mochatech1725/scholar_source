@@ -10,6 +10,7 @@ from backend.rag.errors import InputNormalizationError
 from backend.rag.extraction.extractor import SourceExtractor
 from backend.rag.input_adapters.references import InputSourceReference
 from backend.rag.input_adapters.text_budget import apply_text_budget
+from backend.rag.input_adapters.topic_evidence import filter_supported_topics
 from backend.rag.input_adapters.url_page import LearningOutlineDeriver
 from backend.rag.models import (
     FieldProvenance,
@@ -41,6 +42,8 @@ class BookUrlAdapter:
         self._extractor = extractor
         self._outline_deriver = outline_deriver
         self._budget_chars = settings.max_outline_input_chars
+        self._min_topic_coverage = settings.min_topic_evidence_coverage
+        self._max_topic_chars = settings.max_topic_chars
         self._method = f"book_url_adapter:{settings.book_url_adapter_version}"
         self._outline_method = f"structured_outline:{settings.learning_outline_prompt_version}"
 
@@ -66,6 +69,18 @@ class BookUrlAdapter:
             )
         except Exception as error:  # noqa: BLE001 - model/provider boundary becomes a domain error
             raise InputNormalizationError(f"Could not derive a structured book outline: {error}") from error
+
+        # The adapter owns the evidence, so it re-checks what the deriver
+        # returned rather than trusting a deriver implementation to have done
+        # it. On the structured deriver this pass drops nothing.
+        supported = filter_supported_topics(
+            outline.topics,
+            evidence_text=budgeted.text,
+            min_coverage=self._min_topic_coverage,
+            max_topic_chars=self._max_topic_chars,
+        )
+        if not supported.topics:
+            raise InputNormalizationError("No derived learning topic was supported by the extracted book content.")
 
         canonical_url = normalize_url(extracted.final_url)
         title = outline.title or extracted.title
@@ -106,6 +121,8 @@ class BookUrlAdapter:
             )
 
         warnings = [*outline.warnings, BOOK_CONTEXT_WARNING]
+        if supported.warning:
+            warnings.append(supported.warning)
         if budgeted.warning:
             warnings.append(budgeted.warning)
         if extracted.media_type == "pdf":
@@ -117,7 +134,7 @@ class BookUrlAdapter:
             title=title,
             author=outline.author,
             subject=outline.subject,
-            topics=_merge_values(outline.topics, []),
+            topics=_merge_values(supported.topics, []),
             chapters=chapters,
             sections=sections,
             user_constraints=constraints,

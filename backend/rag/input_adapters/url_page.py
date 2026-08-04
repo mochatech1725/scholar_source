@@ -14,6 +14,7 @@ from backend.rag.errors import InputNormalizationError
 from backend.rag.extraction.extractor import ExtractedContent, SourceExtractor
 from backend.rag.input_adapters.references import InputSourceReference
 from backend.rag.input_adapters.text_budget import apply_text_budget
+from backend.rag.input_adapters.topic_evidence import filter_supported_topics
 from backend.rag.models import (
     FieldProvenance,
     LearningConstraints,
@@ -99,9 +100,11 @@ class StructuredLearningOutlineDeriver:
             base_llm.with_structured_output(LearningOutline),
         )
         self._budget_chars = settings.max_outline_input_chars
+        self._min_topic_coverage = settings.min_topic_evidence_coverage
+        self._max_topic_chars = settings.max_topic_chars
 
     def derive(self, *, text: str, source_url: str, media_type: str) -> LearningOutline:
-        """Return a schema-constrained outline without exposing other sources."""
+        """Return a schema-constrained outline supported by the given text alone."""
 
         if not text.strip():
             raise InputNormalizationError("Cannot derive a learning outline from empty extracted content.")
@@ -119,9 +122,19 @@ class StructuredLearningOutlineDeriver:
         )
         if not isinstance(outline, LearningOutline):
             raise InputNormalizationError("Outline extraction did not return a structured learning outline.")
-        if budgeted.warning:
-            return outline.model_copy(update={"warnings": [*outline.warnings, budgeted.warning]})
-        return outline
+        # The prompt asks the model to stay inside the supplied content; this is
+        # the check that it did. Adapters repeat it, but no outline may leave
+        # this boundary carrying topics the budgeted text does not support.
+        supported = filter_supported_topics(
+            outline.topics,
+            evidence_text=budgeted.text,
+            min_coverage=self._min_topic_coverage,
+            max_topic_chars=self._max_topic_chars,
+        )
+        if not supported.topics:
+            raise InputNormalizationError("No derived learning topic was supported by the extracted content.")
+        added = [warning for warning in (supported.warning, budgeted.warning) if warning]
+        return outline.model_copy(update={"topics": supported.topics, "warnings": [*outline.warnings, *added]})
 
 
 class UrlPageAdapter:
@@ -137,6 +150,8 @@ class UrlPageAdapter:
         self._extractor = extractor
         self._outline_deriver = outline_deriver
         self._budget_chars = settings.max_outline_input_chars
+        self._min_topic_coverage = settings.min_topic_evidence_coverage
+        self._max_topic_chars = settings.max_topic_chars
         self._method = f"url_page_adapter:{settings.url_page_adapter_version}"
         self._outline_method = f"structured_outline:{settings.learning_outline_prompt_version}"
 
@@ -162,6 +177,18 @@ class UrlPageAdapter:
             )
         except Exception as error:  # noqa: BLE001 - model/provider boundary becomes a domain error
             raise InputNormalizationError(f"Could not derive a structured learning outline: {error}") from error
+
+        # The adapter owns the evidence, so it re-checks what the deriver
+        # returned rather than trusting a deriver implementation to have done
+        # it. On the structured deriver this pass drops nothing.
+        supported = filter_supported_topics(
+            outline.topics,
+            evidence_text=budgeted.text,
+            min_coverage=self._min_topic_coverage,
+            max_topic_chars=self._max_topic_chars,
+        )
+        if not supported.topics:
+            raise InputNormalizationError("No derived learning topic was supported by the extracted page content.")
 
         input_kind = _classify_page(extracted, request)
         title = request.course_name or outline.title or extracted.title
@@ -195,6 +222,8 @@ class UrlPageAdapter:
             )
 
         warnings = list(outline.warnings)
+        if supported.warning:
+            warnings.append(supported.warning)
         if budgeted.warning:
             warnings.append(budgeted.warning)
         if extracted.media_type == "pdf":
@@ -206,7 +235,7 @@ class UrlPageAdapter:
             title=title,
             institution=institution,
             subject=subject,
-            topics=_merge_values(outline.topics, []),
+            topics=_merge_values(supported.topics, []),
             chapters=chapters,
             sections=sections,
             user_constraints=constraints,
