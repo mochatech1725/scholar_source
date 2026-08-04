@@ -67,6 +67,16 @@ def _extractor_with(
     return SourceExtractor(settings, resolver=_public_resolver)
 
 
+class _ChunkedStream(httpx.SyncByteStream):
+    """Serve a response body lazily so tests can count what was actually pulled."""
+
+    def __init__(self, chunks) -> None:
+        self._chunks = chunks
+
+    def __iter__(self):
+        return iter(self._chunks)
+
+
 def _minimal_pdf(text: str) -> bytes:
     """Build a one-page PDF containing the given text, with a valid xref."""
     stream = f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode()
@@ -211,6 +221,56 @@ def test_oversized_response_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None
     document = extractor.extract(_source())
     assert document.extraction_status is ExtractionStatus.FAILED
     assert "exceeds 10 bytes" in document.extraction_error
+
+
+def test_oversized_body_stops_streaming_before_it_is_buffered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Plan step 0.6.3: the budget is enforced mid-stream, not after buffering."""
+    yielded_chunks = 0
+
+    def body_chunks():
+        nonlocal yielded_chunks
+        for _ in range(1000):
+            yielded_chunks += 1
+            yield b"x" * 1000
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, stream=_ChunkedStream(body_chunks()))
+
+    extractor = _extractor_with(handler, monkeypatch, RagSettings(max_fetch_bytes=2500))
+    document = extractor.extract(_source())
+
+    assert document.extraction_status is ExtractionStatus.FAILED
+    assert "exceeds 2500 bytes" in document.extraction_error
+    # Three 1000-byte chunks are enough to pass a 2500-byte budget; the rest of
+    # the transfer must never be pulled.
+    assert yielded_chunks == 3
+
+
+def test_oversized_content_length_is_rejected_before_the_body_is_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    read_chunks = 0
+
+    def body_chunks():
+        nonlocal read_chunks
+        read_chunks += 1
+        yield b"x" * 50
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-length": "9999999"},
+            stream=_ChunkedStream(body_chunks()),
+        )
+
+    extractor = _extractor_with(handler, monkeypatch, RagSettings(max_fetch_bytes=10))
+    document = extractor.extract(_source())
+
+    assert document.extraction_status is ExtractionStatus.FAILED
+    assert "exceeds 10 bytes" in document.extraction_error
+    assert read_chunks == 0
 
 
 def test_same_content_produces_same_hash(monkeypatch: pytest.MonkeyPatch) -> None:

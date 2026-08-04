@@ -266,11 +266,26 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
   `tests/rag/test_extractor.py`: a blocked inward redirect that asserts only
   the first hop was ever requested, a followed safe redirect reporting the
   final URL, a hop-limit stop, and a location-less redirect.
-- [ ] 0.6.3 Enforce `max_fetch_bytes` while the response body streams rather
+- [x] 0.6.3 Enforce `max_fetch_bytes` while the response body streams rather
   than after it is materialized. `extract_url()` reads `response.content`
   before comparing its length, so an oversized or compressed-bomb response
   exhausts worker memory before the limit is ever checked. Abort the transfer
   once the limit is passed and surface the existing extraction error.
+  Done in `backend/rag/extraction/extractor.py`: the redirect walker now uses
+  `client.stream()` and `_read_within_budget()` accumulates `iter_bytes()`
+  chunks, raising the existing `ExtractionError` the moment the running total
+  passes `max_fetch_bytes`. Raising inside the stream context closes the
+  connection instead of draining the rest of the transfer. `iter_bytes()`
+  yields decoded bytes, so the budget applies after decompression and a gzip
+  bomb is capped at its expanded size. A declared `Content-Length` over the
+  budget short-circuits before any body byte is read, which is only a fast
+  path — the streaming check still governs, since the header is
+  attacker-controlled and absent on chunked responses. The body is buffered by
+  the fetch helper rather than the response object, so `extract_url()` decodes
+  the HTML itself using the response encoding instead of `response.text`.
+  Coverage in `tests/rag/test_extractor.py`: a lazily generated oversized body
+  asserting exactly the chunks needed to pass the budget were pulled, and an
+  oversized `Content-Length` asserting the body generator was never started.
 - [ ] 0.6.4 Add an extracted-text budget to `RagSettings` and truncate against
   it before any LLM call. `backend/rag/input_adapters/url_page.py` passes the
   full extracted page text to the outline model and

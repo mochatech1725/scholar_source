@@ -20,6 +20,16 @@ REMOVED_HTML_NODES = "//script | //style | //nav | //header | //footer | //noscr
 
 
 @dataclass(frozen=True, slots=True)
+class _FetchedBody:
+    """A fetched response body already checked against the byte budget."""
+
+    content: bytes
+    content_type: str
+    encoding: str
+    final_url: str
+
+
+@dataclass(frozen=True, slots=True)
 class ExtractedContent:
     """Fetched text and media metadata reusable outside source ingestion."""
 
@@ -129,34 +139,32 @@ class SourceExtractor:
             follow_redirects=False,
             headers={"User-Agent": "ScholarSourceBot/2.0 (+study resource finder)"},
         ) as client:
-            response, final_url = self._get_following_redirects(client, url)
-            if len(response.content) > self._settings.max_fetch_bytes:
-                raise ExtractionError(f"Response exceeds {self._settings.max_fetch_bytes} bytes.")
+            fetched = self._fetch_within_budget(client, url)
 
-            content_type = response.headers.get("content-type", "").casefold()
-            if "pdf" in content_type or final_url.casefold().endswith(".pdf"):
-                return ExtractedContent(
-                    text=extract_text_from_pdf(response.content),
-                    media_type="pdf",
-                    title=None,
-                    final_url=final_url,
-                )
-
-            tree = lxml_html.fromstring(response.text)
-            title_nodes = tree.xpath("//title/text()")
-            title = clean_text(title_nodes[0]) if title_nodes else None
+        if "pdf" in fetched.content_type or fetched.final_url.casefold().endswith(".pdf"):
             return ExtractedContent(
-                text=extract_text_from_html(response.text),
-                media_type="html",
-                title=title or None,
-                final_url=final_url,
+                text=extract_text_from_pdf(fetched.content),
+                media_type="pdf",
+                title=None,
+                final_url=fetched.final_url,
             )
 
-    def _get_following_redirects(self, client: httpx.Client, url: str) -> tuple[httpx.Response, str]:
+        text = fetched.content.decode(fetched.encoding, errors="replace")
+        tree = lxml_html.fromstring(text)
+        title_nodes = tree.xpath("//title/text()")
+        title = clean_text(title_nodes[0]) if title_nodes else None
+        return ExtractedContent(
+            text=extract_text_from_html(text),
+            media_type="html",
+            title=title or None,
+            final_url=fetched.final_url,
+        )
+
+    def _fetch_within_budget(self, client: httpx.Client, url: str) -> _FetchedBody:
         """Follow redirects by hand, validating each destination before requesting it.
 
-        Returns the first non-redirect response together with the URL that
-        produced it. Every hop, including the submitted URL, passes through
+        Returns the first non-redirect body together with the URL that produced
+        it. Every hop, including the submitted URL, passes through
         `validate_fetch_target`, so an unsafe destination raises UnsafeUrlError
         before any request is sent to it.
         """
@@ -164,21 +172,51 @@ class SourceExtractor:
         target = url
         for _ in range(self._settings.max_redirect_hops + 1):
             validate_fetch_target(target, resolver=self._resolver)
-            response = client.get(target)
-            # httpx's own `is_redirect` also requires a Location header, which
-            # would silently turn a malformed redirect into a returned body.
-            if not httpx.codes.is_redirect(response.status_code):
-                response.raise_for_status()
-                return response, target
+            with client.stream("GET", target) as response:
+                # httpx's own `is_redirect` also requires a Location header, which
+                # would silently turn a malformed redirect into a returned body.
+                if httpx.codes.is_redirect(response.status_code):
+                    location = response.headers.get("location")
+                    if not location:
+                        raise ExtractionError(f"Redirect status {response.status_code} carried no location.")
+                    # Relative locations are legal, so resolve against the hop
+                    # that issued them before the next validation.
+                    target = str(response.url.join(location))
+                    continue
 
-            location = response.headers.get("location")
-            if not location:
-                raise ExtractionError(f"Redirect status {response.status_code} carried no location.")
-            # Relative locations are legal, so resolve against the hop that
-            # issued them before the next validation.
-            target = str(response.url.join(location))
+                response.raise_for_status()
+                return _FetchedBody(
+                    content=self._read_within_budget(response),
+                    content_type=response.headers.get("content-type", "").casefold(),
+                    encoding=response.encoding or "utf-8",
+                    final_url=target,
+                )
 
         raise ExtractionError(f"Exceeded {self._settings.max_redirect_hops} redirect hops while fetching.")
+
+    def _read_within_budget(self, response: httpx.Response) -> bytes:
+        """Read a streaming body, aborting as soon as the byte budget is passed.
+
+        Plan step 0.6.3: checking `len(response.content)` only after the body is
+        materialized lets an oversized or compressed-bomb response exhaust
+        worker memory first. `iter_bytes()` yields decoded bytes, so the budget
+        applies post-decompression, and raising inside the stream context closes
+        the connection instead of draining the rest of the transfer.
+        """
+
+        limit = self._settings.max_fetch_bytes
+        declared_length = response.headers.get("content-length", "")
+        if declared_length.isdigit() and int(declared_length) > limit:
+            raise ExtractionError(f"Response exceeds {limit} bytes.")
+
+        chunks: list[bytes] = []
+        total = 0
+        for chunk in response.iter_bytes():
+            total += len(chunk)
+            if total > limit:
+                raise ExtractionError(f"Response exceeds {limit} bytes.")
+            chunks.append(chunk)
+        return b"".join(chunks)
 
     def _failed(
         self,
