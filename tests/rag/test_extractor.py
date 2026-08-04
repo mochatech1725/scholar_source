@@ -12,6 +12,7 @@ from backend.rag.extraction.extractor import (
     extract_text_from_pdf,
 )
 from backend.rag.models import ExtractionStatus, SourceRecord
+from backend.rag.url_safety import UnsafeUrlError
 
 SETTINGS = RagSettings()
 
@@ -45,6 +46,11 @@ def _source(url: str = "https://ocw.mit.edu/statics", *, persisted: bool = True)
     )
 
 
+def _public_resolver(host: str, port: int) -> list[str]:
+    """Resolve every test host to one public address, keeping tests off DNS."""
+    return ["93.184.216.34"]
+
+
 def _extractor_with(
     handler,
     monkeypatch: pytest.MonkeyPatch,
@@ -58,7 +64,7 @@ def _extractor_with(
         return real_client(**kwargs)
 
     monkeypatch.setattr("backend.rag.extraction.extractor.httpx.Client", factory)
-    return SourceExtractor(settings)
+    return SourceExtractor(settings, resolver=_public_resolver)
 
 
 def _minimal_pdf(text: str) -> bytes:
@@ -252,3 +258,34 @@ def test_cached_source_returns_same_extracted_content(monkeypatch: pytest.Monkey
 def test_unpersisted_source_raises() -> None:
     with pytest.raises(ExtractionError, match="persisted before extraction"):
         SourceExtractor(SETTINGS).extract(_source(persisted=False))
+
+
+def test_internal_address_is_refused_before_any_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Plan step 0.6.1: an unsafe host must not reach the HTTP client at all."""
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        return httpx.Response(200, text=PAGE_HTML)
+
+    extractor = _extractor_with(handler, monkeypatch)
+    monkeypatch.setattr(extractor, "_resolver", lambda host, port: ["169.254.169.254"])
+
+    with pytest.raises(UnsafeUrlError, match="non-public address"):
+        extractor.extract_url("http://metadata.internal/latest/meta-data/")
+    assert requested == []
+
+
+def test_unsafe_url_is_isolated_as_a_failed_document(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A blocked source must not crash the run (plan step 1.3.4)."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=PAGE_HTML)
+
+    extractor = _extractor_with(handler, monkeypatch)
+    monkeypatch.setattr(extractor, "_resolver", lambda host, port: ["127.0.0.1"])
+
+    document = extractor.extract(_source(url="http://localhost/admin"))
+
+    assert document.extraction_status is ExtractionStatus.FAILED
+    assert document.metadata["failure_reason"] == "unsafe_url"

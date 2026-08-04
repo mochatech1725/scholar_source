@@ -14,6 +14,7 @@ from backend.rag.config import RagSettings
 from backend.rag.errors import ExtractionError
 from backend.rag.hashing import sha256_text
 from backend.rag.models import ExtractedDocument, ExtractionStatus, SourceRecord
+from backend.rag.url_safety import HostResolver, UnsafeUrlError, resolve_host, validate_fetch_target
 
 REMOVED_HTML_NODES = "//script | //style | //nav | //header | //footer | //noscript | //iframe"
 
@@ -45,6 +46,15 @@ def extract_text_from_html(raw_html: str) -> str:
     return clean_text(tree.text_content())
 
 
+def _failure_reason_for(error: Exception) -> str:
+    """Map a fetch failure to a stable reason for run logs and debugging."""
+    if isinstance(error, UnsafeUrlError):
+        return "unsafe_url"
+    if isinstance(error, ExtractionError):
+        return "extraction_failed"
+    return "fetch_or_parse_failed"
+
+
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     """Extract text from PDF bytes, preserving page order."""
     reader = PdfReader(io.BytesIO(pdf_bytes))
@@ -60,8 +70,9 @@ class SourceExtractor:
     message good enough to debug from (plan step 1.3.5).
     """
 
-    def __init__(self, settings: RagSettings) -> None:
+    def __init__(self, settings: RagSettings, *, resolver: HostResolver = resolve_host) -> None:
         self._settings = settings
+        self._resolver = resolver
 
     def extract(self, source: SourceRecord) -> ExtractedDocument:
         if source.source_id is None:
@@ -70,7 +81,7 @@ class SourceExtractor:
             content = self.extract_url(source.url)
             text = content.text
         except Exception as error:  # noqa: BLE001 - isolate any fetch failure per 1.3.4
-            failure_reason = "extraction_failed" if isinstance(error, ExtractionError) else "fetch_or_parse_failed"
+            failure_reason = _failure_reason_for(error)
             return self._failed(
                 source,
                 f"{type(error).__name__}: {error}",
@@ -103,8 +114,15 @@ class SourceExtractor:
         return self.extract_url(source.url).text
 
     def extract_url(self, url: str) -> ExtractedContent:
-        """Fetch one validated URL and detect HTML versus PDF content."""
+        """Fetch one validated URL and detect HTML versus PDF content.
 
+        The safety check runs here rather than at request validation because it
+        resolves the host, and this is the single choke point every user-supplied
+        fetch passes through. Redirect hops are still unchecked; plan step 0.6.2
+        replaces `follow_redirects` with a validated hop loop.
+        """
+
+        validate_fetch_target(url, resolver=self._resolver)
         with httpx.Client(
             timeout=self._settings.fetch_timeout_seconds,
             follow_redirects=True,

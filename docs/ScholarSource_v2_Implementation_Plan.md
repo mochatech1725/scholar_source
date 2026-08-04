@@ -140,7 +140,7 @@ make its origin diagnosable.
 
 ---
 
-## [x] Phase 0: Baseline, Diagnosis, and Project Contract
+## [ ] Phase 0: Baseline, Diagnosis, and Project Contract
 
 **Goal:** Understand the current system failure modes before replacing them.
 
@@ -205,7 +205,131 @@ Interview explanation: the inconsistent results were primarily caused by the `re
 
 ### Phase 0 Status
 
-Phase 0 is complete. Current saved evidence contains five completed same-input v1 runs. The completed runs show nondeterministic search-query generation, different search counts, different candidate resources, and different final resource counts for the same submitted input.
+Phase 0's original diagnosis and observability work is complete. Current saved
+evidence contains five completed same-input v1 runs. The completed runs show
+nondeterministic search-query generation, different search counts, different
+candidate resources, and different final resource counts for the same submitted
+input. Section 0.6 was added afterward and is not yet complete, so the phase
+checkbox is reopened until that work lands.
+
+### 0.6 v2 Pipeline Security Hardening
+
+These items came out of an adversarial review of the v2 code written through
+step 1.10.9. They belong to Phase 0 because they harden the development
+contract itself, not any single pipeline feature. Almost all of them live in
+`backend/rag/` and are unaffected by removing CrewAI; the two that touch v1
+are called out explicitly. No item here may be deferred past the Phase 5
+production cutover, because every one of them becomes user-reachable the
+moment v2 serves real submissions.
+
+Work 0.6.1 through 0.6.4 first: they sit in the shared fetch and
+normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
+
+- [x] 0.6.1 Add network-level URL safety validation for every outbound fetch
+  the pipeline performs on a user-supplied address. Resolve the hostname and
+  reject loopback, private, link-local, and other reserved ranges, reject
+  ports other than 80 and 443, and reject non-HTTP schemes. Today
+  `backend/security_utils.py` `validate_url()` checks only length, control
+  characters, and scheme, so `backend/rag/extraction/extractor.py`
+  `extract_url()` will fetch internal addresses such as cloud instance
+  metadata and hand the response to the outline model.
+  Done in `backend/rag/url_safety.py`: `validate_fetch_target()` enforces the
+  http/https scheme, the port 80/443 allowlist, and a public-address
+  requirement on every resolved IP, unmapping IPv4-mapped IPv6 so
+  `::ffff:127.0.0.1` cannot pose as public. A host resolving to a mix of
+  public and private addresses is rejected outright, because the HTTP client
+  picks the address after this check. Rejection messages name the host but
+  never the resolved IP, since the text reaches users through
+  `InputNormalizationError`. `SourceExtractor` calls the check at the top of
+  `extract_url()` — the single choke point all three URL adapters share — and
+  takes an injectable resolver so tests stay off DNS; blocked sources become
+  failed extracted documents with `failure_reason="unsafe_url"` rather than
+  crashing the run. Coverage lives in `tests/rag/test_url_safety.py` and
+  `tests/rag/test_extractor.py`, including a test that no HTTP request is
+  issued for an unsafe host.
+- [ ] 0.6.2 Re-apply the 0.6.1 check on every redirect hop. `extract_url()`
+  currently sets `follow_redirects=True`, so validating only the submitted URL
+  lets a public host redirect the fetch to an internal one. Follow redirects
+  manually with a bounded hop count and validate each destination before
+  requesting it.
+- [ ] 0.6.3 Enforce `max_fetch_bytes` while the response body streams rather
+  than after it is materialized. `extract_url()` reads `response.content`
+  before comparing its length, so an oversized or compressed-bomb response
+  exhausts worker memory before the limit is ever checked. Abort the transfer
+  once the limit is passed and surface the existing extraction error.
+- [ ] 0.6.4 Add an extracted-text budget to `RagSettings` and truncate against
+  it before any LLM call. `backend/rag/input_adapters/url_page.py` passes the
+  full extracted page text to the outline model and
+  `backend/rag/input_adapters/uploaded_pdf.py` can pass an entire 50 MB book,
+  both far beyond the chat model's context window. Record truncation as a
+  normalization warning so a shortened outline is visible rather than silent.
+- [ ] 0.6.5 Remove `book_pdf_path` from the public `CourseInputRequest` model
+  in `backend/models.py`. The field is server-internal — `backend/main.py`
+  injects it after resolving an owned upload — but it is currently client
+  settable, unvalidated, and accepted by
+  `backend/rag/input_adapters/dispatcher.py` as a primary input on its own.
+  While v1 is still present this is also an arbitrary local file read through
+  the CrewAI TOC extractor tool.
+- [ ] 0.6.6 Scope the uploaded-PDF ownership check to the authenticated user.
+  `backend/rag/input_adapters/uploaded_pdf.py` verifies only that the resolved
+  path sits under the upload root with a matching filename; it never receives
+  a user ID, so it cannot confirm the owning directory belongs to the caller.
+  Pass the authenticated user ID into the adapter and compare against the
+  user's own upload directory.
+- [ ] 0.6.7 Validate that every topic returned by the structured outline
+  deriver is supported by the adapter's extracted input evidence, and reject
+  or drop unsupported topics. Page and PDF text is attacker-controlled, and
+  derived topics flow straight into search query generation, so this is the
+  injection defense for the normalization path — not only a quality check.
+  This is the same requirement as step 1.10.10, which steps 1.10.4, 1.10.5,
+  and 1.10.6 shipped ahead of; completing it here satisfies both.
+- [ ] 0.6.8 Decide and document the tenancy rule for the stored corpus.
+  `match_rag_chunks` filters only on embedding model, so every chunk any run
+  ever stored is retrievable by every other user. Choose between scoping
+  retrieval to the sources collected for the current run and guaranteeing
+  that adapter-fetched user URLs are never chunked at all, so only publicly
+  discovered search results enter the shared corpus. Record the decision, its
+  reasoning, and its effect on cross-user exposure in this plan.
+- [ ] 0.6.9 Harden the retrieval SQL functions in
+  `migrations/002_create_rag_search_functions.sql`. Revoke the default PUBLIC
+  execute grant on `match_rag_chunks` and `search_rag_chunks_lexical`, grant
+  execute only to the service role, pin `search_path`, and bound
+  `match_limit`. The functions are currently protected only by the accident
+  that `rag_chunks` has row level security enabled with no policies.
+- [ ] 0.6.10 Add uploaded-PDF deletion to the v2 path. The only cleanup today
+  is `_cleanup_pdf` in `backend/tasks.py`, which is removed with CrewAI at
+  step 5.1.8, so after cutover uploaded textbooks would accumulate on disk
+  indefinitely. Resolve the path before any prefix check rather than porting
+  the current unresolved comparison forward.
+- [ ] 0.6.11 Enforce the upload size limit before the request body is fully
+  buffered in `backend/main.py`. The `/api/upload-pdf` handler reads the whole
+  upload into memory and only then compares against the 50 MB limit.
+- [ ] 0.6.12 Add regression tests for each of the above: a blocked
+  internal-address fetch, a blocked redirect to an internal address, an
+  oversized response aborted mid-stream, a truncated over-budget extraction, a
+  rejected client-supplied PDF path, a rejected cross-user upload reference,
+  and a dropped unsupported outline topic.
+
+### 0.7 Security Hardening Completion Criteria
+
+- [ ] 0.7.1 A submission whose URL points at a loopback, private, or
+  link-local address fails normalization with a structured error, and the same
+  is true when a public URL redirects to one.
+- [ ] 0.7.2 An oversized response is abandoned without the worker's memory
+  growing to the size of the response body.
+- [ ] 0.7.3 No LLM call in the normalization path can receive more text than
+  the configured budget, and any truncation appears as a user-visible warning.
+- [ ] 0.7.4 A request carrying a hand-written `book_pdf_path` is rejected, and
+  a request referencing another user's upload ID is rejected.
+- [ ] 0.7.5 The corpus tenancy decision from 0.6.8 is written down, and you can
+  state which user-supplied content can and cannot reach another user's
+  retrieval results.
+- [ ] 0.7.6 The retrieval RPCs are not executable by the `anon` or
+  `authenticated` roles, verified against the local Supabase stack.
+- [ ] 0.7.7 An uploaded PDF is removed from disk after its run completes,
+  including when the run fails.
+- [ ] 0.7.8 The validation gates in AGENTS.md pass with the new regression
+  tests in place.
 
 ---
 
