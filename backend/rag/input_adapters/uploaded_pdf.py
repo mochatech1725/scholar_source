@@ -23,7 +23,7 @@ from backend.rag.models import (
     NormalizedLearningRequest,
     ProvenanceOrigin,
 )
-from backend.uploads import UPLOAD_ROOT, normalize_upload_id
+from backend.uploads import get_pdf_upload_path, normalize_upload_id
 
 PAGE_SEPARATOR = "\n\n"
 UPLOAD_CONTEXT_WARNING = (
@@ -162,28 +162,32 @@ class UploadedPdfAdapter:
 
 
 def _validated_upload_reference(request: CourseInputRequest) -> tuple[str, Path]:
-    # The local path exists only on the server-internal model, so a request that
-    # never passed through upload resolution cannot reach the filesystem here.
-    book_pdf_path = request.book_pdf_path if isinstance(request, ResolvedCourseInput) else None
-    if not request.book_upload_id or not book_pdf_path:
+    # The local path and its owner exist only on the server-internal model, so a
+    # request that never passed through upload resolution cannot reach the
+    # filesystem here.
+    resolved = request if isinstance(request, ResolvedCourseInput) else None
+    book_pdf_path = resolved.book_pdf_path if resolved else None
+    owner_user_id = resolved.owner_user_id if resolved else None
+    if not request.book_upload_id or not book_pdf_path or not owner_user_id:
         raise UploadedPdfNormalizationError(
             "upload_not_resolved",
             "Uploaded-PDF input requires an authenticated, user-owned upload resolved to an internal path.",
         )
     upload_id = normalize_upload_id(request.book_upload_id)
     pdf_path = Path(book_pdf_path).resolve()
-    upload_root = UPLOAD_ROOT.resolve()
+    # Ownership is the authenticated user's own upload directory, not merely the
+    # shared upload root: a path under another user's directory is rejected.
     try:
-        relative_path = pdf_path.relative_to(upload_root)
+        owned_path = get_pdf_upload_path(owner_user_id, upload_id).resolve()
     except ValueError as error:
         raise UploadedPdfNormalizationError(
             "upload_ownership_invalid",
-            "Uploaded PDF is outside owned storage.",
+            "Uploaded PDF is not attributable to an authenticated user.",
         ) from error
-    if len(relative_path.parts) != 2 or relative_path.name != f"{upload_id}.pdf":
+    if pdf_path != owned_path:
         raise UploadedPdfNormalizationError(
             "upload_ownership_invalid",
-            "Uploaded PDF path does not match the authenticated upload reference.",
+            "Uploaded PDF path does not match the authenticated user's upload reference.",
         )
     if not pdf_path.is_file():
         raise UploadedPdfNormalizationError("upload_not_found", "Uploaded PDF was not found.")

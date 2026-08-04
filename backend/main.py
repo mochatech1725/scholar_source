@@ -211,7 +211,11 @@ async def submit_job(
             raise HTTPException(status_code=400, detail={"error": "Invalid upload", "message": "PDF upload not found"})
         resolved_pdf_path = str(pdf_path)
 
-    inputs = ResolvedCourseInput.from_request(course_input, book_pdf_path=resolved_pdf_path).model_dump()
+    inputs = ResolvedCourseInput.from_request(
+        course_input,
+        owner_user_id=user_id,
+        book_pdf_path=resolved_pdf_path,
+    ).model_dump()
 
     # Validate that at least one input is provided
     if not validate_crew_inputs(inputs):

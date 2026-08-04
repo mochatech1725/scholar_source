@@ -148,20 +148,34 @@ class TestCourseInputRequest:
         with pytest.raises(ValidationError):
             CourseInputRequest(book_title="Algorithms", not_a_field="value")
 
-    def test_resolved_input_carries_server_resolved_pdf_path(self):
-        """Should accept a PDF path only on the server-internal model."""
+    def test_resolved_input_carries_server_resolved_pdf_path_and_owner(self):
+        """Should accept a PDF path and its owner only on the server-internal model."""
         request = CourseInputRequest(book_upload_id="123e4567-e89b-12d3-a456-426614174000")
+        user_id = "9f6f6cb0-6f1a-4d5f-9c2a-2c1f3f4c5d6e"
 
-        resolved = ResolvedCourseInput.from_request(request, book_pdf_path="/tmp/scholar_uploads/user/book.pdf")
+        resolved = ResolvedCourseInput.from_request(
+            request,
+            owner_user_id=user_id,
+            book_pdf_path=f"/tmp/scholar_uploads/{user_id}/book.pdf",
+        )
 
         assert resolved.book_upload_id == request.book_upload_id
-        assert resolved.book_pdf_path == "/tmp/scholar_uploads/user/book.pdf"
+        assert resolved.book_pdf_path == f"/tmp/scholar_uploads/{user_id}/book.pdf"
+        assert resolved.owner_user_id == user_id
 
     def test_resolved_input_defaults_to_no_pdf_path(self):
         """Should leave the internal path unset when no upload was resolved."""
-        resolved = ResolvedCourseInput.from_request(CourseInputRequest(book_title="Algorithms"))
+        resolved = ResolvedCourseInput.from_request(
+            CourseInputRequest(book_title="Algorithms"),
+            owner_user_id="9f6f6cb0-6f1a-4d5f-9c2a-2c1f3f4c5d6e",
+        )
 
         assert resolved.book_pdf_path is None
+
+    def test_owner_user_id_is_rejected_on_the_public_model(self):
+        """Should reject a client-supplied upload owner."""
+        with pytest.raises(ValidationError):
+            CourseInputRequest(book_title="Algorithms", owner_user_id="9f6f6cb0-6f1a-4d5f-9c2a-2c1f3f4c5d6e")
 
     def test_book_upload_id_field(self):
         """Should accept and normalize opaque PDF upload IDs."""

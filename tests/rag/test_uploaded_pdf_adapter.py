@@ -82,14 +82,19 @@ def _substantial_text(label: str) -> str:
     return f"{label} explains important course concepts with examples and definitions. " * 5
 
 
-def _owned_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, contents: bytes) -> ResolvedCourseInput:
+def _store_upload(tmp_path: Path, user_id: str, contents: bytes) -> tuple[str, Path]:
     upload_id = str(uuid4())
-    user_id = str(uuid4())
     pdf_path = tmp_path / user_id / f"{upload_id}.pdf"
-    pdf_path.parent.mkdir()
+    pdf_path.parent.mkdir(exist_ok=True)
     pdf_path.write_bytes(contents)
-    monkeypatch.setattr("backend.rag.input_adapters.uploaded_pdf.UPLOAD_ROOT", tmp_path)
-    return ResolvedCourseInput(book_upload_id=upload_id, book_pdf_path=str(pdf_path))
+    return upload_id, pdf_path
+
+
+def _owned_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, contents: bytes) -> ResolvedCourseInput:
+    user_id = str(uuid4())
+    upload_id, pdf_path = _store_upload(tmp_path, user_id, contents)
+    monkeypatch.setattr("backend.uploads.UPLOAD_ROOT", tmp_path)
+    return ResolvedCourseInput(book_upload_id=upload_id, book_pdf_path=str(pdf_path), owner_user_id=user_id)
 
 
 def test_uploaded_pdf_adapter_preserves_page_and_upload_provenance(
@@ -229,6 +234,55 @@ def test_uploaded_pdf_adapter_rejects_path_that_does_not_match_owned_upload(
 ) -> None:
     request = _owned_request(monkeypatch, tmp_path, _minimal_pdf(_substantial_text("Readable text")))
     request.book_upload_id = str(uuid4())
+
+    with pytest.raises(UploadedPdfNormalizationError) as error:
+        UploadedPdfAdapter(settings=DEFAULT_SETTINGS, outline_deriver=StubOutlineDeriver()).normalize(request)
+
+    assert error.value.code == "upload_ownership_invalid"
+
+
+def test_uploaded_pdf_adapter_rejects_another_users_upload(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A path under a different user's directory is not readable by the caller."""
+
+    victim_id = str(uuid4())
+    upload_id, victim_path = _store_upload(tmp_path, victim_id, _minimal_pdf(_substantial_text("Private book")))
+    monkeypatch.setattr("backend.uploads.UPLOAD_ROOT", tmp_path)
+    request = ResolvedCourseInput(
+        book_upload_id=upload_id,
+        book_pdf_path=str(victim_path),
+        owner_user_id=str(uuid4()),
+    )
+
+    with pytest.raises(UploadedPdfNormalizationError) as error:
+        UploadedPdfAdapter(settings=DEFAULT_SETTINGS, outline_deriver=StubOutlineDeriver()).normalize(request)
+
+    assert error.value.code == "upload_ownership_invalid"
+
+
+def test_uploaded_pdf_adapter_rejects_resolved_path_without_an_owner(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A path is not authorization on its own; the owning user must travel with it."""
+
+    request = _owned_request(monkeypatch, tmp_path, _minimal_pdf(_substantial_text("Readable text")))
+    request.owner_user_id = None
+
+    with pytest.raises(UploadedPdfNormalizationError) as error:
+        UploadedPdfAdapter(settings=DEFAULT_SETTINGS, outline_deriver=StubOutlineDeriver()).normalize(request)
+
+    assert error.value.code == "upload_not_resolved"
+
+
+def test_uploaded_pdf_adapter_rejects_owner_that_is_not_a_user_id(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    request = _owned_request(monkeypatch, tmp_path, _minimal_pdf(_substantial_text("Readable text")))
+    request.owner_user_id = "../../etc"
 
     with pytest.raises(UploadedPdfNormalizationError) as error:
         UploadedPdfAdapter(settings=DEFAULT_SETTINGS, outline_deriver=StubOutlineDeriver()).normalize(request)

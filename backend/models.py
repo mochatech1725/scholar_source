@@ -228,16 +228,25 @@ class ResolvedCourseInput(CourseInputRequest):
     `book_pdf_path` is the local file the pipeline reads, so it may only ever
     come from resolving an upload ID against its owner's storage. It lives here
     rather than on `CourseInputRequest` so no request body can supply it, and
-    it is never used as a route model.
+    it is never used as a route model. `owner_user_id` travels with the path so
+    a consumer can re-derive whose upload directory the path must belong to; a
+    path without its owner is not enough to authorize a read.
     """
 
     book_pdf_path: str | None = Field(None, description="Server-resolved path to an owned PDF upload")
+    owner_user_id: str | None = Field(None, description="Authenticated user the resolved path was resolved for")
 
     @classmethod
-    def from_request(cls, request: CourseInputRequest, *, book_pdf_path: str | None = None) -> "ResolvedCourseInput":
+    def from_request(
+        cls,
+        request: CourseInputRequest,
+        *,
+        owner_user_id: str,
+        book_pdf_path: str | None = None,
+    ) -> "ResolvedCourseInput":
         """Return the internal form of a validated request plus resolved paths."""
 
-        return cls(**request.model_dump(), book_pdf_path=book_pdf_path)
+        return cls(**request.model_dump(), book_pdf_path=book_pdf_path, owner_user_id=owner_user_id)
 
 
 class JobSubmitResponse(BaseModel):

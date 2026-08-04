@@ -342,12 +342,33 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
   model round-trip), `tests/integration/test_api_endpoints.py` (422 on a
   client-supplied path), `tests/rag/test_input_adapter_dispatcher.py`, and
   `tests/rag/test_uploaded_pdf_adapter.py`.
-- [ ] 0.6.6 Scope the uploaded-PDF ownership check to the authenticated user.
+- [x] 0.6.6 Scope the uploaded-PDF ownership check to the authenticated user.
   `backend/rag/input_adapters/uploaded_pdf.py` verifies only that the resolved
   path sits under the upload root with a matching filename; it never receives
   a user ID, so it cannot confirm the owning directory belongs to the caller.
   Pass the authenticated user ID into the adapter and compare against the
   user's own upload directory.
+  Done by carrying the owner on the same server-internal model that already
+  carries the path: `ResolvedCourseInput` gains `owner_user_id`, and
+  `from_request()` now requires it, so a resolved path can never be constructed
+  without recording who it was resolved for. `_validated_upload_reference()`
+  no longer reasons about path shape. It rebuilds the one path the caller is
+  allowed to read — `get_pdf_upload_path(owner_user_id, upload_id)` — and
+  requires the resolved path to equal it, which subsumes the old root-prefix
+  and filename checks while adding the directory-ownership check they were
+  missing. A path with no owner fails `upload_not_resolved` rather than falling
+  back to a weaker check, since a path alone is not authorization; a
+  non-UUID owner fails `upload_ownership_invalid` instead of building a
+  traversal-shaped directory name. `owner_user_id` stays in the dumped inputs
+  so the owner travels with the path into the job record rather than being
+  silently dropped, and `extra="forbid"` on `CourseInputRequest` already
+  rejects a client-supplied one with a 422. The v1 path is unaffected: the
+  extra key is ignored by `_normalize_inputs` consumers. Coverage in
+  `tests/rag/test_uploaded_pdf_adapter.py` (another user's upload, missing
+  owner, non-UUID owner), `tests/unit/test_models.py` (owner round-trip,
+  rejected on the public model), and `tests/integration/test_api_endpoints.py`
+  (422 on a client-supplied owner, 400 on another user's upload ID, and the
+  authenticated owner recorded alongside the resolved path).
 - [ ] 0.6.7 Validate that every topic returned by the structured outline
   deriver is supported by the adapter's extracted input evidence, and reject
   or drop unsupported topics. Page and PDF text is attacker-controlled, and
@@ -391,7 +412,7 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
   growing to the size of the response body.
 - [ ] 0.7.3 No LLM call in the normalization path can receive more text than
   the configured budget, and any truncation appears as a user-visible warning.
-- [ ] 0.7.4 A request carrying a hand-written `book_pdf_path` is rejected, and
+- [x] 0.7.4 A request carrying a hand-written `book_pdf_path` is rejected, and
   a request referencing another user's upload ID is rejected.
 - [ ] 0.7.5 The corpus tenancy decision from 0.6.8 is written down, and you can
   state which user-supplied content can and cannot reach another user's
