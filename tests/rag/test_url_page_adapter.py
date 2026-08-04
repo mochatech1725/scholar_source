@@ -227,3 +227,39 @@ def test_structured_outline_deriver_rejects_non_schema_response() -> None:
 
     with pytest.raises(InputNormalizationError, match="did not return a structured"):
         deriver.derive(text="Limits", source_url="https://example.edu", media_type="html")
+
+
+def test_url_adapter_truncates_extracted_text_and_warns() -> None:
+    oversized = "Course description. " + ("Limits and derivatives are covered here. " * 200)
+    deriver = StubOutlineDeriver(_outline())
+    adapter = UrlPageAdapter(
+        settings=RagSettings(max_outline_input_chars=200),
+        extractor=StubExtractor(content=_content(oversized)),
+        outline_deriver=deriver,
+    )
+
+    result = adapter.normalize(CourseInputRequest(course_url="https://example.edu/calculus/"))
+
+    assert deriver.received is not None
+    assert len(deriver.received["text"]) <= 200
+    assert result.warnings[-1] == (
+        f"Only the first {len(deriver.received['text'])} of {len(oversized)} extracted characters were used to "
+        "derive the learning outline; it may be incomplete."
+    )
+
+
+def test_structured_outline_deriver_enforces_the_budget_on_its_own() -> None:
+    llm = Mock()
+    structured_llm = llm.with_structured_output.return_value
+    structured_llm.invoke.return_value = _outline()
+    deriver = StructuredLearningOutlineDeriver(RagSettings(max_outline_input_chars=50), llm=llm)
+
+    result = deriver.derive(
+        text="Limits and derivatives are the first learning objectives. " * 20,
+        source_url="https://example.edu/calculus",
+        media_type="html",
+    )
+
+    prompt = structured_llm.invoke.call_args.args[0][1][1]
+    assert len(prompt.split("Extracted content:\n", maxsplit=1)[1]) <= 50
+    assert result.warnings[-1].startswith("Only the first 50 of 1160 extracted characters")

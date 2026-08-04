@@ -29,8 +29,10 @@ class StubExtractor:
 @dataclass
 class StubOutlineDeriver:
     outline: LearningOutline
+    received_text: str = ""
 
     def derive(self, *, text: str, source_url: str, media_type: str) -> LearningOutline:
+        self.received_text = text
         return self.outline
 
 
@@ -137,3 +139,27 @@ def test_dispatcher_runs_registered_book_url_adapter() -> None:
     result = dispatcher.dispatch(CourseInputRequest(book_url="https://publisher.example/book"))
 
     assert result.input_kind is LearningInputKind.BOOK_URL
+
+
+def test_book_url_adapter_truncates_extracted_text_and_warns() -> None:
+    oversized = "Chapter 1: Algorithms. " * 200
+    content = ExtractedContent(
+        text=oversized,
+        media_type="html",
+        title="Catalog title",
+        final_url="https://publisher.example/books/algorithms",
+    )
+    deriver = StubOutlineDeriver(_outline())
+    adapter = BookUrlAdapter(
+        settings=RagSettings(max_outline_input_chars=300),
+        extractor=StubExtractor(content=content),
+        outline_deriver=deriver,
+    )
+
+    result = adapter.normalize(CourseInputRequest(book_url="https://publisher.example/books/algorithms"))
+
+    assert len(deriver.received_text) <= 300
+    assert result.warnings[-1] == (
+        f"Only the first {len(deriver.received_text)} of {len(oversized)} extracted characters were used to "
+        "derive the learning outline; it may be incomplete."
+    )

@@ -9,6 +9,7 @@ from backend.rag.config import RagSettings
 from backend.rag.errors import InputNormalizationError
 from backend.rag.extraction.extractor import SourceExtractor
 from backend.rag.input_adapters.references import InputSourceReference
+from backend.rag.input_adapters.text_budget import apply_text_budget
 from backend.rag.input_adapters.url_page import LearningOutlineDeriver
 from backend.rag.models import (
     FieldProvenance,
@@ -39,6 +40,7 @@ class BookUrlAdapter:
     ) -> None:
         self._extractor = extractor
         self._outline_deriver = outline_deriver
+        self._budget_chars = settings.max_outline_input_chars
         self._method = f"book_url_adapter:{settings.book_url_adapter_version}"
         self._outline_method = f"structured_outline:{settings.learning_outline_prompt_version}"
 
@@ -55,9 +57,10 @@ class BookUrlAdapter:
         if not extracted.text.strip():
             raise InputNormalizationError("Book URL contained no extractable learning content.")
 
+        budgeted = apply_text_budget(extracted.text, budget_chars=self._budget_chars)
         try:
             outline = self._outline_deriver.derive(
-                text=extracted.text,
+                text=budgeted.text,
                 source_url=extracted.final_url,
                 media_type=extracted.media_type,
             )
@@ -103,6 +106,8 @@ class BookUrlAdapter:
             )
 
         warnings = [*outline.warnings, BOOK_CONTEXT_WARNING]
+        if budgeted.warning:
+            warnings.append(budgeted.warning)
         if extracted.media_type == "pdf":
             warnings.append(DIRECT_PDF_WARNING)
 

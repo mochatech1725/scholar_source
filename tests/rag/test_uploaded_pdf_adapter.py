@@ -247,3 +247,45 @@ def test_uploaded_pdf_adapter_enforces_configured_size_limit(
         UploadedPdfAdapter(settings=settings, outline_deriver=StubOutlineDeriver()).normalize(request)
 
     assert error.value.code == "file_too_large"
+
+
+def test_uploaded_pdf_adapter_drops_pages_past_the_text_budget_and_warns(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    contents = _pdf_with_pages([_substantial_text(label) for label in ("Equilibrium", "Moments", "Trusses")])
+    request = _owned_request(monkeypatch, tmp_path, contents)
+    deriver = StubOutlineDeriver()
+    settings = RagSettings(max_outline_input_chars=500)
+
+    result = UploadedPdfAdapter(settings=settings, outline_deriver=deriver).normalize(request)
+
+    assert len(deriver.text) <= 500
+    assert "[Page 1]" in deriver.text
+    assert "[Page 3]" not in deriver.text
+    assert deriver.source_url.endswith("#pages=1,2")
+    assert result.field_provenance[NormalizedLearningField.TOPICS].source_reference.endswith("#pages=1,2")
+    assert result.warnings[-1] == (
+        f"Only the first {len(deriver.text)} characters of extractable text, through page 2 of 3, "
+        "were used to derive the learning outline; it may be incomplete."
+    )
+
+
+def test_uploaded_pdf_adapter_reports_skipped_and_budgeted_pages_separately(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    contents = _pdf_with_pages(
+        [_substantial_text("Equilibrium"), None, _substantial_text("Moments"), _substantial_text("Trusses")]
+    )
+    request = _owned_request(monkeypatch, tmp_path, contents)
+    settings = RagSettings(max_outline_input_chars=900)
+
+    result = UploadedPdfAdapter(settings=settings, outline_deriver=StubOutlineDeriver()).normalize(request)
+
+    assert result.warnings[-2] == (
+        "Text could not be extracted reliably from 1 of 4 pages; the learning outline may be incomplete."
+    )
+    assert result.warnings[-1].endswith(
+        "through page 4 of 4, were used to derive the learning outline; it may be incomplete."
+    )

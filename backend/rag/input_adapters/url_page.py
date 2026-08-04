@@ -13,6 +13,7 @@ from backend.rag.config import RagSettings
 from backend.rag.errors import InputNormalizationError
 from backend.rag.extraction.extractor import ExtractedContent, SourceExtractor
 from backend.rag.input_adapters.references import InputSourceReference
+from backend.rag.input_adapters.text_budget import apply_text_budget
 from backend.rag.models import (
     FieldProvenance,
     LearningConstraints,
@@ -97,23 +98,29 @@ class StructuredLearningOutlineDeriver:
             StructuredOutlineModel,
             base_llm.with_structured_output(LearningOutline),
         )
+        self._budget_chars = settings.max_outline_input_chars
 
     def derive(self, *, text: str, source_url: str, media_type: str) -> LearningOutline:
         """Return a schema-constrained outline without exposing other sources."""
 
         if not text.strip():
             raise InputNormalizationError("Cannot derive a learning outline from empty extracted content.")
+        # Adapters budget their own text so they can describe the truncation in
+        # their own terms; this is the enforcement that no prompt can exceed it.
+        budgeted = apply_text_budget(text, budget_chars=self._budget_chars)
         outline = self._structured_llm.invoke(
             [
                 ("system", OUTLINE_SYSTEM_PROMPT),
                 (
                     "human",
-                    f"Source URL: {source_url}\nMedia type: {media_type}\n\nExtracted content:\n{text}",
+                    f"Source URL: {source_url}\nMedia type: {media_type}\n\nExtracted content:\n{budgeted.text}",
                 ),
             ]
         )
         if not isinstance(outline, LearningOutline):
             raise InputNormalizationError("Outline extraction did not return a structured learning outline.")
+        if budgeted.warning:
+            return outline.model_copy(update={"warnings": [*outline.warnings, budgeted.warning]})
         return outline
 
 
@@ -129,6 +136,7 @@ class UrlPageAdapter:
     ) -> None:
         self._extractor = extractor
         self._outline_deriver = outline_deriver
+        self._budget_chars = settings.max_outline_input_chars
         self._method = f"url_page_adapter:{settings.url_page_adapter_version}"
         self._outline_method = f"structured_outline:{settings.learning_outline_prompt_version}"
 
@@ -145,9 +153,10 @@ class UrlPageAdapter:
         if not extracted.text.strip():
             raise InputNormalizationError("URL contained no extractable learning content.")
 
+        budgeted = apply_text_budget(extracted.text, budget_chars=self._budget_chars)
         try:
             outline = self._outline_deriver.derive(
-                text=extracted.text,
+                text=budgeted.text,
                 source_url=extracted.final_url,
                 media_type=extracted.media_type,
             )
@@ -186,6 +195,8 @@ class UrlPageAdapter:
             )
 
         warnings = list(outline.warnings)
+        if budgeted.warning:
+            warnings.append(budgeted.warning)
         if extracted.media_type == "pdf":
             warnings.append("The submitted URL resolved to a PDF; its text was normalized as an educational page.")
 

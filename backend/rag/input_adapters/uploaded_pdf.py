@@ -13,6 +13,7 @@ from backend.models import CourseInputRequest
 from backend.rag.config import RagSettings
 from backend.rag.errors import UploadedPdfNormalizationError
 from backend.rag.input_adapters.references import InputSourceReference
+from backend.rag.input_adapters.text_budget import apply_text_budget
 from backend.rag.input_adapters.url_page import LearningOutlineDeriver
 from backend.rag.models import (
     FieldProvenance,
@@ -24,6 +25,7 @@ from backend.rag.models import (
 )
 from backend.uploads import UPLOAD_ROOT, normalize_upload_id
 
+PAGE_SEPARATOR = "\n\n"
 UPLOAD_CONTEXT_WARNING = (
     "The uploaded book was used only to derive learning context and is not an approved recommendation."
 )
@@ -31,17 +33,19 @@ UPLOAD_CONTEXT_WARNING = (
 
 @dataclass(frozen=True, slots=True)
 class ExtractedUploadedPdf:
-    """Text extracted in page order with non-empty source page numbers."""
+    """Text extracted in page order with the page numbers it came from."""
 
     text: str
     page_numbers: tuple[int, ...]
+    text_page_count: int
     total_pages: int
+    budget_truncated: bool
 
     @property
     def skipped_page_count(self) -> int:
         """Return pages that did not contain enough useful extracted text."""
 
-        return self.total_pages - len(self.page_numbers)
+        return self.total_pages - self.text_page_count
 
 
 class UploadedPdfAdapter:
@@ -107,6 +111,8 @@ class UploadedPdfAdapter:
         warnings = [*outline.warnings, UPLOAD_CONTEXT_WARNING]
         if extracted.skipped_page_count:
             warnings.append(_mixed_pdf_warning(extracted))
+        if extracted.budget_truncated:
+            warnings.append(_budget_warning(extracted))
 
         return NormalizedLearningRequest(
             input_kind=LearningInputKind.UPLOADED_PDF,
@@ -234,10 +240,39 @@ def _extract_uploaded_pdf(pdf_path: Path, settings: RagSettings) -> ExtractedUpl
                 "OCR is not configured."
             ),
         )
+    budgeted = apply_text_budget(PAGE_SEPARATOR.join(pages), budget_chars=settings.max_outline_input_chars)
     return ExtractedUploadedPdf(
-        text="\n\n".join(pages),
-        page_numbers=tuple(page_numbers),
+        text=budgeted.text,
+        page_numbers=_pages_within_budget(pages, page_numbers, len(budgeted.text)),
+        text_page_count=len(page_numbers),
         total_pages=total_pages,
+        budget_truncated=budgeted.is_truncated,
+    )
+
+
+def _pages_within_budget(pages: list[str], page_numbers: list[int], kept_chars: int) -> tuple[int, ...]:
+    """Return the page numbers whose text survived the outline-input budget.
+
+    Pages are joined with a blank line, so a page contributes to the budgeted
+    text exactly when its start offset falls inside the kept prefix. A page cut
+    partway through still informed the outline and stays in the reference.
+    """
+
+    offset = 0
+    kept: list[int] = []
+    for page, number in zip(pages, page_numbers, strict=True):
+        if offset >= kept_chars:
+            break
+        kept.append(number)
+        offset += len(page) + len(PAGE_SEPARATOR)
+    return tuple(kept)
+
+
+def _budget_warning(extracted: ExtractedUploadedPdf) -> str:
+    return (
+        f"Only the first {len(extracted.text)} characters of extractable text, through page "
+        f"{extracted.page_numbers[-1]} of {extracted.total_pages}, were used to derive the learning outline; "
+        "it may be incomplete."
     )
 
 

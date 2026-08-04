@@ -286,12 +286,35 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
   Coverage in `tests/rag/test_extractor.py`: a lazily generated oversized body
   asserting exactly the chunks needed to pass the budget were pulled, and an
   oversized `Content-Length` asserting the body generator was never started.
-- [ ] 0.6.4 Add an extracted-text budget to `RagSettings` and truncate against
+- [x] 0.6.4 Add an extracted-text budget to `RagSettings` and truncate against
   it before any LLM call. `backend/rag/input_adapters/url_page.py` passes the
   full extracted page text to the outline model and
   `backend/rag/input_adapters/uploaded_pdf.py` can pass an entire 50 MB book,
   both far beyond the chat model's context window. Record truncation as a
   normalization warning so a shortened outline is visible rather than silent.
+  Done as `RagSettings.max_outline_input_chars` (60,000 characters, roughly
+  15k tokens) plus `backend/rag/input_adapters/text_budget.py`, whose
+  `apply_text_budget()` cuts to the budget, backs up to a line boundary when
+  one is within 500 characters, and carries the warning text so every adapter
+  words truncation the same way. `UrlPageAdapter` and `BookUrlAdapter` budget
+  the extracted page before calling the deriver and append the warning to the
+  normalized request. `StructuredLearningOutlineDeriver` applies the same
+  budget again immediately before `invoke()`, so no prompt can exceed it even
+  if a future caller forgets; the adapters truncate first only so the warning
+  is worded in their terms, and the second pass is a no-op on already-budgeted
+  text. The uploaded-PDF path needed more than a string cut: page numbers feed
+  `#pages=` provenance, so `_pages_within_budget()` keeps only the pages whose
+  text actually reached the model and `ExtractedUploadedPdf` now tracks
+  `text_page_count` separately from included pages. That keeps the existing
+  "pages skipped by extraction" warning counting extraction failures only,
+  while the new budget warning names the character count and the last page the
+  outline saw, rather than a page range that would imply unread pages were
+  read. Coverage in `tests/rag/test_text_budget.py`,
+  `tests/rag/test_url_page_adapter.py` (adapter truncation and independent
+  deriver enforcement), `tests/rag/test_book_url_adapter.py`,
+  `tests/rag/test_uploaded_pdf_adapter.py` (dropped pages shrink the page
+  reference; skipped-page and budget warnings stay distinct), and
+  `tests/rag/test_config.py`.
 - [ ] 0.6.5 Remove `book_pdf_path` from the public `CourseInputRequest` model
   in `backend/models.py`. The field is server-internal — `backend/main.py`
   injects it after resolving an owned upload — but it is currently client

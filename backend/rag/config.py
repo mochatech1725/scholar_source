@@ -32,6 +32,12 @@ class RagSettings:
     isbn_adapter_version: str = "v1"
     book_metadata_adapter_version: str = "v1"
     learning_outline_prompt_version: str = "learning-outline-v1"
+    # Extracted text handed to the outline model, in characters (plan step
+    # 0.6.4). A fetched page is bounded only by max_fetch_bytes and an upload
+    # only by max_upload_pdf_bytes, both far past any chat-model context
+    # window. ~60k characters is roughly 15k tokens: ample for an outline of a
+    # syllabus or a book's front matter, and a bounded per-run prompt cost.
+    max_outline_input_chars: int = 60_000
 
     # Chunking: ~1400 chars is roughly 350 tokens. Large enough that a chunk
     # carries a complete explanation, small enough that retrieval stays
