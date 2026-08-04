@@ -8,7 +8,8 @@ from textwrap import shorten
 from backend.rag.config import RagSettings
 from backend.rag.errors import ChunkingError
 from backend.rag.hashing import sha256_text
-from backend.rag.models import ChunkRecord, ExtractedDocument
+from backend.rag.models import ChunkRecord, ExtractedDocument, SourceRecord
+from backend.rag.sources.corpus import assert_corpus_eligible
 
 SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
 CHUNKING_METHOD = "paragraph_pack_v1"
@@ -94,10 +95,24 @@ def chunk_text(text: str, *, settings: RagSettings) -> list[str]:
     return chunks
 
 
-def chunk_document(document: ExtractedDocument, *, settings: RagSettings) -> list[ChunkRecord]:
-    """Convert an extracted document into chunk records with source metadata."""
+def chunk_document(
+    document: ExtractedDocument,
+    *,
+    source: SourceRecord,
+    settings: RagSettings,
+) -> list[ChunkRecord]:
+    """Convert an extracted document into chunk records with source metadata.
+
+    The source record is required rather than inferred from the document so the
+    corpus tenancy rule (plan step 0.6.8) is checked at the one boundary where
+    text becomes retrievable: nothing can be chunked without presenting the
+    source it came from.
+    """
     if document.document_id is None:
         raise ChunkingError("Document must be persisted before chunking.")
+    if source.source_id != document.source_id:
+        raise ChunkingError("Source record does not match the extracted document.")
+    assert_corpus_eligible(source)
     if not document.text:
         return []
 

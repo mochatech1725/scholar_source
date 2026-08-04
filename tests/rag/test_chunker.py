@@ -4,9 +4,9 @@ import pytest
 
 from backend.rag.chunking.chunker import CHUNKING_METHOD, chunk_document, chunk_text, describe_chunks
 from backend.rag.config import RagSettings
-from backend.rag.errors import ChunkingError
+from backend.rag.errors import ChunkingError, CorpusPolicyError
 from backend.rag.hashing import sha256_text
-from backend.rag.models import ExtractedDocument, ExtractionStatus
+from backend.rag.models import ExtractedDocument, ExtractionStatus, SourceRecord
 
 
 def _paragraph(label: str) -> str:
@@ -15,6 +15,16 @@ def _paragraph(label: str) -> str:
         "student should connect definitions to worked examples."
     )
     return " ".join([sentence] * 4)
+
+
+def _source(document: ExtractedDocument, *, source_type: str = "web_search") -> SourceRecord:
+    return SourceRecord(
+        source_id=document.source_id,
+        url=document.url,
+        normalized_url=document.url,
+        title=document.title,
+        source_type=source_type,
+    )
 
 
 def _document(*, persisted: bool = True) -> ExtractedDocument:
@@ -34,7 +44,7 @@ def test_chunk_document_preserves_source_metadata_on_every_chunk() -> None:
     settings = RagSettings(chunk_target_chars=360, chunk_overlap_chars=80, chunk_min_chars=120)
     document = _document()
 
-    chunks = chunk_document(document, settings=settings)
+    chunks = chunk_document(document, source=_source(document), settings=settings)
 
     assert len(chunks) > 1
     for index, chunk in enumerate(chunks):
@@ -72,7 +82,7 @@ def test_chunk_document_preserves_chunk_order_within_source() -> None:
         extraction_status=ExtractionStatus.COMPLETED,
     )
 
-    chunks = chunk_document(document, settings=settings)
+    chunks = chunk_document(document, source=_source(document), settings=settings)
 
     assert [chunk.chunk_index for chunk in chunks] == list(range(len(chunks)))
     assert [chunk.metadata["source_order"] for chunk in chunks] == list(range(len(chunks)))
@@ -80,8 +90,26 @@ def test_chunk_document_preserves_chunk_order_within_source() -> None:
 
 
 def test_chunk_document_requires_persisted_document_for_traceability() -> None:
+    document = _document(persisted=False)
+
     with pytest.raises(ChunkingError, match="persisted before chunking"):
-        chunk_document(_document(persisted=False), settings=RagSettings())
+        chunk_document(document, source=_source(document), settings=RagSettings())
+
+
+def test_chunk_document_rejects_a_source_that_may_not_enter_the_shared_corpus() -> None:
+    """Plan step 0.6.8: adapter-fetched user URLs never become retrievable chunks."""
+    document = _document()
+
+    with pytest.raises(CorpusPolicyError, match="may not enter the shared corpus"):
+        chunk_document(document, source=_source(document, source_type="course_url"), settings=RagSettings())
+
+
+def test_chunk_document_rejects_a_source_record_from_a_different_source() -> None:
+    document = _document()
+    other_source = _source(_document())
+
+    with pytest.raises(ChunkingError, match="does not match"):
+        chunk_document(document, source=other_source, settings=RagSettings())
 
 
 def test_chunk_text_returns_no_chunks_for_blank_text() -> None:
@@ -118,7 +146,7 @@ def test_chunk_text_splits_oversized_sentence_to_keep_chunks_precise() -> None:
 def test_describe_chunks_returns_inspection_summary_for_single_source() -> None:
     settings = RagSettings(chunk_target_chars=360, chunk_overlap_chars=80, chunk_min_chars=120)
     document = _document()
-    chunks = chunk_document(document, settings=settings)
+    chunks = chunk_document(document, source=_source(document), settings=settings)
 
     description = describe_chunks(chunks, preview_chars=80)
 
@@ -135,8 +163,10 @@ def test_describe_chunks_returns_empty_message_when_no_chunks_exist() -> None:
 
 def test_describe_chunks_rejects_mixed_source_chunks() -> None:
     settings = RagSettings(chunk_target_chars=360, chunk_overlap_chars=80, chunk_min_chars=120)
-    first_chunk = chunk_document(_document(), settings=settings)[0]
-    second_chunk = chunk_document(_document(), settings=settings)[0]
+    first_document = _document()
+    second_document = _document()
+    first_chunk = chunk_document(first_document, source=_source(first_document), settings=settings)[0]
+    second_chunk = chunk_document(second_document, source=_source(second_document), settings=settings)[0]
 
     with pytest.raises(ChunkingError, match="single source"):
         describe_chunks([first_chunk, second_chunk])

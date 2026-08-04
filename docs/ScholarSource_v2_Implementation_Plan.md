@@ -433,13 +433,50 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
   `tests/rag/test_book_url_adapter.py` (adapter-level drop, adapter-level
   rejection when nothing survives, and independent deriver enforcement), and
   `tests/rag/test_config.py`.
-- [ ] 0.6.8 Decide and document the tenancy rule for the stored corpus.
+- [x] 0.6.8 Decide and document the tenancy rule for the stored corpus.
   `match_rag_chunks` filters only on embedding model, so every chunk any run
-  ever stored is retrievable by every other user. Choose between scoping
-  retrieval to the sources collected for the current run and guaranteeing
-  that adapter-fetched user URLs are never chunked at all, so only publicly
-  discovered search results enter the shared corpus. Record the decision, its
-  reasoning, and its effect on cross-user exposure in this plan.
+  ever stored is retrievable by every other user.
+
+  Decision: **the corpus stays shared and global, and only sources the
+  pipeline discovered on its own may enter it.** `web_search` results and
+  `seed_catalog` entries are chunked and embedded; adapter-fetched user URLs
+  never are. The alternative — scoping retrieval to the current run's sources
+  — was rejected because it discards the cross-run reuse that the source,
+  extraction, and embedding dedupe layers exist to provide: every run would
+  re-fetch and re-embed pages it already had, for isolation that costs
+  nothing to obtain on the write side instead.
+
+  Reasoning and cross-user exposure: the corpus holds only text from pages
+  ScholarSource found through public search or its own curated catalog, so a
+  chunk crossing between users exposes nothing the other user could not have
+  reached themselves. User-supplied URLs are still fetched, but only by the
+  input adapters through `extract_url()`, which reads a page to derive title,
+  subject, and topics and then discards the text; that path never produces a
+  `SourceRecord`, an `ExtractedDocument`, or a chunk. The one fact a
+  submitted URL contributes to the corpus is indirect: it shapes the
+  generated queries, and any page those queries surface was already publicly
+  discoverable.
+
+  The rule is enforced, not just written down.
+  `backend/rag/sources/corpus.py` holds `CORPUS_ELIGIBLE_SOURCE_TYPES` and
+  `assert_corpus_eligible()`, and `chunk_document()` now requires the
+  `SourceRecord` alongside the extracted document and checks it before
+  producing any chunk — so the Phase 1 orchestration cannot route a
+  user-supplied source into the corpus without failing a test. The check
+  fails closed: an unrecognized source type is rejected, so a future input
+  path has to name itself eligible on purpose. Coverage lives in
+  `tests/rag/test_corpus_policy.py` (eligible types, user-supplied types,
+  unrecognized types failing closed, collector and catalog types still
+  matching the policy) and `tests/rag/test_chunker.py` (the chunk-time
+  rejection and the source/document mismatch guard).
+
+  Consequence for output, decided with this step: a user-submitted URL is
+  input, not a result. It does not appear in the recommendation list, because
+  hard rule 2 requires every cited recommendation to map back to a stored
+  chunk, and this rule guarantees the submitted page has none.
+
+  This decision is about ownership of stored content, not about who may call
+  the retrieval RPCs; 0.6.9 still has to close the `PUBLIC` execute grant.
 - [ ] 0.6.9 Harden the retrieval SQL functions in
   `migrations/002_create_rag_search_functions.sql`. Revoke the default PUBLIC
   execute grant on `match_rag_chunks` and `search_rag_chunks_lexical`, grant
@@ -470,9 +507,12 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
   the configured budget, and any truncation appears as a user-visible warning.
 - [x] 0.7.4 A request carrying a hand-written `book_pdf_path` is rejected, and
   a request referencing another user's upload ID is rejected.
-- [ ] 0.7.5 The corpus tenancy decision from 0.6.8 is written down, and you can
+- [x] 0.7.5 The corpus tenancy decision from 0.6.8 is written down, and you can
   state which user-supplied content can and cannot reach another user's
-  retrieval results.
+  retrieval results: no user-supplied page text enters the corpus at all, so
+  none of it can reach another user's retrieval results. Only pages found by
+  public search or the seed catalog are stored, and `chunk_document()` refuses
+  any other source type.
 - [ ] 0.7.6 The retrieval RPCs are not executable by the `anon` or
   `authenticated` roles, verified against the local Supabase stack.
 - [x] 0.7.7 ~~An uploaded PDF is removed from disk after its run completes,

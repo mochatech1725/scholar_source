@@ -15,6 +15,10 @@ class SourceRejectedError(RagError):
     """Raised when a candidate source fails source-quality checks."""
 
 
+class CorpusPolicyError(RagError):
+    """Raised when a source that may not enter the shared corpus is chunked."""
+
+
 class ExtractionError(RagError):
     """Raised when text cannot be extracted from an accepted source."""
 

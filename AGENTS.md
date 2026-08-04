@@ -176,6 +176,7 @@ If a validation gate is known to fail because of existing unrelated debt, record
 11. Every run log must include generated queries, candidate source URLs, accept/reject reasons, extraction status, chunk IDs, retrieval scores, rerank order, model name, and prompt version.
 12. If fewer than three credible sources are retrieved, or the top retrieved chunks are weakly relevant, return a weak-evidence response instead of a normal recommendation list.
 13. Never invent titles, URLs, authors, publication dates, chunk IDs, or citation metadata.
+14. Never chunk or embed a source the pipeline did not discover itself. The stored corpus is shared across all users and filtered only by embedding model, so it may hold text from `web_search` and `seed_catalog` sources only. User-supplied URLs are fetched for input normalization and their text is discarded; they never become a stored source, chunk, or embedding, and they never appear in the recommendation list. `backend/rag/sources/corpus.py` is the authority, and `chunk_document()` enforces it.
 
 ## V2 Architecture Goal
 
