@@ -722,8 +722,15 @@ Reference code moved to [docs/ScholarSource_v2_Reference_Code.md](ScholarSource_
   provider failures, invalid checksums, and metadata without a subject or
   table of contents return typed failure codes. Focused coverage lives in
   `tests/rag/test_isbn_adapter.py`.
-- [ ] 1.10.9 Add a book-metadata adapter for title and optional author,
+- [x] 1.10.9 Add a book-metadata adapter for title and optional author,
   edition, chapter, and section fields.
+  Done in `backend/rag/input_adapters/book_metadata.py`: explicit book title
+  metadata and the legacy `textbook` title field normalize without provider or
+  model calls; optional author, edition, subject, chapter, section, and resource
+  preferences retain user-input provenance. The canonical identifier hashes
+  case-normalized bibliographic identity while learning topics are derived
+  deterministically from explicit subject, chapter, section, and title fields.
+  Focused coverage lives in `tests/rag/test_book_metadata_adapter.py`.
 - [ ] 1.10.10 Use schema-constrained, deterministic extraction for unstructured
   HTML, PDF, and ISBN metadata, and validate that every derived topic is
   supported by the adapter's extracted input evidence.

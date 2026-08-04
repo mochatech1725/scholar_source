@@ -1,5 +1,6 @@
 """Input routing for the ScholarSource v2 normalization boundary."""
 
+from backend.rag.input_adapters.book_metadata import BookMetadataAdapter
 from backend.rag.input_adapters.book_url import BookUrlAdapter
 from backend.rag.input_adapters.dispatcher import (
     AdapterDispatcher,
@@ -27,6 +28,7 @@ from backend.rag.input_adapters.url_page import (
 __all__ = [
     "AdapterDispatcher",
     "BookUrlAdapter",
+    "BookMetadataAdapter",
     "InputAdapter",
     "InputSourceReference",
     "CachedIsbnMetadataProvider",

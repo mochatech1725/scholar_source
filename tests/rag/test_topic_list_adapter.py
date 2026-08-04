@@ -37,7 +37,10 @@ def test_topic_list_adapter_preserves_learning_context_and_preferences() -> None
     assert result.user_constraints.excluded_sites == ["chegg.com", "coursehero.com"]
     assert result.user_constraints.targeted_sites == ["mit.edu", "stanford.edu"]
     assert result.user_constraints.preferred_creators == ["Professor Leonard", "3Blue1Brown"]
-    assert set(result.field_provenance) == set(NormalizedLearningField) - {NormalizedLearningField.AUTHOR}
+    assert set(result.field_provenance) == set(NormalizedLearningField) - {
+        NormalizedLearningField.AUTHOR,
+        NormalizedLearningField.EDITION,
+    }
     assert all(item.origin is ProvenanceOrigin.USER_INPUT for item in result.field_provenance.values())
     assert result.field_provenance[NormalizedLearningField.TITLE].source_reference == InputSourceReference.COURSE_NAME
     assert (

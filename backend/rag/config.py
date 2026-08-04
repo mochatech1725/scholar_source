@@ -30,6 +30,7 @@ class RagSettings:
     book_url_adapter_version: str = "v1"
     uploaded_pdf_adapter_version: str = "v1"
     isbn_adapter_version: str = "v1"
+    book_metadata_adapter_version: str = "v1"
     learning_outline_prompt_version: str = "learning-outline-v1"
 
     # Chunking: ~1400 chars is roughly 350 tokens. Large enough that a chunk

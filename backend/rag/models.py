@@ -57,6 +57,7 @@ class NormalizedLearningField(StrEnum):
     CANONICAL_IDENTIFIER = "canonical_identifier"
     TITLE = "title"
     AUTHOR = "author"
+    EDITION = "edition"
     INSTITUTION = "institution"
     SUBJECT = "subject"
     TOPICS = "topics"
@@ -102,6 +103,7 @@ class NormalizedLearningRequest(RagModel):
     canonical_identifier: str = Field(min_length=1)
     title: str | None = None
     author: str | None = None
+    edition: str | None = None
     institution: str | None = None
     subject: str | None = None
     topics: list[str] = Field(min_length=1)
@@ -123,6 +125,7 @@ class NormalizedLearningRequest(RagModel):
         optional_fields = {
             NormalizedLearningField.TITLE: self.title,
             NormalizedLearningField.AUTHOR: self.author,
+            NormalizedLearningField.EDITION: self.edition,
             NormalizedLearningField.INSTITUTION: self.institution,
             NormalizedLearningField.SUBJECT: self.subject,
             NormalizedLearningField.CHAPTERS: self.chapters,

@@ -24,4 +24,5 @@ class InputSourceReference(StrEnum):
     ISBN = "isbn"
     BOOK_TITLE = "book_title"
     BOOK_AUTHOR = "book_author"
+    BOOK_EDITION = "book_edition"
     TEXTBOOK = "textbook"

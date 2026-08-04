@@ -24,6 +24,7 @@ class CourseInputRequest(BaseModel):
     topics_list: str | None = Field(None, description="Comma-separated topics")
     book_title: str | None = Field(None, description="Book title")
     book_author: str | None = Field(None, description="Book author(s)")
+    book_edition: str | None = Field(None, description="Book edition")
     isbn: str | None = Field(None, description="Book ISBN")
     book_upload_id: str | None = Field(None, description="Opaque ID returned by /api/upload-pdf")
     book_pdf_path: str | None = Field(None, description="Internal/legacy local PDF path")
@@ -104,7 +105,16 @@ class CourseInputRequest(BaseModel):
 
         return v
 
-    @field_validator("course_name", "university_name", "subject", "book_title", "book_author", "textbook", mode="after")
+    @field_validator(
+        "course_name",
+        "university_name",
+        "subject",
+        "book_title",
+        "book_author",
+        "book_edition",
+        "textbook",
+        mode="after",
+    )
     @classmethod
     def validate_text_fields(cls, v):
         """Validate text fields for length and security"""
