@@ -106,11 +106,13 @@ Both systems share a single source of truth: `backend/origins.py`.
 - `excluded_sites` / `targeted_sites` must be comma-separated valid domain names (no IPs, no localhost)
 - `isbn` must be a valid ISBN-10 or ISBN-13 format
 - `book_upload_id` must be a valid UUID string
+- Unknown fields are rejected with 422; server-internal values such as the
+  resolved PDF path cannot be supplied by a client
 
 At least one of the following groups must be present or the request is rejected with 400:
 - Course info: `course_name`, `university_name`, `course_url`, or `topics_list`
 - Book identity: `textbook`, `book_title`, `book_author`, or `isbn`
-- Book file: `book_upload_id` or `book_pdf_path`
+- Book file: `book_upload_id`
 - Book link: `book_url`
 
 ---

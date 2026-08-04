@@ -98,6 +98,13 @@ class TestSubmitEndpoint:
         assert "detail" in data
         assert "error" in data["detail"]
 
+    def test_submit_rejects_client_supplied_pdf_path(self, client, mock_supabase):
+        """Should reject a hand-written book_pdf_path with 422."""
+        payload = {"course_url": "https://example.com", "book_pdf_path": "/etc/passwd"}
+        response = client.post("/api/submit", json=payload)
+
+        assert response.status_code == 422
+
     def test_submit_with_desired_resource_types(self, client, mock_supabase, mock_crew_success):
         """Should accept desired_resource_types list."""
         payload = {

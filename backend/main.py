@@ -30,6 +30,7 @@ from backend.models import (
     JobStatusResponse,
     JobSubmitResponse,
     PdfUploadResponse,
+    ResolvedCourseInput,
     WorkerHealthResponse,
 )
 from backend.origins import allowed_origins
@@ -195,14 +196,12 @@ async def submit_job(
     access_token = current_user.get("access_token")
     logger.info(f"Job submission request from user: {user_id}")
 
-    # Convert course_input to dict
-    inputs = course_input.model_dump()
-
-    # Resolve public upload IDs to internal, user-scoped file paths.
-    upload_id = inputs.get("book_upload_id")
-    if upload_id:
+    # Resolve public upload IDs to internal, user-scoped file paths. The path
+    # only ever exists on the internal model, never on the request body.
+    resolved_pdf_path: str | None = None
+    if course_input.book_upload_id:
         try:
-            pdf_path = resolve_pdf_upload(user_id, upload_id)
+            pdf_path = resolve_pdf_upload(user_id, course_input.book_upload_id)
         except ValueError as error:
             raise HTTPException(
                 status_code=400,
@@ -210,7 +209,9 @@ async def submit_job(
             ) from error
         if pdf_path is None:
             raise HTTPException(status_code=400, detail={"error": "Invalid upload", "message": "PDF upload not found"})
-        inputs["book_pdf_path"] = str(pdf_path)
+        resolved_pdf_path = str(pdf_path)
+
+    inputs = ResolvedCourseInput.from_request(course_input, book_pdf_path=resolved_pdf_path).model_dump()
 
     # Validate that at least one input is provided
     if not validate_crew_inputs(inputs):

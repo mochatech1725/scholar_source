@@ -9,7 +9,7 @@ from pathlib import Path
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
-from backend.models import CourseInputRequest
+from backend.models import CourseInputRequest, ResolvedCourseInput
 from backend.rag.config import RagSettings
 from backend.rag.errors import UploadedPdfNormalizationError
 from backend.rag.input_adapters.references import InputSourceReference
@@ -162,13 +162,16 @@ class UploadedPdfAdapter:
 
 
 def _validated_upload_reference(request: CourseInputRequest) -> tuple[str, Path]:
-    if not request.book_upload_id or not request.book_pdf_path:
+    # The local path exists only on the server-internal model, so a request that
+    # never passed through upload resolution cannot reach the filesystem here.
+    book_pdf_path = request.book_pdf_path if isinstance(request, ResolvedCourseInput) else None
+    if not request.book_upload_id or not book_pdf_path:
         raise UploadedPdfNormalizationError(
             "upload_not_resolved",
             "Uploaded-PDF input requires an authenticated, user-owned upload resolved to an internal path.",
         )
     upload_id = normalize_upload_id(request.book_upload_id)
-    pdf_path = Path(request.book_pdf_path).resolve()
+    pdf_path = Path(book_pdf_path).resolve()
     upload_root = UPLOAD_ROOT.resolve()
     try:
         relative_path = pdf_path.relative_to(upload_root)

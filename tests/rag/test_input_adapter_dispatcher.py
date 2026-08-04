@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from backend.models import CourseInputRequest
+from backend.models import CourseInputRequest, ResolvedCourseInput
 from backend.rag.errors import AmbiguousLearningInputError, UnsupportedLearningInputError
 from backend.rag.input_adapters import AdapterDispatcher, select_primary_input
 from backend.rag.models import (
@@ -28,14 +28,14 @@ from backend.rag.models import (
             ("book_upload_id",),
         ),
         (
-            CourseInputRequest(
+            ResolvedCourseInput(
                 book_upload_id="123e4567-e89b-12d3-a456-426614174000",
                 book_pdf_path=(
                     "/tmp/scholar_uploads/123e4567-e89b-12d3-a456-426614174001/123e4567-e89b-12d3-a456-426614174000.pdf"
                 ),
             ),
             LearningInputKind.UPLOADED_PDF,
-            ("book_upload_id", "book_pdf_path"),
+            ("book_upload_id",),
         ),
         (CourseInputRequest(isbn="9780262046305"), LearningInputKind.ISBN, ("isbn",)),
         (

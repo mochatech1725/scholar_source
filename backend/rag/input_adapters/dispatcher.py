@@ -74,14 +74,13 @@ def _primary_input_selections(request: CourseInputRequest) -> list[PrimaryInputS
         if getattr(request, field_name):
             selections.append(PrimaryInputSelection(input_kind=input_kind, populated_fields=(field_name,)))
 
-    upload_fields = tuple(
-        field_name for field_name in ("book_upload_id", "book_pdf_path") if getattr(request, field_name)
-    )
-    if upload_fields:
+    # Only the opaque upload ID routes here. The resolved local path is server
+    # internal and can never stand in as a primary input on its own.
+    if request.book_upload_id:
         selections.append(
             PrimaryInputSelection(
                 input_kind=LearningInputKind.UPLOADED_PDF,
-                populated_fields=upload_fields,
+                populated_fields=("book_upload_id",),
             )
         )
 

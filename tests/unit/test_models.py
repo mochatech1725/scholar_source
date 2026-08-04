@@ -14,6 +14,7 @@ from backend.models import (
     JobStatusResponse,
     JobSubmitResponse,
     PdfUploadResponse,
+    ResolvedCourseInput,
     Resource,
     WorkerHealthResponse,
 )
@@ -135,12 +136,32 @@ class TestCourseInputRequest:
 
         assert request.isbn == "978-0262046305"
 
-    def test_book_pdf_path_field(self):
-        """Should accept local PDF path."""
-        data = {"book_pdf_path": "/path/to/book.pdf", "book_title": "Algorithms"}
-        request = CourseInputRequest(**data)
+    def test_client_supplied_pdf_path_is_rejected(self):
+        """Should reject a hand-written local PDF path on the public model."""
+        data = {"book_pdf_path": "/etc/passwd", "book_title": "Algorithms"}
 
-        assert request.book_pdf_path == "/path/to/book.pdf"
+        with pytest.raises(ValidationError):
+            CourseInputRequest(**data)
+
+    def test_unknown_fields_are_rejected(self):
+        """Should reject any field the public request model does not define."""
+        with pytest.raises(ValidationError):
+            CourseInputRequest(book_title="Algorithms", not_a_field="value")
+
+    def test_resolved_input_carries_server_resolved_pdf_path(self):
+        """Should accept a PDF path only on the server-internal model."""
+        request = CourseInputRequest(book_upload_id="123e4567-e89b-12d3-a456-426614174000")
+
+        resolved = ResolvedCourseInput.from_request(request, book_pdf_path="/tmp/scholar_uploads/user/book.pdf")
+
+        assert resolved.book_upload_id == request.book_upload_id
+        assert resolved.book_pdf_path == "/tmp/scholar_uploads/user/book.pdf"
+
+    def test_resolved_input_defaults_to_no_pdf_path(self):
+        """Should leave the internal path unset when no upload was resolved."""
+        resolved = ResolvedCourseInput.from_request(CourseInputRequest(book_title="Algorithms"))
+
+        assert resolved.book_pdf_path is None
 
     def test_book_upload_id_field(self):
         """Should accept and normalize opaque PDF upload IDs."""

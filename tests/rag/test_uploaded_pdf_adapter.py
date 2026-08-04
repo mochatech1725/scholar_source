@@ -9,7 +9,7 @@ from uuid import uuid4
 import pytest
 from pypdf import PdfReader, PdfWriter
 
-from backend.models import CourseInputRequest
+from backend.models import CourseInputRequest, ResolvedCourseInput
 from backend.rag.config import DEFAULT_SETTINGS, RagSettings
 from backend.rag.errors import UploadedPdfNormalizationError
 from backend.rag.input_adapters import AdapterDispatcher, UploadedPdfAdapter
@@ -82,14 +82,14 @@ def _substantial_text(label: str) -> str:
     return f"{label} explains important course concepts with examples and definitions. " * 5
 
 
-def _owned_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, contents: bytes) -> CourseInputRequest:
+def _owned_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, contents: bytes) -> ResolvedCourseInput:
     upload_id = str(uuid4())
     user_id = str(uuid4())
     pdf_path = tmp_path / user_id / f"{upload_id}.pdf"
     pdf_path.parent.mkdir()
     pdf_path.write_bytes(contents)
     monkeypatch.setattr("backend.rag.input_adapters.uploaded_pdf.UPLOAD_ROOT", tmp_path)
-    return CourseInputRequest(book_upload_id=upload_id, book_pdf_path=str(pdf_path))
+    return ResolvedCourseInput(book_upload_id=upload_id, book_pdf_path=str(pdf_path))
 
 
 def test_uploaded_pdf_adapter_preserves_page_and_upload_provenance(
@@ -289,3 +289,18 @@ def test_uploaded_pdf_adapter_reports_skipped_and_budgeted_pages_separately(
     assert result.warnings[-1].endswith(
         "through page 4 of 4, were used to derive the learning outline; it may be incomplete."
     )
+
+
+def test_uploaded_pdf_adapter_rejects_request_without_server_resolved_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A public request can name an upload ID but never a local file to read."""
+
+    resolved = _owned_request(monkeypatch, tmp_path, _minimal_pdf(_substantial_text("Readable text")))
+    request = CourseInputRequest(book_upload_id=resolved.book_upload_id)
+
+    with pytest.raises(UploadedPdfNormalizationError) as error:
+        UploadedPdfAdapter(settings=DEFAULT_SETTINGS, outline_deriver=StubOutlineDeriver()).normalize(request)
+
+    assert error.value.code == "upload_not_resolved"

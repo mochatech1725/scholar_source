@@ -27,7 +27,6 @@ class CourseInputRequest(BaseModel):
     book_edition: str | None = Field(None, description="Book edition")
     isbn: str | None = Field(None, description="Book ISBN")
     book_upload_id: str | None = Field(None, description="Opaque ID returned by /api/upload-pdf")
-    book_pdf_path: str | None = Field(None, description="Internal/legacy local PDF path")
     book_url: str | None = Field(None, description="Book URL")
     # Email field - COMMENTED OUT but kept for API compatibility
     email: str | None = Field(None, description="Email address to receive results (optional, currently disabled)")
@@ -209,6 +208,7 @@ class CourseInputRequest(BaseModel):
     #     return v
 
     model_config = ConfigDict(
+        extra="forbid",
         json_schema_extra={
             "example": {
                 "course_name": "Introduction to Algorithms",
@@ -218,8 +218,26 @@ class CourseInputRequest(BaseModel):
                 "book_author": "Cormen, Leiserson, Rivest, Stein",
                 "book_upload_id": "123e4567-e89b-12d3-a456-426614174000",
             }
-        }
+        },
     )
+
+
+class ResolvedCourseInput(CourseInputRequest):
+    """Server-internal input carrying values a client is never allowed to set.
+
+    `book_pdf_path` is the local file the pipeline reads, so it may only ever
+    come from resolving an upload ID against its owner's storage. It lives here
+    rather than on `CourseInputRequest` so no request body can supply it, and
+    it is never used as a route model.
+    """
+
+    book_pdf_path: str | None = Field(None, description="Server-resolved path to an owned PDF upload")
+
+    @classmethod
+    def from_request(cls, request: CourseInputRequest, *, book_pdf_path: str | None = None) -> "ResolvedCourseInput":
+        """Return the internal form of a validated request plus resolved paths."""
+
+        return cls(**request.model_dump(), book_pdf_path=book_pdf_path)
 
 
 class JobSubmitResponse(BaseModel):

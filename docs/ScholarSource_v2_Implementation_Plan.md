@@ -315,13 +315,33 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
   `tests/rag/test_uploaded_pdf_adapter.py` (dropped pages shrink the page
   reference; skipped-page and budget warnings stay distinct), and
   `tests/rag/test_config.py`.
-- [ ] 0.6.5 Remove `book_pdf_path` from the public `CourseInputRequest` model
+- [x] 0.6.5 Remove `book_pdf_path` from the public `CourseInputRequest` model
   in `backend/models.py`. The field is server-internal — `backend/main.py`
   injects it after resolving an owned upload — but it is currently client
   settable, unvalidated, and accepted by
   `backend/rag/input_adapters/dispatcher.py` as a primary input on its own.
   While v1 is still present this is also an arbitrary local file read through
   the CrewAI TOC extractor tool.
+  Done by splitting the request model in two: `CourseInputRequest` keeps only
+  client-settable fields, and the new `ResolvedCourseInput` subclass carries
+  `book_pdf_path`. It is constructed solely by `ResolvedCourseInput.from_request()`
+  in `/api/submit`, after `resolve_pdf_upload()` resolves an owned upload ID,
+  and it is never used as a route model so it cannot appear in the request
+  schema. `CourseInputRequest` also gains `extra="forbid"`, so a hand-written
+  `book_pdf_path` is rejected with a 422 rather than silently ignored — Pydantic
+  defaults to dropping unknown keys, which would have hidden the attempt instead
+  of failing it. The dispatcher now routes uploads on `book_upload_id` alone,
+  so a path can no longer stand in as a primary input, and
+  `_validated_upload_reference()` reads the path only when the request is
+  actually a `ResolvedCourseInput`, making a request that skipped server-side
+  resolution fail with `upload_not_resolved` before any filesystem access.
+  `InputSourceReference.BOOK_PDF_PATH` is gone, since an internal path is never
+  user-input provenance. The v1 crew path is unchanged: it consumes the
+  `model_dump()` dict, which still carries the resolved path. Coverage in
+  `tests/unit/test_models.py` (rejected path, rejected unknown field, internal
+  model round-trip), `tests/integration/test_api_endpoints.py` (422 on a
+  client-supplied path), `tests/rag/test_input_adapter_dispatcher.py`, and
+  `tests/rag/test_uploaded_pdf_adapter.py`.
 - [ ] 0.6.6 Scope the uploaded-PDF ownership check to the authenticated user.
   `backend/rag/input_adapters/uploaded_pdf.py` verifies only that the resolved
   path sits under the upload root with a matching filename; it never receives

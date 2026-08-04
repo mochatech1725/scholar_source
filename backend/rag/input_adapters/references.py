@@ -20,7 +20,6 @@ class InputSourceReference(StrEnum):
     COURSE_URL = "course_url"
     BOOK_URL = "book_url"
     BOOK_UPLOAD_ID = "book_upload_id"
-    BOOK_PDF_PATH = "book_pdf_path"
     ISBN = "isbn"
     BOOK_TITLE = "book_title"
     BOOK_AUTHOR = "book_author"
