@@ -59,6 +59,9 @@ class RagSettings:
     results_per_query: int = 5
     fetch_timeout_seconds: float = 15.0
     max_fetch_bytes: int = 2_000_000
+    # Redirects are followed manually so each hop can be safety-checked
+    # (plan step 0.6.2); this bounds how many hops a source may take.
+    max_redirect_hops: int = 5
     max_upload_pdf_bytes: int = 50 * 1024 * 1024
     uploaded_pdf_min_page_chars: int = 40
     uploaded_pdf_min_total_chars: int = 200

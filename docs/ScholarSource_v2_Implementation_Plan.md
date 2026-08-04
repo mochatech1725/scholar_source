@@ -247,11 +247,25 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
   crashing the run. Coverage lives in `tests/rag/test_url_safety.py` and
   `tests/rag/test_extractor.py`, including a test that no HTTP request is
   issued for an unsafe host.
-- [ ] 0.6.2 Re-apply the 0.6.1 check on every redirect hop. `extract_url()`
+- [x] 0.6.2 Re-apply the 0.6.1 check on every redirect hop. `extract_url()`
   currently sets `follow_redirects=True`, so validating only the submitted URL
   lets a public host redirect the fetch to an internal one. Follow redirects
   manually with a bounded hop count and validate each destination before
   requesting it.
+  Done in `backend/rag/extraction/extractor.py`: the client is built with
+  `follow_redirects=False` and `_get_following_redirects()` walks the chain
+  itself, calling `validate_fetch_target()` before every request including the
+  submitted URL. Relative `Location` values are resolved against the hop that
+  issued them, so the next validation sees the real destination. The hop
+  budget is `RagSettings.max_redirect_hops` (default 5); exceeding it, or a
+  3xx with no `Location`, raises `ExtractionError` and becomes a failed
+  extracted document rather than a crash. The redirect status check uses
+  `httpx.codes.is_redirect` rather than `Response.is_redirect`, because the
+  latter also requires a `Location` header and would silently treat a
+  malformed redirect as a body to extract. Coverage in
+  `tests/rag/test_extractor.py`: a blocked inward redirect that asserts only
+  the first hop was ever requested, a followed safe redirect reporting the
+  final URL, a hop-limit stop, and a location-less redirect.
 - [ ] 0.6.3 Enforce `max_fetch_bytes` while the response body streams rather
   than after it is materialized. `extract_url()` reads `response.content`
   before comparing its length, so an oversized or compressed-bomb response

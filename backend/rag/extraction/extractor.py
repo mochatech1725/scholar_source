@@ -118,23 +118,22 @@ class SourceExtractor:
 
         The safety check runs here rather than at request validation because it
         resolves the host, and this is the single choke point every user-supplied
-        fetch passes through. Redirect hops are still unchecked; plan step 0.6.2
-        replaces `follow_redirects` with a validated hop loop.
+        fetch passes through. Redirects are followed manually (plan step 0.6.2)
+        so the same check runs on every hop: with `follow_redirects=True` a
+        public host could bounce the fetch to an internal address that was never
+        validated.
         """
 
-        validate_fetch_target(url, resolver=self._resolver)
         with httpx.Client(
             timeout=self._settings.fetch_timeout_seconds,
-            follow_redirects=True,
+            follow_redirects=False,
             headers={"User-Agent": "ScholarSourceBot/2.0 (+study resource finder)"},
         ) as client:
-            response = client.get(url)
-            response.raise_for_status()
+            response, final_url = self._get_following_redirects(client, url)
             if len(response.content) > self._settings.max_fetch_bytes:
                 raise ExtractionError(f"Response exceeds {self._settings.max_fetch_bytes} bytes.")
 
             content_type = response.headers.get("content-type", "").casefold()
-            final_url = str(response.url)
             if "pdf" in content_type or final_url.casefold().endswith(".pdf"):
                 return ExtractedContent(
                     text=extract_text_from_pdf(response.content),
@@ -152,6 +151,34 @@ class SourceExtractor:
                 title=title or None,
                 final_url=final_url,
             )
+
+    def _get_following_redirects(self, client: httpx.Client, url: str) -> tuple[httpx.Response, str]:
+        """Follow redirects by hand, validating each destination before requesting it.
+
+        Returns the first non-redirect response together with the URL that
+        produced it. Every hop, including the submitted URL, passes through
+        `validate_fetch_target`, so an unsafe destination raises UnsafeUrlError
+        before any request is sent to it.
+        """
+
+        target = url
+        for _ in range(self._settings.max_redirect_hops + 1):
+            validate_fetch_target(target, resolver=self._resolver)
+            response = client.get(target)
+            # httpx's own `is_redirect` also requires a Location header, which
+            # would silently turn a malformed redirect into a returned body.
+            if not httpx.codes.is_redirect(response.status_code):
+                response.raise_for_status()
+                return response, target
+
+            location = response.headers.get("location")
+            if not location:
+                raise ExtractionError(f"Redirect status {response.status_code} carried no location.")
+            # Relative locations are legal, so resolve against the hop that
+            # issued them before the next validation.
+            target = str(response.url.join(location))
+
+        raise ExtractionError(f"Exceeded {self._settings.max_redirect_hops} redirect hops while fetching.")
 
     def _failed(
         self,

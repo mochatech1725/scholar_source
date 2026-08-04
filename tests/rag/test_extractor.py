@@ -289,3 +289,72 @@ def test_unsafe_url_is_isolated_as_a_failed_document(monkeypatch: pytest.MonkeyP
 
     assert document.extraction_status is ExtractionStatus.FAILED
     assert document.metadata["failure_reason"] == "unsafe_url"
+
+
+def _resolver_for(hosts: dict[str, str]):
+    """Resolve named hosts to fixed addresses, defaulting to a public one."""
+
+    def resolver(host: str, port: int) -> list[str]:
+        return [hosts.get(host, "93.184.216.34")]
+
+    return resolver
+
+
+def test_redirect_to_internal_address_is_blocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Plan step 0.6.2: each hop is validated, so a public host cannot bounce inward."""
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        if request.url.host == "ocw.mit.edu":
+            return httpx.Response(302, headers={"location": "http://metadata.internal/latest/"})
+        return httpx.Response(200, text=PAGE_HTML)
+
+    extractor = _extractor_with(handler, monkeypatch)
+    monkeypatch.setattr(extractor, "_resolver", _resolver_for({"metadata.internal": "169.254.169.254"}))
+
+    with pytest.raises(UnsafeUrlError, match="non-public address"):
+        extractor.extract_url("https://ocw.mit.edu/statics")
+
+    assert requested == ["https://ocw.mit.edu/statics"]
+
+
+def test_safe_redirect_is_followed_and_reports_final_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/statics":
+            return httpx.Response(301, headers={"location": "/courses/statics/notes"})
+        return httpx.Response(200, text=PAGE_HTML, headers={"content-type": "text/html"})
+
+    content = _extractor_with(handler, monkeypatch).extract_url("https://ocw.mit.edu/statics")
+
+    assert content.final_url == "https://ocw.mit.edu/courses/statics/notes"
+    assert "bodies in equilibrium" in content.text
+
+
+def test_redirect_loop_stops_at_the_hop_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    hops: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        hops.append(str(request.url))
+        return httpx.Response(302, headers={"location": f"/hop{len(hops)}"})
+
+    settings = RagSettings(max_redirect_hops=3)
+    extractor = _extractor_with(handler, monkeypatch, settings)
+
+    document = extractor.extract(_source())
+
+    assert document.extraction_status is ExtractionStatus.FAILED
+    assert "Exceeded 3 redirect hops" in document.extraction_error
+    assert len(hops) == 4
+
+
+def test_redirect_without_location_is_a_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302)
+
+    document = _extractor_with(handler, monkeypatch).extract(_source())
+
+    assert document.extraction_status is ExtractionStatus.FAILED
+    assert "carried no location" in document.extraction_error
