@@ -158,7 +158,7 @@ make its origin diagnosable.
 
 ---
 
-## [ ] Phase 0: Baseline, Diagnosis, and Project Contract
+## [x] Phase 0: Baseline, Diagnosis, and Project Contract
 
 **Goal:** Understand the current system failure modes before replacing them.
 
@@ -539,20 +539,30 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
 - [x] 0.6.11 ~~Enforce the upload size limit before the request body is fully
   buffered.~~ Withdrawn: `/api/upload-pdf` was removed, so the unbounded-buffer
   path it described is gone.
-- [ ] 0.6.12 Add regression tests for each of the above: a blocked
+- [x] 0.6.12 Add regression tests for each of the above: a blocked
   internal-address fetch, a blocked redirect to an internal address, an
   oversized response aborted mid-stream, a truncated over-budget extraction, a
   rejected client-supplied PDF path, a rejected cross-user upload reference,
   and a dropped unsupported outline topic.
+  Coverage lives in `tests/rag/test_extractor.py` for blocked initial and
+  redirect-hop fetches plus early stream termination,
+  `tests/rag/test_url_page_adapter.py` and
+  `tests/rag/test_book_url_adapter.py` for budgeted outline input and visible
+  truncation warnings, `tests/rag/test_topic_evidence.py` plus both URL-adapter
+  suites for unsupported derived topics, and `tests/unit/test_models.py` for
+  rejected client-supplied upload fields. Because PDF upload was removed before
+  this checkpoint landed, the former cross-user reference cannot reach an
+  ownership lookup: `book_upload_id`, `book_pdf_path`, and `owner_user_id` are
+  all rejected at the public request boundary.
 
 ### 0.7 Security Hardening Completion Criteria
 
-- [ ] 0.7.1 A submission whose URL points at a loopback, private, or
+- [x] 0.7.1 A submission whose URL points at a loopback, private, or
   link-local address fails normalization with a structured error, and the same
   is true when a public URL redirects to one.
-- [ ] 0.7.2 An oversized response is abandoned without the worker's memory
+- [x] 0.7.2 An oversized response is abandoned without the worker's memory
   growing to the size of the response body.
-- [ ] 0.7.3 No LLM call in the normalization path can receive more text than
+- [x] 0.7.3 No LLM call in the normalization path can receive more text than
   the configured budget, and any truncation appears as a user-visible warning.
 - [x] 0.7.4 A request carrying a hand-written `book_pdf_path` is rejected, and
   a request referencing another user's upload ID is rejected.

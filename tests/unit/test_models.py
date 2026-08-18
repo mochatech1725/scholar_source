@@ -134,10 +134,21 @@ class TestCourseInputRequest:
 
         assert request.isbn == "978-0262046305"
 
-    def test_unknown_fields_are_rejected(self):
-        """Should reject any field the public request model does not define."""
-        with pytest.raises(ValidationError):
-            CourseInputRequest(book_title="Algorithms", not_a_field="value")
+    @pytest.mark.parametrize(
+        ("field_name", "field_value"),
+        [
+            ("not_a_field", "value"),
+            ("book_pdf_path", "/tmp/another-user/book.pdf"),
+            ("book_upload_id", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+            ("owner_user_id", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+        ],
+    )
+    def test_server_internal_and_unknown_fields_are_rejected(self, field_name, field_value):
+        """Reject removed upload references and every other non-public field."""
+        with pytest.raises(ValidationError) as exc_info:
+            CourseInputRequest(book_title="Algorithms", **{field_name: field_value})
+
+        assert field_name in str(exc_info.value)
 
     def test_book_url_field(self):
         """Should accept book URL."""
