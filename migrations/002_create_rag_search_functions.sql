@@ -2,6 +2,11 @@
 -- Semantic search: pgvector cosine similarity over rag_embeddings.
 -- Lexical search: Postgres full-text search over rag_chunks.content.
 -- These functions are intended for backend service-role RPC calls.
+--
+-- Superseded by migrations/006_harden_rag_search_functions.sql, which
+-- re-declares both functions with a pinned search_path and a bounded
+-- match_limit, and restricts EXECUTE to the service role. Apply 006 after
+-- this file; do not run this file on its own.
 
 CREATE EXTENSION IF NOT EXISTS vector;
 

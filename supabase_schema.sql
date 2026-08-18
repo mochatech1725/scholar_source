@@ -187,7 +187,11 @@ CREATE INDEX IF NOT EXISTS idx_rag_embeddings_vector_hnsw
 
 -- RPC search helpers. Supabase clients cannot express pgvector operators
 -- directly through PostgREST, so backend service-role code calls these
--- functions with client.rpc(...).
+-- functions with client.rpc(...). Only the service role may execute them:
+-- the grants at the end of this block revoke the default PUBLIC (and
+-- Supabase's anon/authenticated) EXECUTE privilege. Both functions pin
+-- `search_path` and clamp `match_limit` — see
+-- migrations/006_harden_rag_search_functions.sql for the reasoning.
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_content_fts
     ON rag_chunks USING gin (to_tsvector('english', content));
 
@@ -209,6 +213,8 @@ RETURNS TABLE (
 )
 LANGUAGE sql
 STABLE
+SECURITY INVOKER
+SET search_path = public, extensions, pg_temp
 AS $$
     SELECT
         c.id,
@@ -224,7 +230,7 @@ AS $$
     JOIN rag_chunks c ON c.id = e.chunk_id
     WHERE e.embedding_model = model_filter
     ORDER BY e.embedding <=> query_embedding
-    LIMIT match_limit;
+    LIMIT LEAST(GREATEST(COALESCE(match_limit, 12), 1), 100);
 $$;
 
 CREATE OR REPLACE FUNCTION search_rag_chunks_lexical(
@@ -243,6 +249,8 @@ RETURNS TABLE (
 )
 LANGUAGE sql
 STABLE
+SECURITY INVOKER
+SET search_path = public, extensions, pg_temp
 AS $$
     SELECT
         c.id,
@@ -260,8 +268,34 @@ AS $$
     WHERE to_tsvector('english', c.content)
           @@ websearch_to_tsquery('english', query_text)
     ORDER BY lexical_score DESC
-    LIMIT match_limit;
+    LIMIT LEAST(GREATEST(COALESCE(match_limit, 12), 1), 100);
 $$;
+
+REVOKE ALL ON FUNCTION match_rag_chunks(vector(1536), INT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION search_rag_chunks_lexical(TEXT, INT) FROM PUBLIC;
+
+DO $$
+DECLARE
+    target_role TEXT;
+BEGIN
+    FOREACH target_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = target_role) THEN
+            EXECUTE format(
+                'REVOKE ALL ON FUNCTION match_rag_chunks(vector(1536), INT, TEXT) FROM %I',
+                target_role
+            );
+            EXECUTE format(
+                'REVOKE ALL ON FUNCTION search_rag_chunks_lexical(TEXT, INT) FROM %I',
+                target_role
+            );
+        END IF;
+    END LOOP;
+
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+        GRANT EXECUTE ON FUNCTION match_rag_chunks(vector(1536), INT, TEXT) TO service_role;
+        GRANT EXECUTE ON FUNCTION search_rag_chunks_lexical(TEXT, INT) TO service_role;
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS rag_run_steps (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

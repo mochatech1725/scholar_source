@@ -477,12 +477,61 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
 
   This decision is about ownership of stored content, not about who may call
   the retrieval RPCs; 0.6.9 still has to close the `PUBLIC` execute grant.
-- [ ] 0.6.9 Harden the retrieval SQL functions in
+- [x] 0.6.9 Harden the retrieval SQL functions in
   `migrations/002_create_rag_search_functions.sql`. Revoke the default PUBLIC
   execute grant on `match_rag_chunks` and `search_rag_chunks_lexical`, grant
   execute only to the service role, pin `search_path`, and bound
   `match_limit`. The functions are currently protected only by the accident
   that `rag_chunks` has row level security enabled with no policies.
+
+  The hardening ships as `migrations/006_harden_rag_search_functions.sql`
+  rather than as an edit to 002, because 002 has already been applied to
+  existing databases and an in-place edit would never reach them. Migration
+  006 re-declares both functions under their existing signatures, so
+  `CREATE OR REPLACE` keeps the objects and no `DROP` is needed. 002 now
+  carries a header note pointing at it, and `supabase_schema.sql` carries the
+  same hardened definitions so a fresh bootstrap starts in the same state.
+
+  Four changes, and what each one buys:
+
+  - `REVOKE ALL ... FROM PUBLIC` on both functions, plus an explicit revoke
+    from `anon` and `authenticated`. Revoking PUBLIC alone is not enough on
+    Supabase: its default privileges grant EXECUTE to those two roles
+    directly, so the PUBLIC revoke would leave their own grants standing.
+    `GRANT EXECUTE ... TO service_role` then restores the only caller that
+    should have it — `SupabaseVectorStore` builds its client with
+    `use_service_role=True`. The revokes and the grant run inside a `DO`
+    block guarded on `pg_roles`, so the file still applies to a plain
+    Postgres that has no Supabase roles.
+  - `SET search_path = public, extensions, pg_temp` on each function, so a
+    caller's session `search_path` cannot redirect the body to a different
+    `rag_chunks`, a different `<=>`, or a different text-search
+    configuration. `extensions` is listed because Supabase installs
+    `vector` there while a local Postgres usually has it in `public`.
+  - `SECURITY INVOKER` stated explicitly. It is the default, but writing it
+    down means a later edit that adds `SECURITY DEFINER` reads as the
+    deliberate change it would be.
+  - `LIMIT LEAST(GREATEST(COALESCE(match_limit, 12), 1), 100)` in place of
+    `LIMIT match_limit`, so one RPC call cannot pull the whole corpus, and a
+    NULL or negative limit degrades to the default rather than to an error
+    or an unbounded scan. 100 is the database-side backstop, not the tuning
+    knob; `RagSettings.retrieval_limit` and `lexical_limit` remain the
+    values the pipeline actually asks for.
+
+  Verified against the running local Supabase stack: after applying 006,
+  `pg_proc.proacl` reads `{postgres=X/postgres,service_role=X/postgres}` for
+  both functions, `proconfig` shows the pinned path, `prosecdef` is false,
+  and `has_function_privilege` returns false for `anon` and `authenticated`
+  and true for `service_role`. Against 150 seeded chunks in a rolled-back
+  transaction, a requested limit of 1000 returned 100 rows, 5 returned 5,
+  NULL returned 12, and -5 returned 1.
+
+  Coverage lives in `tests/rag/test_search_function_hardening.py`, which
+  asserts the revokes, the service-role grant, the absence of any anon /
+  authenticated / PUBLIC grant, the pinned search path, the invoker marker,
+  and the clamp — against both `migrations/006` and `supabase_schema.sql`, so
+  the two cannot drift apart. Privileges themselves can only be proven
+  against a live database, which is what completion criterion 0.7.6 records.
 - [x] 0.6.10 ~~Add uploaded-PDF deletion to the v2 path.~~ Withdrawn: the PDF
   upload input was dropped from the product (see "Scope Change" in Working
   Context). `_cleanup_pdf` and the upload storage it cleaned no longer exist,
@@ -513,8 +562,12 @@ normalization path that steps 1.10.4, 1.10.5, and 1.10.6 already depend on.
   none of it can reach another user's retrieval results. Only pages found by
   public search or the seed catalog are stored, and `chunk_document()` refuses
   any other source type.
-- [ ] 0.7.6 The retrieval RPCs are not executable by the `anon` or
+- [x] 0.7.6 The retrieval RPCs are not executable by the `anon` or
   `authenticated` roles, verified against the local Supabase stack.
+  `has_function_privilege('anon', ...)` and
+  `has_function_privilege('authenticated', ...)` both return false for
+  `match_rag_chunks` and `search_rag_chunks_lexical` after migration 006, and
+  `service_role` is the only non-owner role left in each function's ACL.
 - [x] 0.7.7 ~~An uploaded PDF is removed from disk after its run completes,
   including when the run fails.~~ Withdrawn with steps 0.6.10 and 0.6.11: no
   request can place a PDF on disk anymore.
